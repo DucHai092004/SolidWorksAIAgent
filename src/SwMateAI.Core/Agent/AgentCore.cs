@@ -72,6 +72,7 @@ namespace SwMateAI.Core.Agent
             // Phase 2C CAD tools
             Register(new CreateCircleTool(_swApp));
             Register(new CutExtrudeTool(_swApp));
+            Register(new CreatePlateWithHoleTool(_swApp));
         }
 
         private void Register(ISwTool tool)
