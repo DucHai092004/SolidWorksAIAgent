@@ -32,6 +32,10 @@ namespace SwMateAI.UI.ViewModels
         private string _rectangleWidth = "60";
         private string _rectangleHeight = "40";
         private string _extrudeDepth = "20";
+        private string _circleDiameter = "10";
+        private string _circleX = "0";
+        private string _circleY = "0";
+        private string _cutDepth = "10";
 
         // ─── Public properties (bound to XAML) ───────────────────────────────
 
@@ -104,6 +108,10 @@ namespace SwMateAI.UI.ViewModels
         public string RectangleWidth { get => _rectangleWidth; set { _rectangleWidth = value; OnPropertyChanged(); } }
         public string RectangleHeight { get => _rectangleHeight; set { _rectangleHeight = value; OnPropertyChanged(); } }
         public string ExtrudeDepth { get => _extrudeDepth; set { _extrudeDepth = value; OnPropertyChanged(); } }
+        public string CircleDiameter { get => _circleDiameter; set { _circleDiameter = value; OnPropertyChanged(); } }
+        public string CircleX { get => _circleX; set { _circleX = value; OnPropertyChanged(); } }
+        public string CircleY { get => _circleY; set { _circleY = value; OnPropertyChanged(); } }
+        public string CutDepth { get => _cutDepth; set { _cutDepth = value; OnPropertyChanged(); } }
 
         public bool IsRefreshing
         {
@@ -121,6 +129,8 @@ namespace SwMateAI.UI.ViewModels
         public ICommand CreateSketchCommand { get; }
         public ICommand CreateRectangleCommand { get; }
         public ICommand ExtrudeCommand { get; }
+        public ICommand CreateCircleCommand { get; }
+        public ICommand CutExtrudeCommand { get; }
 
         // ─── Constructor ──────────────────────────────────────────────────────
 
@@ -146,6 +156,14 @@ namespace SwMateAI.UI.ViewModels
 
             ExtrudeCommand = new RelayCommand(
                 execute:    Extrude,
+                canExecute: () => !IsRefreshing);
+
+            CreateCircleCommand = new RelayCommand(
+                execute:    CreateCircle,
+                canExecute: () => !IsRefreshing);
+
+            CutExtrudeCommand = new RelayCommand(
+                execute:    CutExtrude,
                 canExecute: () => !IsRefreshing);
         }
 
@@ -290,6 +308,33 @@ namespace SwMateAI.UI.ViewModels
                 RefreshInfo();
             }
             catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected extrude error."; }
+        }
+
+        private void CreateCircle()
+        {
+            AddLog($"> CreateCircle called (Ø{CircleDiameter} mm, X={CircleX}, Y={CircleY})");
+            try
+            {
+                var result = _agentCore.ExecuteTool("CreateCircle", new Dictionary<string, object>
+                {
+                    ["Diameter"] = CircleDiameter, ["X"] = CircleX, ["Y"] = CircleY
+                });
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to create Circle."; return; }
+                AddLog($"  [OK] {result.Data}"); StatusText = "Circle created.";
+            }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected circle error."; }
+        }
+
+        private void CutExtrude()
+        {
+            AddLog($"> CutExtrude called ({CutDepth} mm)");
+            try
+            {
+                var result = _agentCore.ExecuteTool("CutExtrude", new Dictionary<string, object> { ["Depth"] = CutDepth });
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to Cut-Extrude."; return; }
+                AddLog($"  [OK] {result.Data}"); StatusText = "Cut-Extrude created."; RefreshInfo();
+            }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected cut error."; }
         }
 
         private void AddLog(string message)
