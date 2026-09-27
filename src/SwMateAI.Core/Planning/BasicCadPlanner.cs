@@ -6,6 +6,16 @@ namespace SwMateAI.Core.Planning
     {
         public static TaskPlan Build(NaturalLanguageCadCommand command)
         {
+            if (command.Intent == "ModifyDimension")
+            {
+                var modifyPlan = new TaskPlan { Goal = "Modify requested CAD dimension" };
+                var step = new PlanStep { Index = 1, SkillName = "ModifyDimension", Description = $"Set {command.DimensionName} to {command.DimensionValue:0.###} mm" };
+                step.Parameters["Name"] = command.DimensionName;
+                step.Parameters["Value"] = command.DimensionValue;
+                modifyPlan.Steps.Add(step);
+                return modifyPlan;
+            }
+
             var plan = new TaskPlan { Goal = "Create requested CAD part" };
             var baseStep = new PlanStep { Index = 1, SkillName = command.Intent, Description = "Create base plate geometry" };
             baseStep.Parameters["Width"] = command.Width;

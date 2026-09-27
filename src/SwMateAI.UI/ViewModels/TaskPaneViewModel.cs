@@ -453,10 +453,17 @@ namespace SwMateAI.UI.ViewModels
                 return;
             }
 
-            string holesInfo = command.Holes.Count > 0 ? $"{command.Holes.Count} hole(s)" : "no holes";
-            string cornerInfo = command.FilletRadius > 0 ? $", fillet R{command.FilletRadius}" :
-                                command.ChamferDistance > 0 ? $", chamfer {command.ChamferDistance} mm" : string.Empty;
-            AddLog($"  [PARSED] Plate {command.Width} x {command.Height} x {command.Thickness} mm, {holesInfo}{cornerInfo}");
+            if (command.Intent == "ModifyDimension")
+            {
+                AddLog($"  [PARSED] Modify dimension {command.DimensionName} -> {command.DimensionValue:0.###} mm");
+            }
+            else
+            {
+                string holesInfo = command.Holes.Count > 0 ? $"{command.Holes.Count} hole(s)" : "no holes";
+                string cornerInfo = command.FilletRadius > 0 ? $", fillet R{command.FilletRadius}" :
+                                    command.ChamferDistance > 0 ? $", chamfer {command.ChamferDistance} mm" : string.Empty;
+                AddLog($"  [PARSED] Plate {command.Width} x {command.Height} x {command.Thickness} mm, {holesInfo}{cornerInfo}");
+            }
 
             var plan = BasicCadPlanner.Build(command);
             PlanGoal = plan.Goal;

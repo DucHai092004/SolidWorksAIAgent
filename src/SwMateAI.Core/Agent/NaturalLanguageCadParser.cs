@@ -25,6 +25,8 @@ namespace SwMateAI.Core.Agent
         public List<CadHoleSpec> Holes { get; } = new List<CadHoleSpec>();
         public double FilletRadius { get; set; }
         public double ChamferDistance { get; set; }
+        public string DimensionName { get; set; } = string.Empty;
+        public double DimensionValue { get; set; }
     }
 
     public static class NaturalLanguageCadParser
@@ -33,6 +35,9 @@ namespace SwMateAI.Core.Agent
         {
             command = null; error = null;
             if (string.IsNullOrWhiteSpace(input)) { error = "Command is empty."; return false; }
+
+            if (TryModifyDimension(input, out command))
+                return true;
 
             string s = input.Trim().ToLowerInvariant()
                 .Replace("×", "x").Replace("φ", "phi").Replace("ø", "phi");
@@ -92,6 +97,27 @@ namespace SwMateAI.Core.Agent
             }
 
             command = parsed;
+            return true;
+        }
+
+
+        private static bool TryModifyDimension(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            var match = Regex.Match(input,
+                @"(?:đổi|doi|sửa|sua|thay\s*đổi|thay\s*doi|change|modify|set)\s*(?:kích\s*thước|kich\s*thuoc|dimension)?\s*(?<name>D\d+@[A-Za-z0-9_\-]+)\s*(?:thành|thanh|to|=|:)\s*(?<value>\d+(?:[\.,]\d+)?)\s*(?:mm)?",
+                RegexOptions.IgnoreCase);
+            if (!match.Success) return false;
+
+            double value = Number(match.Groups["value"].Value);
+            if (value <= 0) return false;
+
+            command = new NaturalLanguageCadCommand
+            {
+                Intent = "ModifyDimension",
+                DimensionName = match.Groups["name"].Value,
+                DimensionValue = value
+            };
             return true;
         }
 
