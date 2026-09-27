@@ -37,7 +37,7 @@ namespace SwMateAI.Core.Tools.CAD
                     0.0, 0.0,
                     false, false, false, false,
                     false, true, true, true, true,
-                    false, 0.0, 0.0, false);
+                    false, 0, 0.0, false);
                 if (feature == null) return ToolResult.Error("SOLIDWORKS did not create Cut-Extrude.");
                 model.ViewZoomtofit2();
                 return ToolResult.Success($"Cut-Extrude created: {depthMm:0.###} mm");
