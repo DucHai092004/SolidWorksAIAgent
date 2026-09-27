@@ -268,6 +268,18 @@
                         Margin="8,4"
                         HorizontalAlignment="Stretch"/>
 
+                <!-- ── Phase 2B CAD Actions ───────────────────────── -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="CAD ACTIONS"
+                                   Style="{StaticResource SectionLabel}"/>
+                        <Button Content="+  Create New Part"
+                                Command="{Binding CreatePartCommand}"
+                                Style="{StaticResource RefreshButton}"
+                                HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- ── Agent Console Card ─────────────────────────── -->
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
