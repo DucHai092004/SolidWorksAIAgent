@@ -46,14 +46,21 @@ namespace SwMateAI.Core.Agent
                     return Fail(plan, step, $"Skill '{step.SkillName}' is not registered.", 0);
                 if (skill.RequiresConfirmation && !confirmed)
                     return Fail(plan, step, $"Skill '{skill.Name}' requires confirmation.", 0);
-                if (!skill.CanExecute(LastContext, out var reason))
-                    return Fail(plan, step, $"Skill '{skill.Name}' cannot execute: {reason}", 0);
             }
 
             int completed = 0;
             foreach (var step in plan.Steps)
             {
                 _registry.TryGet(step.SkillName, out var skill);
+
+                // Re-observe before every step because earlier steps may create or change
+                // the document/selection required by later skills.
+                State.Transition(AgentStage.Observing);
+                LastContext = _contextReader.Read();
+                State.Transition(AgentStage.Validating);
+                if (!skill.CanExecute(LastContext, out var reason))
+                    return Fail(plan, step, $"Skill '{skill.Name}' cannot execute: {reason}", completed);
+
                 State.Transition(AgentStage.Executing);
                 step.Status = PlanStepStatus.Running;
                 _logger.Info($"Executing step {step.Index}: {step.SkillName}.");
@@ -67,6 +74,10 @@ namespace SwMateAI.Core.Agent
 
                 step.Status = PlanStepStatus.Completed;
                 completed++;
+
+                // Refresh context after a successful step so the next step sees the
+                // actual SolidWorks state produced by this skill.
+                LastContext = _contextReader.Read();
             }
 
             State.Transition(AgentStage.Completed);
