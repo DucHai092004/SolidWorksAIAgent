@@ -29,7 +29,7 @@ namespace SwMateAI.UI.ViewModels
         private string _documentTitle   = string.Empty;
         private string _filePath        = string.Empty;
         private bool   _isSaved;
-        private string _statusText      = "Connecting…";
+        private string _statusText      = "Đang kết nối…";
         private bool   _isRefreshing;
         private string _rectangleWidth = "60";
         private string _rectangleHeight = "40";
@@ -44,16 +44,18 @@ namespace SwMateAI.UI.ViewModels
         private string _plateHoleDiameter = "10";
         private string _plateHoleDepth = "10";
         private string _naturalLanguageCommand = "Tạo tấm 120 x 80 x 15 mm, lỗ phi 12 ở giữa";
-        private string _planGoal = "No active plan";
-        private string _lastResultText = "Ready for a command.";
+        private string _planGoal = "Chưa có kế hoạch";
+        private string _lastResultText = "Sẵn sàng nhận lệnh.";
         private string _agentStageText = "Idle";
         private string _activeConfiguration = "—";
-        private string _selectionSummary = "0 selected";
+        private string _selectionSummary = "0 đã chọn";
         private bool _hasPlan;
         private bool _lastRunSucceeded;
         private string _dimensionName = string.Empty;
         private string _dimensionValue = "20";
-        private string _modelSummary = "No model inspection yet.";
+        private string _modelSummary = "Chưa đọc model.";
+        private string _uiLanguageCode = "vi-VN";
+        private TaskPlan _currentPlan;
 
         // ─── Public properties (bound to XAML) ───────────────────────────────
 
@@ -141,11 +143,12 @@ namespace SwMateAI.UI.ViewModels
         public string NaturalLanguageCommand { get => _naturalLanguageCommand; set { _naturalLanguageCommand = value; OnPropertyChanged(); } }
         public string PlanGoal { get => _planGoal; private set { _planGoal = value; OnPropertyChanged(); } }
         public string LastResultText { get => _lastResultText; private set { _lastResultText = value; OnPropertyChanged(); } }
-        public string AgentStageText { get => _agentStageText; private set { _agentStageText = value; OnPropertyChanged(); OnPropertyChanged(nameof(AgentStageColor)); } }
+        public string AgentStageText { get => _agentStageText; private set { _agentStageText = value; OnPropertyChanged(); OnPropertyChanged(nameof(AgentStageDisplay)); OnPropertyChanged(nameof(AgentStageColor)); } }
         public string ActiveConfiguration { get => _activeConfiguration; private set { _activeConfiguration = value; OnPropertyChanged(); } }
         public string SelectionSummary { get => _selectionSummary; private set { _selectionSummary = value; OnPropertyChanged(); } }
         public bool HasPlan { get => _hasPlan; private set { _hasPlan = value; OnPropertyChanged(); } }
         public bool LastRunSucceeded { get => _lastRunSucceeded; private set { _lastRunSucceeded = value; OnPropertyChanged(); OnPropertyChanged(nameof(ResultColor)); } }
+        public string AgentStageDisplay => TranslateAgentStage(AgentStageText);
         public string AgentStageColor => AgentStageText == "Failed" ? "#EF4444" : AgentStageText == "Completed" ? "#22C55E" : "#38BDF8";
         public string ResultColor => LastRunSucceeded ? "#22C55E" : "#94A3B8";
 
@@ -157,7 +160,7 @@ namespace SwMateAI.UI.ViewModels
 
         /// <summary>Log entries shown in the agent console panel.</summary>
         public ObservableCollection<string> ConsoleLog { get; } = new ObservableCollection<string>();
-        public ObservableCollection<PlanStep> CurrentPlanSteps { get; } = new ObservableCollection<PlanStep>();
+        public ObservableCollection<PlanStepUiItem> CurrentPlanSteps { get; } = new ObservableCollection<PlanStepUiItem>();
         public ObservableCollection<string> CommandHistory { get; } = new ObservableCollection<string>();
 
         // ─── Commands ─────────────────────────────────────────────────────────
@@ -230,6 +233,78 @@ namespace SwMateAI.UI.ViewModels
                 canExecute: () => !IsRefreshing);
         }
 
+        public void SetUiLanguage(string languageCode)
+        {
+            _uiLanguageCode = string.Equals(languageCode, "en-US", StringComparison.OrdinalIgnoreCase) ? "en-US" : "vi-VN";
+            OnPropertyChanged(nameof(AgentStageDisplay));
+            RefreshPlanDisplay();
+            SelectionSummary = Tr($"{_agentCore.ObserveContext().SelectedObjectCount} đã chọn", $"{_agentCore.ObserveContext().SelectedObjectCount} selected");
+            StatusText = IsConnected ? $"SOLIDWORKS {SwVersion}" : Tr("Chưa kết nối", "Not connected");
+
+            if (_currentPlan == null)
+                LastResultText = Tr("Sẵn sàng nhận lệnh.", "Ready for a command.");
+            else if (LastRunSucceeded)
+                LastResultText = Tr($"Hoàn thành và đã kiểm tra {_currentPlan.Steps.Count}/{_currentPlan.Steps.Count} skill.", $"Completed and verified {_currentPlan.Steps.Count}/{_currentPlan.Steps.Count} skill(s).");
+        }
+
+        private bool IsVietnamese => _uiLanguageCode != "en-US";
+        private string Tr(string vi, string en) => IsVietnamese ? vi : en;
+
+        private string TranslateAgentStage(string stage)
+        {
+            switch (stage)
+            {
+                case "Planning": return Tr("Đang lập kế hoạch", "Planning");
+                case "Executing": return Tr("Đang thực hiện", "Executing");
+                case "Completed": return Tr("Hoàn thành", "Completed");
+                case "Failed": return Tr("Thất bại", "Failed");
+                default: return Tr("Sẵn sàng", "Idle");
+            }
+        }
+
+        private string TranslatePlanGoal(string goal)
+        {
+            if (goal == "Create requested CAD part") return Tr("Tạo chi tiết CAD theo yêu cầu", goal);
+            if (goal == "Modify requested CAD dimension") return Tr("Chỉnh sửa kích thước CAD theo yêu cầu", goal);
+            return goal;
+        }
+
+        private string TranslateStepDescription(PlanStep step)
+        {
+            if (!IsVietnamese) return step.Description;
+            switch (step.Description)
+            {
+                case "Create base plate geometry": return "Tạo hình học tấm cơ sở";
+                case "Fillet four vertical plate edges": return "Bo 4 cạnh đứng của tấm";
+                case "Chamfer four vertical plate edges": return "Vát 4 cạnh đứng của tấm";
+            }
+            if (step.Description.StartsWith("Set ", StringComparison.OrdinalIgnoreCase))
+                return "Đặt " + step.Description.Substring(4).Replace(" to ", " thành ");
+            return step.Description;
+        }
+
+        private string TranslatePlanStatus(PlanStepStatus status)
+        {
+            if (!IsVietnamese) return status.ToString();
+            switch (status)
+            {
+                case PlanStepStatus.Running: return "Đang chạy";
+                case PlanStepStatus.Completed: return "Hoàn thành";
+                case PlanStepStatus.Failed: return "Thất bại";
+                case PlanStepStatus.Skipped: return "Bỏ qua";
+                default: return "Chờ thực hiện";
+            }
+        }
+
+        private void RefreshPlanDisplay()
+        {
+            CurrentPlanSteps.Clear();
+            if (_currentPlan == null) return;
+            PlanGoal = TranslatePlanGoal(_currentPlan.Goal);
+            foreach (var step in _currentPlan.Steps)
+                CurrentPlanSteps.Add(new PlanStepUiItem { Index = step.Index, SkillName = step.SkillName, Description = TranslateStepDescription(step), Status = TranslatePlanStatus(step.Status), IsVerified = step.IsVerified });
+        }
+
         // ─── Actions ──────────────────────────────────────────────────────────
 
         /// <summary>
@@ -248,7 +323,7 @@ namespace SwMateAI.UI.ViewModels
                 if (!result.IsSuccess)
                 {
                     AddLog($"  [ERR] {result.ErrorMessage}");
-                    StatusText = "Error retrieving model info.";
+                    StatusText = Tr("Lỗi khi đọc thông tin model.", "Error retrieving model info.");
                     return;
                 }
 
@@ -267,7 +342,7 @@ namespace SwMateAI.UI.ViewModels
                 DocumentTitle = info.DocumentTitle;
                 FilePath      = info.FilePath;
                 IsSaved       = info.IsSaved;
-                StatusText    = IsConnected ? $"SOLIDWORKS {SwVersion}" : "Not connected";
+                StatusText    = IsConnected ? $"SOLIDWORKS {SwVersion}" : Tr("Chưa kết nối", "Not connected");
 
                 AddLog($"  IsConnected   : {info.IsConnected}");
                 AddLog($"  SW Version    : {info.SolidWorksVersion}");
@@ -281,14 +356,14 @@ namespace SwMateAI.UI.ViewModels
 
                 var context = _agentCore.ObserveContext();
                 ActiveConfiguration = string.IsNullOrWhiteSpace(context.ActiveConfiguration) ? "—" : context.ActiveConfiguration;
-                SelectionSummary = $"{context.SelectedObjectCount} selected";
+                SelectionSummary = Tr($"{context.SelectedObjectCount} đã chọn", $"{context.SelectedObjectCount} selected");
                 AddLog($"  Active Config : {ActiveConfiguration}");
                 AddLog($"  Selection     : {context.SelectedObjectCount} object(s)");
             }
             catch (Exception ex)
             {
                 AddLog($"  [EXCEPTION] {ex.Message}");
-                StatusText = "Unexpected error.";
+                StatusText = Tr("Lỗi không mong muốn.", "Unexpected error.");
             }
             finally
             {
@@ -307,18 +382,18 @@ namespace SwMateAI.UI.ViewModels
                 if (!result.IsSuccess)
                 {
                     AddLog($"  [ERR] {result.ErrorMessage}");
-                    StatusText = "Failed to create Part.";
+                    StatusText = Tr("Không thể tạo Part.", "Failed to create Part.");
                     return;
                 }
 
                 AddLog($"  [OK] {result.Data}");
-                StatusText = "New Part created.";
+                StatusText = Tr("Đã tạo Part mới.", "New Part created.");
                 RefreshInfo();
             }
             catch (Exception ex)
             {
                 AddLog($"  [EXCEPTION] {ex.Message}");
-                StatusText = "Unexpected error creating Part.";
+                StatusText = Tr("Lỗi không mong muốn khi tạo Part.", "Unexpected error creating Part.");
             }
         }
 
@@ -333,18 +408,18 @@ namespace SwMateAI.UI.ViewModels
                 if (!result.IsSuccess)
                 {
                     AddLog($"  [ERR] {result.ErrorMessage}");
-                    StatusText = "Failed to create Sketch.";
+                    StatusText = Tr("Không thể tạo Sketch.", "Failed to create Sketch.");
                     return;
                 }
 
                 AddLog($"  [OK] {result.Data}");
-                StatusText = "New Sketch created.";
+                StatusText = Tr("Đã tạo Sketch mới.", "New Sketch created.");
                 RefreshInfo();
             }
             catch (Exception ex)
             {
                 AddLog($"  [EXCEPTION] {ex.Message}");
-                StatusText = "Unexpected error creating Sketch.";
+                StatusText = Tr("Lỗi không mong muốn khi tạo Sketch.", "Unexpected error creating Sketch.");
             }
         }
 
@@ -358,11 +433,11 @@ namespace SwMateAI.UI.ViewModels
                     ["Width"] = RectangleWidth,
                     ["Height"] = RectangleHeight
                 });
-                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to create Rectangle."; return; }
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể tạo hình chữ nhật.", "Failed to create Rectangle."); return; }
                 AddLog($"  [OK] {result.Data}");
-                StatusText = "Rectangle created.";
+                StatusText = Tr("Đã tạo hình chữ nhật.", "Rectangle created.");
             }
-            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected rectangle error."; }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi khi tạo hình chữ nhật.", "Unexpected rectangle error."); }
         }
 
         private void Extrude()
@@ -371,12 +446,12 @@ namespace SwMateAI.UI.ViewModels
             try
             {
                 var result = _agentCore.ExecuteTool("Extrude", new Dictionary<string, object> { ["Depth"] = ExtrudeDepth });
-                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to Extrude."; return; }
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể Extrude.", "Failed to Extrude."); return; }
                 AddLog($"  [OK] {result.Data}");
-                StatusText = "Boss-Extrude created.";
+                StatusText = Tr("Đã tạo Boss-Extrude.", "Boss-Extrude created.");
                 RefreshInfo();
             }
-            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected extrude error."; }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi Extrude không mong muốn.", "Unexpected extrude error."); }
         }
 
         private void CreateCircle()
@@ -388,10 +463,10 @@ namespace SwMateAI.UI.ViewModels
                 {
                     ["Diameter"] = CircleDiameter, ["X"] = CircleX, ["Y"] = CircleY
                 });
-                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to create Circle."; return; }
-                AddLog($"  [OK] {result.Data}"); StatusText = "Circle created.";
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể tạo đường tròn.", "Failed to create Circle."); return; }
+                AddLog($"  [OK] {result.Data}"); StatusText = Tr("Đã tạo đường tròn.", "Circle created.");
             }
-            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected circle error."; }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi khi tạo đường tròn.", "Unexpected circle error."); }
         }
 
         private void CutExtrude()
@@ -400,10 +475,10 @@ namespace SwMateAI.UI.ViewModels
             try
             {
                 var result = _agentCore.ExecuteTool("CutExtrude", new Dictionary<string, object> { ["Depth"] = CutDepth });
-                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to Cut-Extrude."; return; }
-                AddLog($"  [OK] {result.Data}"); StatusText = "Cut-Extrude created."; RefreshInfo();
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể Cut-Extrude.", "Failed to Cut-Extrude."); return; }
+                AddLog($"  [OK] {result.Data}"); StatusText = Tr("Đã tạo Cut-Extrude.", "Cut-Extrude created."); RefreshInfo();
             }
-            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected cut error."; }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi Cut-Extrude không mong muốn.", "Unexpected cut error."); }
         }
 
         private void CreatePlateWithHole()
@@ -419,10 +494,10 @@ namespace SwMateAI.UI.ViewModels
                     ["HoleDiameter"] = PlateHoleDiameter,
                     ["HoleDepth"] = PlateHoleDepth
                 });
-                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Auto workflow failed."; return; }
-                AddLog($"  [OK] {result.Data}"); StatusText = "Plate with hole created automatically."; RefreshInfo();
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Quy trình tự động thất bại.", "Auto workflow failed."); return; }
+                AddLog($"  [OK] {result.Data}"); StatusText = Tr("Đã tự động tạo tấm và lỗ.", "Plate with hole created automatically."); RefreshInfo();
             }
-            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected auto workflow error."; }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi quy trình tự động.", "Unexpected auto workflow error."); }
         }
 
         private void AddDimension()
@@ -431,10 +506,10 @@ namespace SwMateAI.UI.ViewModels
             try
             {
                 var result = _agentCore.ExecuteTool("AddDimension", new Dictionary<string, object> { ["Value"] = DimensionValue });
-                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to add dimension."; return; }
-                AddLog($"  [OK] {result.Data}"); StatusText = "Dimension added."; RefreshInfo();
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể thêm kích thước.", "Failed to add dimension."); return; }
+                AddLog($"  [OK] {result.Data}"); StatusText = Tr("Đã thêm kích thước.", "Dimension added."); RefreshInfo();
             }
-            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected dimension error."; }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi kích thước không mong muốn.", "Unexpected dimension error."); }
         }
 
         private void ModifyDimension()
@@ -445,10 +520,10 @@ namespace SwMateAI.UI.ViewModels
                 var args = new Dictionary<string, object> { ["Value"] = DimensionValue };
                 if (!string.IsNullOrWhiteSpace(DimensionName)) args["Name"] = DimensionName;
                 var result = _agentCore.ExecuteTool("ModifyDimension", args);
-                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to modify dimension."; return; }
-                AddLog($"  [OK] {result.Data}"); StatusText = "Dimension modified."; RefreshInfo();
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể sửa kích thước.", "Failed to modify dimension."); return; }
+                AddLog($"  [OK] {result.Data}"); StatusText = Tr("Đã sửa kích thước.", "Dimension modified."); RefreshInfo();
             }
-            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected dimension error."; }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi kích thước không mong muốn.", "Unexpected dimension error."); }
         }
 
         private void InspectModel()
@@ -463,16 +538,21 @@ namespace SwMateAI.UI.ViewModels
                 var box = _agentCore.ExecuteTool("ReadBoundingBox").Data as BoundingBoxInfo;
                 var selected = _agentCore.ExecuteTool("ReadSelectedObject").Data as List<SelectedObjectInfo> ?? new List<SelectedObjectInfo>();
 
-                ModelSummary = $"Features: {features.Count}   Sketches: {sketches.Count}   Dimensions: {dimensions.Count}\n" +
-                               $"Material: {(string.IsNullOrWhiteSpace(material) ? "<not specified>" : material)}\n" +
-                               $"Mass: {(mass == null ? "?" : mass.MassKg.ToString("0.###") + " kg")}   Size: {(box == null ? "?" : box.ToString())}\n" +
-                               $"Selection: {selected.Count} object(s)";
-                StatusText = "Model inspection completed.";
+                ModelSummary = Tr(
+                    $"Feature: {features.Count}   Sketch: {sketches.Count}   Kích thước: {dimensions.Count}\n" +
+                    $"Vật liệu: {(string.IsNullOrWhiteSpace(material) ? "<chưa chỉ định>" : material)}\n" +
+                    $"Khối lượng: {(mass == null ? "?" : mass.MassKg.ToString("0.###") + " kg")}   Kích thước tổng thể: {(box == null ? "?" : box.ToString())}\n" +
+                    $"Đang chọn: {selected.Count} đối tượng",
+                    $"Features: {features.Count}   Sketches: {sketches.Count}   Dimensions: {dimensions.Count}\n" +
+                    $"Material: {(string.IsNullOrWhiteSpace(material) ? "<not specified>" : material)}\n" +
+                    $"Mass: {(mass == null ? "?" : mass.MassKg.ToString("0.###") + " kg")}   Size: {(box == null ? "?" : box.ToString())}\n" +
+                    $"Selection: {selected.Count} object(s)");
+                StatusText = Tr("Đã đọc model thành công.", "Model inspection completed.");
                 AddLog($"  [MODEL] {features.Count} features, {dimensions.Count} dimensions, size={(box == null ? "?" : box.ToString())}");
             }
             catch (Exception ex)
             {
-                ModelSummary = $"Model inspection failed: {ex.Message}";
+                ModelSummary = Tr($"Đọc model thất bại: {ex.Message}", $"Model inspection failed: {ex.Message}");
                 AddLog($"  [MODEL ERR] {ex.Message}");
             }
         }
@@ -483,7 +563,7 @@ namespace SwMateAI.UI.ViewModels
             if (!NaturalLanguageCadParser.TryParse(NaturalLanguageCommand, out var command, out var parseError))
             {
                 AddLog($"  [PARSE ERR] {parseError}");
-                StatusText = "Could not understand CAD command.";
+                StatusText = Tr("Không hiểu được lệnh CAD.", "Could not understand CAD command.");
                 return;
             }
 
@@ -500,12 +580,11 @@ namespace SwMateAI.UI.ViewModels
             }
 
             var plan = BasicCadPlanner.Build(command);
-            PlanGoal = plan.Goal;
+            _currentPlan = plan;
             HasPlan = true;
-            CurrentPlanSteps.Clear();
-            foreach (var step in plan.Steps) CurrentPlanSteps.Add(step);
+            RefreshPlanDisplay();
             AgentStageText = "Planning";
-            LastResultText = "Plan ready. Executing skills...";
+            LastResultText = Tr("Kế hoạch đã sẵn sàng. Đang thực hiện các skill...", "Plan ready. Executing skills...");
             LastRunSucceeded = false;
             AddLog($"  [PLAN] {plan.Goal}");
             foreach (var step in plan.Steps) AddLog($"    {step.Index}. {step.SkillName} - {step.Description}");
@@ -515,24 +594,24 @@ namespace SwMateAI.UI.ViewModels
             var execution = _agentCore.ExecutePlan(plan);
             if (!execution.IsSuccess)
             {
-                CurrentPlanSteps.Clear(); foreach (var step in plan.Steps) CurrentPlanSteps.Add(step);
+                RefreshPlanDisplay();
                 AgentStageText = "Failed";
                 LastResultText = execution.Error;
                 LastRunSucceeded = false;
                 CommandHistory.Insert(0, $"FAIL • {NaturalLanguageCommand}");
                 AddLog($"  [AGENT ERR] {execution.Error}");
-                StatusText = "Agent plan failed.";
+                StatusText = Tr("Kế hoạch Agent thất bại.", "Agent plan failed.");
                 return;
             }
-            CurrentPlanSteps.Clear(); foreach (var step in plan.Steps) CurrentPlanSteps.Add(step);
+            RefreshPlanDisplay();
             AgentStageText = "Completed";
             LastRunSucceeded = true;
-            LastResultText = $"Completed and verified {execution.CompletedSteps}/{plan.Steps.Count} skill(s).";
+            LastResultText = Tr($"Hoàn thành và đã kiểm tra {execution.CompletedSteps}/{plan.Steps.Count} skill.", $"Completed and verified {execution.CompletedSteps}/{plan.Steps.Count} skill(s).");
             CommandHistory.Insert(0, $"OK • {NaturalLanguageCommand}");
             while (CommandHistory.Count > 20) CommandHistory.RemoveAt(CommandHistory.Count - 1);
             AddLog($"  [CHECK] Completed {execution.CompletedSteps}/{plan.Steps.Count} step(s). Model verification passed.");
 
-            StatusText = "CAD command completed.";
+            StatusText = Tr("Lệnh CAD đã hoàn thành.", "CAD command completed.");
             RefreshInfo();
         }
 

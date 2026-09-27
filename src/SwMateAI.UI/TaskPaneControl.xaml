@@ -6,6 +6,10 @@
  mc:Ignorable="d" d:DesignWidth="340" d:DesignHeight="760"
  Background="#0B1220" FontFamily="Segoe UI">
  <UserControl.Resources>
+  <ResourceDictionary>
+   <ResourceDictionary.MergedDictionaries>
+   <ResourceDictionary Source="Localization/Strings.vi-VN.xaml"/>
+  </ResourceDictionary.MergedDictionaries>
   <SolidColorBrush x:Key="Bg" Color="#0B1220"/>
   <SolidColorBrush x:Key="Surface" Color="#111C2E"/>
   <SolidColorBrush x:Key="Surface2" Color="#16243A"/>
@@ -62,20 +66,28 @@
   <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
    <Setter Property="Background" Value="#1E293B"/>
   </Style>
+  </ResourceDictionary>
  </UserControl.Resources>
  <Grid>
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
   <Border Grid.Row="0" Background="#0F1B2D" BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="14,12">
    <Grid>
-    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
     <StackPanel>
      <TextBlock Text="SW-MATE AI" Foreground="White" FontSize="16" FontWeight="Bold"/>
-     <TextBlock Text="Mechanical CAD Agent · V1" Foreground="{StaticResource Muted}" FontSize="10" Margin="0,2,0,0"/>
+     <TextBlock Text="{DynamicResource AppSubtitle}" Foreground="{StaticResource Muted}" FontSize="10" Margin="0,2,0,0"/>
     </StackPanel>
-    <Border Grid.Column="1" Background="#132238" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12" Padding="9,4" VerticalAlignment="Center">
+    <StackPanel Grid.Column="1" Margin="0,0,8,0" VerticalAlignment="Center">
+     <TextBlock Text="{DynamicResource LanguageLabel}" Foreground="{StaticResource Muted}" FontSize="8" Margin="2,0,0,2"/>
+     <ComboBox x:Name="LanguageCombo" Width="92" Height="25" SelectionChanged="LanguageCombo_SelectionChanged" Background="#16243A" Foreground="White" BorderBrush="{StaticResource Border}" Padding="4,1">
+      <ComboBoxItem Content="Tiếng Việt" Tag="vi-VN" IsSelected="True"/>
+      <ComboBoxItem Content="English" Tag="en-US"/>
+     </ComboBox>
+    </StackPanel>
+    <Border Grid.Column="2" Background="#132238" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12" Padding="9,4" VerticalAlignment="Center">
      <StackPanel Orientation="Horizontal">
       <Ellipse Width="7" Height="7" Margin="0,0,6,0" VerticalAlignment="Center"><Ellipse.Fill><SolidColorBrush Color="{Binding AgentStageColor}"/></Ellipse.Fill></Ellipse>
-      <TextBlock Text="{Binding AgentStageText}" Foreground="{StaticResource Text}" FontSize="10" FontWeight="SemiBold"/>
+      <TextBlock Text="{Binding AgentStageDisplay}" Foreground="{StaticResource Text}" FontSize="10" FontWeight="SemiBold"/>
      </StackPanel>
     </Border>
    </Grid>
@@ -87,23 +99,23 @@
       <Grid Margin="0,0,0,10">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
        <StackPanel>
-        <TextBlock Text="SOLIDWORKS CONTEXT" Style="{StaticResource SectionTitle}"/>
+        <TextBlock Text="{DynamicResource ContextTitle}" Style="{StaticResource SectionTitle}"/>
         <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
          <Ellipse Width="7" Height="7" Margin="0,0,6,0" VerticalAlignment="Center"><Ellipse.Fill><SolidColorBrush Color="{Binding ConnectionColor}"/></Ellipse.Fill></Ellipse>
          <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource Muted}" FontSize="10"/>
         </StackPanel>
        </StackPanel>
-       <Button Grid.Column="1" Content="↻" Command="{Binding RefreshInfoCommand}" Style="{StaticResource SecondaryButton}" Padding="9,5"/>
+       <Button Grid.Column="1" Content="↻" Command="{Binding RefreshInfoCommand}" Style="{StaticResource SecondaryButton}" Padding="9,5" ToolTip="{DynamicResource RefreshTooltip}"/>
       </Grid>
       <Grid>
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
        <StackPanel Grid.Column="0" Margin="0,0,8,0">
-        <TextBlock Text="DOCUMENT" Style="{StaticResource Caption}"/>
+        <TextBlock Text="{DynamicResource DocumentLabel}" Style="{StaticResource Caption}"/>
         <TextBlock Text="{Binding DocumentTitle}" Foreground="{StaticResource Text}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
         <TextBlock Text="{Binding DocumentType}" Foreground="#60A5FA" FontSize="10"/>
        </StackPanel>
        <StackPanel Grid.Column="1">
-        <TextBlock Text="CONFIGURATION" Style="{StaticResource Caption}"/>
+        <TextBlock Text="{DynamicResource ConfigurationLabel}" Style="{StaticResource Caption}"/>
         <TextBlock Text="{Binding ActiveConfiguration}" Foreground="{StaticResource Text}" FontWeight="SemiBold"/>
         <TextBlock Text="{Binding SelectionSummary}" Foreground="{StaticResource Muted}" FontSize="10"/>
        </StackPanel>
@@ -115,10 +127,10 @@
       <Grid Margin="0,0,0,7">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
        <StackPanel>
-        <TextBlock Text="MODEL INSPECTOR" Style="{StaticResource SectionTitle}"/>
-        <TextBlock Text="Read actual CAD data from the active model." Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+        <TextBlock Text="{DynamicResource ModelInspectorTitle}" Style="{StaticResource SectionTitle}"/>
+        <TextBlock Text="{DynamicResource ModelInspectorDescription}" Style="{StaticResource Caption}" Margin="0,2,0,0"/>
        </StackPanel>
-       <Button Grid.Column="1" Content="READ MODEL" Command="{Binding InspectModelCommand}" Style="{StaticResource SecondaryButton}"/>
+       <Button Grid.Column="1" Content="{DynamicResource ReadModel}" Command="{Binding InspectModelCommand}" Style="{StaticResource SecondaryButton}"/>
       </Grid>
       <Border Background="{StaticResource Surface2}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6" Padding="8">
        <TextBlock Text="{Binding ModelSummary}" Foreground="{StaticResource Text}" FontSize="10" TextWrapping="Wrap"/>
@@ -127,10 +139,10 @@
     </Border>
     <Border Style="{StaticResource Card}">
      <StackPanel>
-      <TextBlock Text="AI CAD COMMAND" Style="{StaticResource SectionTitle}"/>
-      <TextBlock Text="Describe what you want SW-MATE AI to create or modify." Style="{StaticResource Caption}" Margin="0,3,0,8"/>
+      <TextBlock Text="{DynamicResource AiCommandTitle}" Style="{StaticResource SectionTitle}"/>
+      <TextBlock Text="{DynamicResource AiCommandDescription}" Style="{StaticResource Caption}" Margin="0,3,0,8"/>
       <TextBox Text="{Binding NaturalLanguageCommand, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" VerticalScrollBarVisibility="Auto"/>
-      <Button Content="▶  RUN AGENT PLAN" Command="{Binding ExecuteNaturalLanguageCommand}" Style="{StaticResource PrimaryButton}" Margin="0,10,0,0"/>
+      <Button Content="{DynamicResource RunAgentPlan}" Command="{Binding ExecuteNaturalLanguageCommand}" Style="{StaticResource PrimaryButton}" Margin="0,10,0,0"/>
      </StackPanel>
     </Border>
     <Border Style="{StaticResource Card}" Visibility="{Binding HasPlan, Converter={StaticResource BoolToVis}}">
@@ -138,10 +150,10 @@
       <Grid Margin="0,0,0,8">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
        <StackPanel>
-        <TextBlock Text="TASK PLAN" Style="{StaticResource SectionTitle}"/>
+        <TextBlock Text="{DynamicResource TaskPlanTitle}" Style="{StaticResource SectionTitle}"/>
         <TextBlock Text="{Binding PlanGoal}" Style="{StaticResource Caption}" Margin="0,2,0,0"/>
        </StackPanel>
-       <TextBlock Grid.Column="1" Text="{Binding AgentStageText}" Foreground="#60A5FA" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
+       <TextBlock Grid.Column="1" Text="{Binding AgentStageDisplay}" Foreground="#60A5FA" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
       </Grid>
       <ItemsControl ItemsSource="{Binding CurrentPlanSteps}">
        <ItemsControl.ItemTemplate>
@@ -153,7 +165,7 @@
            <StackPanel Grid.Column="1" Margin="7,0,7,0"><TextBlock Text="{Binding SkillName}" Foreground="{StaticResource Text}" FontWeight="SemiBold" FontSize="11"/><TextBlock Text="{Binding Description}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap"/></StackPanel>
            <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
             <TextBlock Text="{Binding Status}" Foreground="#7DD3FC" FontSize="9" HorizontalAlignment="Right"/>
-            <TextBlock Text="✓ Verified" Foreground="#34D399" FontSize="8" FontWeight="SemiBold" HorizontalAlignment="Right" Visibility="{Binding IsVerified, Converter={StaticResource BoolToVis}}"/>
+            <TextBlock Text="{DynamicResource VerifiedText}" Foreground="#34D399" FontSize="8" FontWeight="SemiBold" HorizontalAlignment="Right" Visibility="{Binding IsVerified, Converter={StaticResource BoolToVis}}"/>
            </StackPanel>
           </Grid>
          </Border>
@@ -164,7 +176,7 @@
     </Border>
     <Border Style="{StaticResource Card}">
      <StackPanel>
-      <TextBlock Text="LAST RESULT" Style="{StaticResource SectionTitle}"/>
+      <TextBlock Text="{DynamicResource LastResultTitle}" Style="{StaticResource SectionTitle}"/>
       <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
        <Ellipse Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Top"><Ellipse.Fill><SolidColorBrush Color="{Binding ResultColor}"/></Ellipse.Fill></Ellipse>
        <TextBlock Text="{Binding LastResultText}" Foreground="{StaticResource Text}" FontSize="10" TextWrapping="Wrap"/>
@@ -173,45 +185,45 @@
     </Border>
     <Expander Margin="10,5" Foreground="{StaticResource Text}" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="10">
      <Expander.Header>
-      <StackPanel><TextBlock Text="MANUAL CAD TOOLS" FontWeight="SemiBold" FontSize="11"/><TextBlock Text="Direct SolidWorks operations for testing and recovery" Foreground="{StaticResource Muted}" FontSize="9"/></StackPanel>
+      <StackPanel><TextBlock Text="{DynamicResource ManualToolsTitle}" FontWeight="SemiBold" FontSize="11"/><TextBlock Text="{DynamicResource ManualToolsDescription}" Foreground="{StaticResource Muted}" FontSize="9"/></StackPanel>
      </Expander.Header>
      <StackPanel Margin="0,10,0,0">
       <Grid Margin="0,0,0,8">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <Button Grid.Column="0" Content="New Part" Command="{Binding CreatePartCommand}" Style="{StaticResource SecondaryButton}"/>
-       <Button Grid.Column="2" Content="Create Sketch" Command="{Binding CreateSketchCommand}" Style="{StaticResource SecondaryButton}"/>
+       <Button Grid.Column="0" Content="{DynamicResource NewPart}" Command="{Binding CreatePartCommand}" Style="{StaticResource SecondaryButton}"/>
+       <Button Grid.Column="2" Content="{DynamicResource CreateSketch}" Command="{Binding CreateSketchCommand}" Style="{StaticResource SecondaryButton}"/>
       </Grid>
-      <TextBlock Text="RECTANGLE + EXTRUDE" Style="{StaticResource Caption}" Margin="0,2,0,5"/>
+      <TextBlock Text="{DynamicResource RectangleExtrude}" Style="{StaticResource Caption}" Margin="0,2,0,5"/>
       <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
        <TextBox Grid.Column="0" Text="{Binding RectangleWidth, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
        <TextBox Grid.Column="2" Text="{Binding RectangleHeight, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
       </Grid>
-      <Button Content="Create Rectangle" Command="{Binding CreateRectangleCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,6"/>
+      <Button Content="{DynamicResource CreateRectangle}" Command="{Binding CreateRectangleCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,6"/>
       <TextBox Text="{Binding ExtrudeDepth, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
-      <Button Content="Extrude" Command="{Binding ExtrudeCommand}" Style="{StaticResource SecondaryButton}" Margin="0,6,0,10"/>
-      <TextBlock Text="HOLE + CUT" Style="{StaticResource Caption}" Margin="0,2,0,5"/>
+      <Button Content="{DynamicResource Extrude}" Command="{Binding ExtrudeCommand}" Style="{StaticResource SecondaryButton}" Margin="0,6,0,10"/>
+      <TextBlock Text="{DynamicResource HoleCut}" Style="{StaticResource Caption}" Margin="0,2,0,5"/>
       <Grid Margin="0,0,0,6">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
        <TextBox Grid.Column="0" Text="{Binding CircleDiameter, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
        <TextBox Grid.Column="2" Text="{Binding CircleX, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
        <TextBox Grid.Column="4" Text="{Binding CircleY, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
       </Grid>
-      <Button Content="Create Circle" Command="{Binding CreateCircleCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,6"/>
+      <Button Content="{DynamicResource CreateCircle}" Command="{Binding CreateCircleCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,6"/>
       <TextBox Text="{Binding CutDepth, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
-      <Button Content="Cut Extrude" Command="{Binding CutExtrudeCommand}" Style="{StaticResource SecondaryButton}" Margin="0,6,0,10"/>
-      <TextBlock Text="DIMENSIONS" Style="{StaticResource Caption}" Margin="0,2,0,5"/>
-      <TextBlock Text="Select sketch geometry to add, or enter a full dimension name to modify." Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,0,0,5"/>
+      <Button Content="{DynamicResource CutExtrude}" Command="{Binding CutExtrudeCommand}" Style="{StaticResource SecondaryButton}" Margin="0,6,0,10"/>
+      <TextBlock Text="{DynamicResource Dimensions}" Style="{StaticResource Caption}" Margin="0,2,0,5"/>
+      <TextBlock Text="{DynamicResource DimensionHint}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,0,0,5"/>
       <Grid Margin="0,0,0,6">
        <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <TextBox Grid.Column="0" Text="{Binding DimensionName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}" ToolTip="Dimension name, e.g. D1@Sketch1. Leave empty to use selected dimension."/>
-       <TextBox Grid.Column="2" Text="{Binding DimensionValue, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}" ToolTip="Dimension value in mm"/>
+       <TextBox Grid.Column="0" Text="{Binding DimensionName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}" ToolTip="{DynamicResource DimensionNameTooltip}"/>
+       <TextBox Grid.Column="2" Text="{Binding DimensionValue, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}" ToolTip="{DynamicResource DimensionValueTooltip}"/>
       </Grid>
       <Grid Margin="0,0,0,10">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <Button Grid.Column="0" Content="Add to Selection" Command="{Binding AddDimensionCommand}" Style="{StaticResource SecondaryButton}"/>
-       <Button Grid.Column="2" Content="Modify Dimension" Command="{Binding ModifyDimensionCommand}" Style="{StaticResource SecondaryButton}"/>
+       <Button Grid.Column="0" Content="{DynamicResource AddToSelection}" Command="{Binding AddDimensionCommand}" Style="{StaticResource SecondaryButton}"/>
+       <Button Grid.Column="2" Content="{DynamicResource ModifyDimension}" Command="{Binding ModifyDimensionCommand}" Style="{StaticResource SecondaryButton}"/>
       </Grid>
-      <TextBlock Text="QUICK WORKFLOW" Style="{StaticResource Caption}" Margin="0,2,0,5"/>
+      <TextBlock Text="{DynamicResource QuickWorkflow}" Style="{StaticResource Caption}" Margin="0,2,0,5"/>
       <Grid Margin="0,0,0,6">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
        <TextBox Grid.Column="0" Text="{Binding PlateWidth, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
@@ -222,19 +234,19 @@
        <TextBox Grid.Column="0" Text="{Binding PlateHoleDiameter, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
        <TextBox Grid.Column="2" Text="{Binding PlateHoleDepth, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
       </Grid>
-      <Button Content="Create Plate + Hole" Command="{Binding CreatePlateWithHoleCommand}" Style="{StaticResource SecondaryButton}"/>
+      <Button Content="{DynamicResource CreatePlateHole}" Command="{Binding CreatePlateWithHoleCommand}" Style="{StaticResource SecondaryButton}"/>
      </StackPanel>
     </Expander>
     <Expander Margin="10,5" Foreground="{StaticResource Text}" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="10">
      <Expander.Header>
-      <StackPanel><TextBlock Text="ACTIVITY &amp; HISTORY" FontWeight="SemiBold" FontSize="11"/><TextBlock Text="Recent commands and agent diagnostics" Foreground="{StaticResource Muted}" FontSize="9"/></StackPanel>
+      <StackPanel><TextBlock Text="{DynamicResource ActivityHistoryTitle}" FontWeight="SemiBold" FontSize="11"/><TextBlock Text="{DynamicResource ActivityHistoryDescription}" Foreground="{StaticResource Muted}" FontSize="9"/></StackPanel>
      </Expander.Header>
      <StackPanel Margin="0,10,0,0">
-      <TextBlock Text="RECENT COMMANDS" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
+      <TextBlock Text="{DynamicResource RecentCommands}" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
       <Border Background="#0F172A" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6" Padding="7" MaxHeight="100">
        <ScrollViewer VerticalScrollBarVisibility="Auto"><ItemsControl ItemsSource="{Binding CommandHistory}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
       </Border>
-      <TextBlock Text="AGENT CONSOLE" Style="{StaticResource Caption}" Margin="0,10,0,5"/>
+      <TextBlock Text="{DynamicResource AgentConsole}" Style="{StaticResource Caption}" Margin="0,10,0,5"/>
       <Border Background="#080D16" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6" Padding="7" Height="150">
        <ScrollViewer x:Name="ConsoleScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
         <ItemsControl ItemsSource="{Binding ConsoleLog}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" Foreground="#7DD3FC" FontFamily="Consolas" FontSize="9" Margin="0,1"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
@@ -242,7 +254,7 @@
       </Border>
      </StackPanel>
     </Expander>
-    <TextBlock Text="SW-MATE AI  ·  Phase 1 Basic CAD  ·  v0.6.0" HorizontalAlignment="Center" Foreground="{StaticResource Muted}" FontSize="9" Margin="0,8,0,4"/>
+    <TextBlock Text="{DynamicResource FooterText}" HorizontalAlignment="Center" Foreground="{StaticResource Muted}" FontSize="9" Margin="0,8,0,4"/>
    </StackPanel>
   </ScrollViewer>
  </Grid>
