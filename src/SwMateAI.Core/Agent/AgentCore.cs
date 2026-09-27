@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using SolidWorks.Interop.sldworks;
 using SwMateAI.Core.Tools;
+using SwMateAI.Core.Tools.CAD;
 
 namespace SwMateAI.Core.Agent
 {
@@ -62,8 +63,8 @@ namespace SwMateAI.Core.Agent
             // Phase 1 tools
             Register(new GetModelInfoTool(_swApp));
 
-            // Phase 2B+: CAD tools registered here when approved.
-            // Register(new GetModelInfoTool(_swApp));  ← example pattern
+            // Phase 2B CAD tools
+            Register(new CreatePartTool(_swApp));
         }
 
         private void Register(ISwTool tool)
