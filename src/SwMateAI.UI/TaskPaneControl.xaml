@@ -227,7 +227,7 @@
       </Border>
      </StackPanel>
     </Expander>
-    <TextBlock Text="SW-MATE AI  ·  Agent Foundation V1  ·  v0.5.0" HorizontalAlignment="Center" Foreground="{StaticResource Muted}" FontSize="9" Margin="0,8,0,4"/>
+    <TextBlock Text="SW-MATE AI  ·  Phase 1 Basic CAD  ·  v0.6.0" HorizontalAlignment="Center" Foreground="{StaticResource Muted}" FontSize="9" Margin="0,8,0,4"/>
    </StackPanel>
   </ScrollViewer>
  </Grid>
