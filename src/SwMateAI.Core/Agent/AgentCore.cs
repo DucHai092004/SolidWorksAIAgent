@@ -65,6 +65,7 @@ namespace SwMateAI.Core.Agent
 
             // Phase 2B CAD tools
             Register(new CreatePartTool(_swApp));
+            Register(new CreateSketchTool(_swApp));
         }
 
         private void Register(ISwTool tool)
