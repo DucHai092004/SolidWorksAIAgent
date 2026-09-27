@@ -1,4 +1,5 @@
 using SwMateAI.Core.Agent;
+using SwMateAI.Core.Skills;
 
 namespace SwMateAI.Core.Planning
 {
@@ -6,10 +7,10 @@ namespace SwMateAI.Core.Planning
     {
         public static TaskPlan Build(NaturalLanguageCadCommand command)
         {
-            if (command.Intent == "ModifyDimension")
+            if (command.Intent == SkillNames.ModifyDimension)
             {
                 var modifyPlan = new TaskPlan { Goal = "Modify requested CAD dimension" };
-                var step = new PlanStep { Index = 1, SkillName = "ModifyDimension", Description = $"Set {command.DimensionName} to {command.DimensionValue:0.###} mm" };
+                var step = new PlanStep { Index = 1, SkillName = SkillNames.ModifyDimension, Description = $"Set {command.DimensionName} to {command.DimensionValue:0.###} mm" };
                 step.Parameters["Name"] = command.DimensionName;
                 step.Parameters["Value"] = command.DimensionValue;
                 modifyPlan.Steps.Add(step);
@@ -30,13 +31,13 @@ namespace SwMateAI.Core.Planning
 
             if (command.FilletRadius > 0)
             {
-                var step = new PlanStep { Index = 2, SkillName = "FilletPlateCorners", Description = "Fillet four vertical plate edges" };
+                var step = new PlanStep { Index = 2, SkillName = SkillNames.CreateFillet, Description = "Fillet four vertical plate edges" };
                 step.Parameters["Radius"] = command.FilletRadius;
                 plan.Steps.Add(step);
             }
             else if (command.ChamferDistance > 0)
             {
-                var step = new PlanStep { Index = 2, SkillName = "ChamferPlateCorners", Description = "Chamfer four vertical plate edges" };
+                var step = new PlanStep { Index = 2, SkillName = SkillNames.CreateChamfer, Description = "Chamfer four vertical plate edges" };
                 step.Parameters["Distance"] = command.ChamferDistance;
                 plan.Steps.Add(step);
             }

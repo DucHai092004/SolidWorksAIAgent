@@ -7,12 +7,18 @@ namespace SwMateAI.Core.Skills
     public class ToolSkillAdapter : ISkill
     {
         private readonly ISwTool _tool;
+        private readonly SkillMetadata _metadata;
         private ToolResult _lastResult;
 
-        public ToolSkillAdapter(ISwTool tool) { _tool = tool; }
-        public string Name => _tool.Name;
-        public string Description => _tool.Description;
-        public bool RequiresConfirmation => false;
+        public ToolSkillAdapter(ISwTool tool, SkillMetadata metadata)
+        {
+            _tool = tool;
+            _metadata = metadata;
+        }
+        public string Name => _metadata.Name;
+        public string Description => _metadata.Description;
+        public SkillMetadata Metadata => _metadata;
+        public bool RequiresConfirmation => _metadata.RequiresConfirmation;
 
         public bool CanExecute(AgentContext context, out string reason)
         {

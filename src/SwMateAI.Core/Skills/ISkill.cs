@@ -7,6 +7,7 @@ namespace SwMateAI.Core.Skills
     {
         string Name { get; }
         string Description { get; }
+        SkillMetadata Metadata { get; }
         bool RequiresConfirmation { get; }
         bool CanExecute(AgentContext context, out string reason);
         SkillResult Execute(Dictionary<string, object> input);

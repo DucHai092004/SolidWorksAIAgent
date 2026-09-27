@@ -109,11 +109,15 @@ namespace SwMateAI.Core.Agent
         private static bool RequiresFeatureValidation(string skillName)
         {
             return skillName == "Extrude" ||
+                   skillName == "CreateExtrude" ||
                    skillName == "CutExtrude" ||
+                   skillName == "CreateExtrudeCut" ||
                    skillName == "CreatePlate" ||
                    skillName == "CreatePlateWithHole" ||
                    skillName == "FilletPlateCorners" ||
+                   skillName == "CreateFillet" ||
                    skillName == "ChamferPlateCorners" ||
+                   skillName == "CreateChamfer" ||
                    skillName == "AddDimension" ||
                    skillName == "ModifyDimension";
         }
@@ -121,9 +125,13 @@ namespace SwMateAI.Core.Agent
         private static bool RequiresFeatureGrowth(string skillName)
         {
             return skillName == "Extrude" ||
+                   skillName == "CreateExtrude" ||
                    skillName == "CutExtrude" ||
+                   skillName == "CreateExtrudeCut" ||
                    skillName == "FilletPlateCorners" ||
-                   skillName == "ChamferPlateCorners";
+                   skillName == "CreateFillet" ||
+                   skillName == "ChamferPlateCorners" ||
+                   skillName == "CreateChamfer";
         }
 
         private static bool CheckFeatureTree(IModelDoc2 model, out string reason)

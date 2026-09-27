@@ -46,6 +46,7 @@ namespace SwMateAI.Core.Agent
             {
                 if (!_registry.TryGet(step.SkillName, out var skill))
                     return Fail(plan, step, $"Skill '{step.SkillName}' is not registered.", 0);
+                step.SkillName = skill.Name;
                 if (skill.RequiresConfirmation && !confirmed)
                     return Fail(plan, step, $"Skill '{skill.Name}' requires confirmation.", 0);
             }
@@ -76,7 +77,7 @@ namespace SwMateAI.Core.Agent
                 if (!skill.Validate(out var validationError))
                     return Fail(plan, step, $"Validation failed: {validationError}", completed);
 
-                if (!_resultChecker.Validate(step.SkillName, beforeSnapshot, out var modelValidationError))
+                if (!_resultChecker.Validate(skill.Name, beforeSnapshot, out var modelValidationError))
                     return Fail(plan, step, $"Model validation failed: {modelValidationError}", completed);
                 step.IsVerified = true;
                 step.ValidationMessage = "Rebuild, Feature Tree and model checks passed.";

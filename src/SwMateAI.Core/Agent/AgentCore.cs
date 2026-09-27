@@ -38,6 +38,7 @@ namespace SwMateAI.Core.Agent
         public IEnumerable<string> RegisteredSkills => _skills.Names;
         public AgentState State => _orchestrator.State;
         public IReadOnlyList<string> AgentLogs => _logger.Entries;
+        public IReadOnlyList<SkillMetadata> RegisteredSkillMetadata => _skills.GetMetadata();
 
         /// <summary>
         /// Read-only map of tool name → description, for display in UI or future planner.
@@ -100,7 +101,8 @@ namespace SwMateAI.Core.Agent
         {
             if (tool == null) throw new ArgumentNullException(nameof(tool));
             _tools[tool.Name] = tool;
-            _skills.Register(new ToolSkillAdapter(tool));
+            var metadata = Skills.SkillCatalog.ForTool(tool);
+            _skills.Register(new ToolSkillAdapter(tool, metadata), metadata.Aliases);
         }
 
         public AgentContext ObserveContext() => _orchestrator.Observe();
