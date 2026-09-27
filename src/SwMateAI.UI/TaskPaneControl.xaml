@@ -354,6 +354,20 @@
                     </StackPanel>
                 </Border>
 
+                <!-- ── Phase 3 Natural Language CAD ──────────────── -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="AI COMMAND" Style="{StaticResource SectionLabel}"/>
+                        <TextBlock Text="Describe the part you want to create:" Style="{StaticResource ValueLabel}" Margin="0,0,0,6"/>
+                        <TextBox Text="{Binding NaturalLanguageCommand, UpdateSourceTrigger=PropertyChanged}"
+                                 AcceptsReturn="True" TextWrapping="Wrap" MinHeight="54" Padding="6" Margin="0,0,0,8"/>
+                        <Button Content="▶  EXECUTE CAD COMMAND"
+                                Command="{Binding ExecuteNaturalLanguageCommand}"
+                                Style="{StaticResource RefreshButton}"
+                                HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- ── One-click CAD workflow ─────────────────────── -->
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
@@ -410,7 +424,7 @@
                 </Border>
 
                 <!-- ── Version footer ────────────────────────────── -->
-                <TextBlock Text="SW-MATE AI  ·  Phase 2C  ·  v0.3.1"
+                <TextBlock Text="SW-MATE AI  ·  Phase 3  ·  v0.4.0"
                            HorizontalAlignment="Center"
                            Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="9"
