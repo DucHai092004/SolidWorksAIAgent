@@ -276,6 +276,43 @@
                         <Button Content="+  Create New Part"
                                 Command="{Binding CreatePartCommand}"
                                 Style="{StaticResource RefreshButton}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,6"/>
+                        <Button Content="✎  Create Sketch"
+                                Command="{Binding CreateSketchCommand}"
+                                Style="{StaticResource RefreshButton}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,8"/>
+
+                        <TextBlock Text="BOX DIMENSIONS (mm)"
+                                   Style="{StaticResource SectionLabel}"/>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Width" Style="{StaticResource SectionLabel}"/>
+                                <TextBox Text="{Binding RectangleWidth, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Height" Style="{StaticResource SectionLabel}"/>
+                                <TextBox Text="{Binding RectangleHeight, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+                            </StackPanel>
+                        </Grid>
+                        <Button Content="▭  Create Rectangle"
+                                Command="{Binding CreateRectangleCommand}"
+                                Style="{StaticResource RefreshButton}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,6"/>
+                        <StackPanel Margin="0,0,0,6">
+                            <TextBlock Text="Extrude Depth (mm)" Style="{StaticResource SectionLabel}"/>
+                            <TextBox Text="{Binding ExtrudeDepth, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+                        </StackPanel>
+                        <Button Content="⬆  Extrude"
+                                Command="{Binding ExtrudeCommand}"
+                                Style="{StaticResource RefreshButton}"
                                 HorizontalAlignment="Stretch"/>
                     </StackPanel>
                 </Border>
@@ -309,7 +346,7 @@
                 </Border>
 
                 <!-- ── Version footer ────────────────────────────── -->
-                <TextBlock Text="SW-MATE AI  ·  Phase 1  ·  v0.1.0"
+                <TextBlock Text="SW-MATE AI  ·  Phase 2B  ·  v0.2.0"
                            HorizontalAlignment="Center"
                            Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="9"
