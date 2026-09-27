@@ -10,15 +10,17 @@ namespace SwMateAI.Core.Agent
         private readonly SolidWorksContextReader _contextReader;
         private readonly SkillRegistry _registry;
         private readonly IAgentLogger _logger;
+        private readonly SolidWorksResultChecker _resultChecker;
 
         public AgentState State { get; } = new AgentState();
         public AgentContext LastContext { get; private set; }
 
-        public AgentOrchestrator(SolidWorksContextReader contextReader, SkillRegistry registry, IAgentLogger logger)
+        public AgentOrchestrator(SolidWorksContextReader contextReader, SkillRegistry registry, IAgentLogger logger, SolidWorksResultChecker resultChecker)
         {
             _contextReader = contextReader ?? throw new ArgumentNullException(nameof(contextReader));
             _registry = registry ?? throw new ArgumentNullException(nameof(registry));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _resultChecker = resultChecker ?? throw new ArgumentNullException(nameof(resultChecker));
         }
 
         public AgentContext Observe()
@@ -61,6 +63,8 @@ namespace SwMateAI.Core.Agent
                 if (!skill.CanExecute(LastContext, out var reason))
                     return Fail(plan, step, $"Skill '{skill.Name}' cannot execute: {reason}", completed);
 
+                var beforeSnapshot = _resultChecker.Capture();
+
                 State.Transition(AgentStage.Executing);
                 step.Status = PlanStepStatus.Running;
                 _logger.Info($"Executing step {step.Index}: {step.SkillName}.");
@@ -71,6 +75,12 @@ namespace SwMateAI.Core.Agent
                 State.Transition(AgentStage.Checking);
                 if (!skill.Validate(out var validationError))
                     return Fail(plan, step, $"Validation failed: {validationError}", completed);
+
+                if (!_resultChecker.Validate(step.SkillName, beforeSnapshot, out var modelValidationError))
+                    return Fail(plan, step, $"Model validation failed: {modelValidationError}", completed);
+                step.IsVerified = true;
+                step.ValidationMessage = "Rebuild, Feature Tree and model checks passed.";
+                _logger.Info($"Verified model result for step {step.Index}: {step.SkillName}.");
 
                 step.Status = PlanStepStatus.Completed;
                 completed++;

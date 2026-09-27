@@ -446,10 +446,10 @@ namespace SwMateAI.UI.ViewModels
             CurrentPlanSteps.Clear(); foreach (var step in plan.Steps) CurrentPlanSteps.Add(step);
             AgentStageText = "Completed";
             LastRunSucceeded = true;
-            LastResultText = $"Completed {execution.CompletedSteps}/{plan.Steps.Count} skill(s) successfully.";
+            LastResultText = $"Completed and verified {execution.CompletedSteps}/{plan.Steps.Count} skill(s).";
             CommandHistory.Insert(0, $"OK • {NaturalLanguageCommand}");
             while (CommandHistory.Count > 20) CommandHistory.RemoveAt(CommandHistory.Count - 1);
-            AddLog($"  [CHECK] Completed {execution.CompletedSteps}/{plan.Steps.Count} step(s).");
+            AddLog($"  [CHECK] Completed {execution.CompletedSteps}/{plan.Steps.Count} step(s). Model verification passed.");
 
             StatusText = "CAD command completed.";
             RefreshInfo();

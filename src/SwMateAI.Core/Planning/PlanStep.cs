@@ -12,5 +12,7 @@ namespace SwMateAI.Core.Planning
         public Dictionary<string, object> Parameters { get; } = new Dictionary<string, object>();
         public PlanStepStatus Status { get; set; } = PlanStepStatus.Pending;
         public string Error { get; set; } = string.Empty;
+        public bool IsVerified { get; set; }
+        public string ValidationMessage { get; set; } = string.Empty;
     }
 }

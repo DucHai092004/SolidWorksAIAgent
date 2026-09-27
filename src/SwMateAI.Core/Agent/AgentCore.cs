@@ -65,7 +65,11 @@ namespace SwMateAI.Core.Agent
             _skills = new SkillRegistry();
             _logger = new InMemoryAgentLogger();
             RegisterTools();
-            _orchestrator = new AgentOrchestrator(new SolidWorksContextReader(_swApp), _skills, _logger);
+            _orchestrator = new AgentOrchestrator(
+                new SolidWorksContextReader(_swApp),
+                _skills,
+                _logger,
+                new SolidWorksResultChecker(_swApp));
         }
 
         // ─── Tool Registration ────────────────────────────────────────────────
