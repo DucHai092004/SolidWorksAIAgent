@@ -36,7 +36,7 @@
  <sys:String x:Key="ActivityHistoryDescription">Lệnh gần đây và chẩn đoán Agent</sys:String>
  <sys:String x:Key="RecentCommands">LỆNH GẦN ĐÂY</sys:String>
  <sys:String x:Key="AgentConsole">BẢNG ĐIỀU KHIỂN AGENT</sys:String>
- <sys:String x:Key="FooterText">SW-MATE AI  ·  Giai đoạn 2 · Hiểu Model  ·  v0.7.2</sys:String>
+ <sys:String x:Key="FooterText">SW-MATE AI  ·  Giai đoạn 2 · Hiểu Model  ·  v0.8.0</sys:String>
  <sys:String x:Key="LanguageLabel">Ngôn ngữ</sys:String>
  <sys:String x:Key="RefreshTooltip">Làm mới ngữ cảnh SolidWorks</sys:String>
  <sys:String x:Key="StatusIdle">Sẵn sàng</sys:String>
@@ -46,4 +46,17 @@
  <sys:String x:Key="StatusFailed">Thất bại</sys:String>
  <sys:String x:Key="ResultReady">Sẵn sàng nhận lệnh.</sys:String>
  <sys:String x:Key="NoInspection">Chưa đọc model.</sys:String>
+ <sys:String x:Key="GuideTitle">HƯỚNG DẪN NHANH</sys:String>
+ <sys:String x:Key="GuideDescription">Cách dùng SW-MATE AI hiệu quả</sys:String>
+ <sys:String x:Key="GuideStep1">1. Mở Part/Assembly/Drawing cần làm việc.</sys:String>
+ <sys:String x:Key="GuideStep2">2. Dùng LỆNH AI CAD để tạo, sửa hoặc hỏi thông tin model.</sys:String>
+ <sys:String x:Key="GuideStep3">3. Xem KẾ HOẠCH THỰC HIỆN; dấu ✓ Đã kiểm tra nghĩa là Skill đã được xác minh.</sys:String>
+ <sys:String x:Key="GuideStep4">4. Dùng TRÌNH ĐỌC MODEL khi muốn xem nhanh dữ liệu CAD thực tế.</sys:String>
+ <sys:String x:Key="GuideStep5">5. CÔNG CỤ CAD THỦ CÔNG chỉ dùng để kiểm thử hoặc xử lý khi cần.</sys:String>
+ <sys:String x:Key="GuideExamples">Ví dụ lệnh:</sys:String>
+ <sys:String x:Key="GuideExample1">• Tạo tấm 160 x 100 x 12 mm, 2 lỗ phi 12, bo góc R8</sys:String>
+ <sys:String x:Key="GuideExample2">• Đổi kích thước D1@Sketch1 thành 70 mm</sys:String>
+ <sys:String x:Key="GuideExample3">• Vật liệu hiện tại là gì?</sys:String>
+ <sys:String x:Key="GuideExample4">• Kích thước tổng thể bao nhiêu?</sys:String>
+ <sys:String x:Key="GuideTip">Mẹo: câu lệnh càng rõ kích thước, vị trí và đối tượng thì Agent càng dễ lập kế hoạch chính xác.</sys:String>
 </ResourceDictionary>

@@ -7,6 +7,18 @@ namespace SwMateAI.Core.Planning
     {
         public static TaskPlan Build(NaturalLanguageCadCommand command)
         {
+            if (IsReadIntent(command.Intent))
+            {
+                var readPlan = new TaskPlan { Goal = "Read requested CAD model data" };
+                readPlan.Steps.Add(new PlanStep
+                {
+                    Index = 1,
+                    SkillName = command.Intent,
+                    Description = "Read data from the active SOLIDWORKS model"
+                });
+                return readPlan;
+            }
+
             if (command.Intent == SkillNames.ModifyDimension)
             {
                 var modifyPlan = new TaskPlan { Goal = "Modify requested CAD dimension" };
@@ -42,6 +54,15 @@ namespace SwMateAI.Core.Planning
                 plan.Steps.Add(step);
             }
             return plan;
+        }
+
+        private static bool IsReadIntent(string intent)
+        {
+            return intent == SkillNames.ReadFeatureTree || intent == SkillNames.ReadFeatures ||
+                   intent == SkillNames.ReadSketches || intent == SkillNames.ReadDimensions ||
+                   intent == SkillNames.ReadMaterial || intent == SkillNames.ReadMassProperties ||
+                   intent == SkillNames.ReadCustomProperties || intent == SkillNames.ReadSelectedObject ||
+                   intent == SkillNames.ReadBoundingBox;
         }
     }
 }

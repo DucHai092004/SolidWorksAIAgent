@@ -52,6 +52,7 @@ namespace SwMateAI.Core.Agent
             }
 
             int completed = 0;
+            var outputs = new System.Collections.Generic.List<object>();
             foreach (var step in plan.Steps)
             {
                 _registry.TryGet(step.SkillName, out var skill);
@@ -84,6 +85,7 @@ namespace SwMateAI.Core.Agent
                 _logger.Info($"Verified model result for step {step.Index}: {step.SkillName}.");
 
                 step.Status = PlanStepStatus.Completed;
+                outputs.Add(result.Data);
                 completed++;
 
                 // Refresh context after a successful step so the next step sees the
@@ -93,7 +95,9 @@ namespace SwMateAI.Core.Agent
 
             State.Transition(AgentStage.Completed);
             _logger.Info($"Plan completed successfully: {completed}/{plan.Steps.Count} step(s).");
-            return new ExecutionResult { IsSuccess = true, Plan = plan, CompletedSteps = completed };
+            var execution = new ExecutionResult { IsSuccess = true, Plan = plan, CompletedSteps = completed };
+            foreach (var output in outputs) execution.StepOutputs.Add(output);
+            return execution;
         }
 
         private ExecutionResult Fail(TaskPlan plan, PlanStep step, string error, int completed)

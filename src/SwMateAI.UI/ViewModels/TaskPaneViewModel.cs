@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Linq;
 using System.Windows.Input;
 using SwMateAI.Core.Agent;
 using SwMateAI.Core.Models;
@@ -266,6 +267,7 @@ namespace SwMateAI.UI.ViewModels
         {
             if (goal == "Create requested CAD part") return Tr("Tạo chi tiết CAD theo yêu cầu", goal);
             if (goal == "Modify requested CAD dimension") return Tr("Chỉnh sửa kích thước CAD theo yêu cầu", goal);
+            if (goal == "Read requested CAD model data") return Tr("Đọc dữ liệu model theo yêu cầu", goal);
             return goal;
         }
 
@@ -277,6 +279,7 @@ namespace SwMateAI.UI.ViewModels
                 case "Create base plate geometry": return "Tạo hình học tấm cơ sở";
                 case "Fillet four vertical plate edges": return "Bo 4 cạnh đứng của tấm";
                 case "Chamfer four vertical plate edges": return "Vát 4 cạnh đứng của tấm";
+                case "Read data from the active SOLIDWORKS model": return "Đọc dữ liệu từ model SOLIDWORKS đang mở";
             }
             if (step.Description.StartsWith("Set ", StringComparison.OrdinalIgnoreCase))
                 return "Đặt " + step.Description.Substring(4).Replace(" to ", " thành ");
@@ -567,7 +570,11 @@ namespace SwMateAI.UI.ViewModels
                 return;
             }
 
-            if (command.Intent == "ModifyDimension")
+            if (IsReadIntent(command.Intent))
+            {
+                AddLog($"  [PARSED] Read-model intent: {command.Intent}");
+            }
+            else if (command.Intent == "ModifyDimension")
             {
                 AddLog($"  [PARSED] Modify dimension {command.DimensionName} -> {command.DimensionValue:0.###} mm");
             }
@@ -606,13 +613,60 @@ namespace SwMateAI.UI.ViewModels
             RefreshPlanDisplay();
             AgentStageText = "Completed";
             LastRunSucceeded = true;
-            LastResultText = Tr($"Hoàn thành và đã kiểm tra {execution.CompletedSteps}/{plan.Steps.Count} skill.", $"Completed and verified {execution.CompletedSteps}/{plan.Steps.Count} skill(s).");
+            LastResultText = IsReadIntent(command.Intent)
+                ? FormatModelQueryResult(command.Intent, execution.LastData)
+                : Tr($"Hoàn thành và đã kiểm tra {execution.CompletedSteps}/{plan.Steps.Count} skill.", $"Completed and verified {execution.CompletedSteps}/{plan.Steps.Count} skill(s).");
             CommandHistory.Insert(0, $"OK • {NaturalLanguageCommand}");
             while (CommandHistory.Count > 20) CommandHistory.RemoveAt(CommandHistory.Count - 1);
             AddLog($"  [CHECK] Completed {execution.CompletedSteps}/{plan.Steps.Count} step(s). Model verification passed.");
 
             StatusText = Tr("Lệnh CAD đã hoàn thành.", "CAD command completed.");
             RefreshInfo();
+        }
+
+        private static bool IsReadIntent(string intent)
+        {
+            return intent == "ReadFeatureTree" || intent == "ReadFeatures" || intent == "ReadSketches" ||
+                   intent == "ReadDimensions" || intent == "ReadMaterial" || intent == "ReadMassProperties" ||
+                   intent == "ReadCustomProperties" || intent == "ReadSelectedObject" || intent == "ReadBoundingBox";
+        }
+
+        private string FormatModelQueryResult(string intent, object data)
+        {
+            if (intent == "ReadMaterial")
+            {
+                var value = data as string;
+                return Tr("Vật liệu: " + (string.IsNullOrWhiteSpace(value) ? "chưa được chỉ định" : value),
+                          "Material: " + (string.IsNullOrWhiteSpace(value) ? "not specified" : value));
+            }
+            if (intent == "ReadBoundingBox" && data is BoundingBoxInfo box)
+                return Tr("Kích thước tổng thể: " + box, "Overall size: " + box);
+            if (intent == "ReadMassProperties" && data is MassPropertiesInfo mass)
+                return Tr($"Khối lượng: {mass.MassKg:0.###} kg\nThể tích: {mass.VolumeMm3:0.###} mm³\nDiện tích bề mặt: {mass.SurfaceAreaMm2:0.###} mm²",
+                          $"Mass: {mass.MassKg:0.###} kg\nVolume: {mass.VolumeMm3:0.###} mm³\nSurface area: {mass.SurfaceAreaMm2:0.###} mm²");
+            if ((intent == "ReadFeatures" || intent == "ReadFeatureTree" || intent == "ReadSketches") && data is List<FeatureInfo> features)
+            {
+                string list = string.Join(", ", features.Take(12).Select(f => f.Name + " [" + f.TypeName + "]"));
+                if (features.Count > 12) list += Tr($" … và {features.Count - 12} mục khác", $" … and {features.Count - 12} more");
+                return Tr($"Tìm thấy {features.Count} mục: {list}", $"Found {features.Count} item(s): {list}");
+            }
+            if (intent == "ReadDimensions" && data is List<DimensionInfo> dimensions)
+            {
+                string list = string.Join("\n", dimensions.Take(12).Select(d => $"• {d.FullName}: {d.ValueMm:0.###} mm"));
+                return Tr($"Có {dimensions.Count} kích thước:\n{list}", $"{dimensions.Count} dimension(s):\n{list}");
+            }
+            if (intent == "ReadCustomProperties" && data is List<CustomPropertyInfo> props)
+            {
+                string list = string.Join("\n", props.Take(12).Select(x => $"• {x.Name}: {x.ResolvedValue}"));
+                return Tr($"Có {props.Count} thuộc tính tùy chỉnh:\n{list}", $"{props.Count} custom propertie(s):\n{list}");
+            }
+            if (intent == "ReadSelectedObject" && data is List<SelectedObjectInfo> selected)
+            {
+                if (selected.Count == 0) return Tr("Hiện không có đối tượng nào được chọn.", "No object is currently selected.");
+                string list = string.Join("\n", selected.Select(x => $"• {x.TypeName}: {x.Name}"));
+                return Tr($"Đang chọn {selected.Count} đối tượng:\n{list}", $"{selected.Count} selected object(s):\n{list}");
+            }
+            return Tr("Đã đọc dữ liệu model thành công.", "Model data read successfully.");
         }
 
         private void AddLog(string message)

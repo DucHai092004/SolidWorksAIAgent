@@ -36,7 +36,7 @@
  <sys:String x:Key="ActivityHistoryDescription">Recent commands and agent diagnostics</sys:String>
  <sys:String x:Key="RecentCommands">RECENT COMMANDS</sys:String>
  <sys:String x:Key="AgentConsole">AGENT CONSOLE</sys:String>
- <sys:String x:Key="FooterText">SW-MATE AI  ·  Phase 2 · Model Understanding  ·  v0.7.2</sys:String>
+ <sys:String x:Key="FooterText">SW-MATE AI  ·  Phase 2 · Model Understanding  ·  v0.8.0</sys:String>
  <sys:String x:Key="LanguageLabel">Language</sys:String>
  <sys:String x:Key="RefreshTooltip">Refresh SolidWorks context</sys:String>
  <sys:String x:Key="StatusIdle">Idle</sys:String>
@@ -46,4 +46,17 @@
  <sys:String x:Key="StatusFailed">Failed</sys:String>
  <sys:String x:Key="ResultReady">Ready for a command.</sys:String>
  <sys:String x:Key="NoInspection">No model inspection yet.</sys:String>
+ <sys:String x:Key="GuideTitle">QUICK GUIDE</sys:String>
+ <sys:String x:Key="GuideDescription">How to use SW-MATE AI effectively</sys:String>
+ <sys:String x:Key="GuideStep1">1. Open the Part/Assembly/Drawing you want to work with.</sys:String>
+ <sys:String x:Key="GuideStep2">2. Use AI CAD COMMAND to create, modify, or ask about the model.</sys:String>
+ <sys:String x:Key="GuideStep3">3. Review TASK PLAN; ✓ Verified means the Skill result was checked.</sys:String>
+ <sys:String x:Key="GuideStep4">4. Use MODEL INSPECTOR for a quick snapshot of actual CAD data.</sys:String>
+ <sys:String x:Key="GuideStep5">5. MANUAL CAD TOOLS are intended for testing and recovery.</sys:String>
+ <sys:String x:Key="GuideExamples">Example commands:</sys:String>
+ <sys:String x:Key="GuideExample1">• Create a 160 x 100 x 12 mm plate, two Ø12 holes, fillet R8</sys:String>
+ <sys:String x:Key="GuideExample2">• Change D1@Sketch1 to 70 mm</sys:String>
+ <sys:String x:Key="GuideExample3">• What is the current material?</sys:String>
+ <sys:String x:Key="GuideExample4">• What is the overall size?</sys:String>
+ <sys:String x:Key="GuideTip">Tip: clearer dimensions, positions, and target objects help the Agent build a more accurate plan.</sys:String>
 </ResourceDictionary>

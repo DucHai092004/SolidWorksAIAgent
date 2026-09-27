@@ -105,7 +105,7 @@
          <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource Muted}" FontSize="10"/>
         </StackPanel>
        </StackPanel>
-       <Button Grid.Column="1" Content="â†»" Command="{Binding RefreshInfoCommand}" Style="{StaticResource SecondaryButton}" Padding="9,5" ToolTip="{DynamicResource RefreshTooltip}"/>
+       <Button Grid.Column="1" Content="↻" Command="{Binding RefreshInfoCommand}" Style="{StaticResource SecondaryButton}" Padding="9,5" ToolTip="{DynamicResource RefreshTooltip}"/>
       </Grid>
       <Grid>
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -183,6 +183,24 @@
       </StackPanel>
      </StackPanel>
     </Border>
+    <Expander Margin="10,5" Foreground="{StaticResource Text}" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="10">
+     <Expander.Header>
+      <StackPanel><TextBlock Text="{DynamicResource GuideTitle}" FontWeight="SemiBold" FontSize="11"/><TextBlock Text="{DynamicResource GuideDescription}" Foreground="{StaticResource Muted}" FontSize="9"/></StackPanel>
+     </Expander.Header>
+     <StackPanel Margin="0,10,0,0">
+      <TextBlock Text="{DynamicResource GuideStep1}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep2}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep3}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep4}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep5}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2,0,8"/>
+      <TextBlock Text="{DynamicResource GuideExamples}" Foreground="#7DD3FC" FontSize="9" FontWeight="SemiBold" Margin="0,2,0,3"/>
+      <TextBlock Text="{DynamicResource GuideExample1}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample2}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample3}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample4}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1,0,7"/>
+      <Border Background="#0F172A" CornerRadius="5" Padding="7"><TextBlock Text="{DynamicResource GuideTip}" Foreground="#A5B4FC" FontSize="9" TextWrapping="Wrap"/></Border>
+     </StackPanel>
+    </Expander>
     <Expander Margin="10,5" Foreground="{StaticResource Text}" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="10">
      <Expander.Header>
       <StackPanel><TextBlock Text="{DynamicResource ManualToolsTitle}" FontWeight="SemiBold" FontSize="11"/><TextBlock Text="{DynamicResource ManualToolsDescription}" Foreground="{StaticResource Muted}" FontSize="9"/></StackPanel>

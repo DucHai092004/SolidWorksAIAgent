@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using SwMateAI.Core.Skills;
 
 namespace SwMateAI.Core.Agent
 {
@@ -37,6 +38,9 @@ namespace SwMateAI.Core.Agent
             if (string.IsNullOrWhiteSpace(input)) { error = "Command is empty."; return false; }
 
             if (TryModifyDimension(input, out command))
+                return true;
+
+            if (TryReadModelQuery(input, out command))
                 return true;
 
             string s = input.Trim().ToLowerInvariant()
@@ -100,6 +104,27 @@ namespace SwMateAI.Core.Agent
             return true;
         }
 
+
+        private static bool TryReadModelQuery(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            string s = input.Trim().ToLowerInvariant();
+            string intent = null;
+
+            if (Regex.IsMatch(s, @"(?:bounding\s*box|kích\s*thước\s*tổng\s*thể|kich\s*thuoc\s*tong\s*the|overall\s*size|overall\s*dimensions)") ) intent = SkillNames.ReadBoundingBox;
+            else if (Regex.IsMatch(s, @"(?:vật\s*liệu|vat\s*lieu|material)") ) intent = SkillNames.ReadMaterial;
+            else if (Regex.IsMatch(s, @"(?:khối\s*lượng|khoi\s*luong|trọng\s*lượng|trong\s*luong|mass|weight|thể\s*tích|the\s*tich|volume)") ) intent = SkillNames.ReadMassProperties;
+            else if (Regex.IsMatch(s, @"(?:custom\s*propert|thuộc\s*tính\s*tùy\s*chỉnh|thuoc\s*tinh\s*tuy\s*chinh)") ) intent = SkillNames.ReadCustomProperties;
+            else if (Regex.IsMatch(s, @"(?:đang\s*chọn\s*gì|dang\s*chon\s*gi|selected\s*object|what.*selected)") ) intent = SkillNames.ReadSelectedObject;
+            else if (Regex.IsMatch(s, @"(?:dimension|kích\s*thước\s*nào|kich\s*thuoc\s*nao|các\s*kích\s*thước|cac\s*kich\s*thuoc)") ) intent = SkillNames.ReadDimensions;
+            else if (Regex.IsMatch(s, @"(?:sketch|phác\s*thảo|phac\s*thao)") ) intent = SkillNames.ReadSketches;
+            else if (Regex.IsMatch(s, @"(?:feature\s*tree|cây\s*feature|cay\s*feature)") ) intent = SkillNames.ReadFeatureTree;
+            else if (Regex.IsMatch(s, @"(?:feature|đặc\s*trưng|dac\s*trung)") ) intent = SkillNames.ReadFeatures;
+
+            if (intent == null) return false;
+            command = new NaturalLanguageCadCommand { Intent = intent };
+            return true;
+        }
 
         private static bool TryModifyDimension(string input, out NaturalLanguageCadCommand command)
         {
