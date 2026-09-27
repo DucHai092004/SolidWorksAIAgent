@@ -29,6 +29,15 @@ namespace SwMateAI.Core.Skills
                 case "ChamferPlateCorners": Configure(m, SkillNames.CreateChamfer, "CAD.Feature", SkillRiskLevel.Medium, part: true); break;
                 case SkillNames.CreatePlate: Configure(m, SkillNames.CreatePlate, "Workflow.Composite", SkillRiskLevel.Medium, composite: true); break;
                 case SkillNames.CreatePlateWithHole: Configure(m, SkillNames.CreatePlateWithHole, "Workflow.Composite", SkillRiskLevel.Medium, composite: true); break;
+                case SkillNames.ReadFeatureTree: Configure(m, SkillNames.ReadFeatureTree, "ModelReader", SkillRiskLevel.ReadOnly, document: true); break;
+                case SkillNames.ReadFeatures: Configure(m, SkillNames.ReadFeatures, "ModelReader", SkillRiskLevel.ReadOnly, document: true); break;
+                case SkillNames.ReadSketches: Configure(m, SkillNames.ReadSketches, "ModelReader", SkillRiskLevel.ReadOnly, document: true); break;
+                case SkillNames.ReadDimensions: Configure(m, SkillNames.ReadDimensions, "ModelReader", SkillRiskLevel.ReadOnly, document: true); break;
+                case SkillNames.ReadMaterial: Configure(m, SkillNames.ReadMaterial, "ModelReader", SkillRiskLevel.ReadOnly, part: true); break;
+                case SkillNames.ReadMassProperties: Configure(m, SkillNames.ReadMassProperties, "ModelReader", SkillRiskLevel.ReadOnly, part: true); break;
+                case SkillNames.ReadCustomProperties: Configure(m, SkillNames.ReadCustomProperties, "ModelReader", SkillRiskLevel.ReadOnly, document: true); break;
+                case SkillNames.ReadSelectedObject: Configure(m, SkillNames.ReadSelectedObject, "ModelReader", SkillRiskLevel.ReadOnly, document: true); break;
+                case SkillNames.ReadBoundingBox: Configure(m, SkillNames.ReadBoundingBox, "ModelReader", SkillRiskLevel.ReadOnly, part: true); break;
                 default: m.Name = tool.Name; break;
             }
 
@@ -42,6 +51,7 @@ namespace SwMateAI.Core.Skills
             string category,
             SkillRiskLevel risk,
             bool part = false,
+            bool document = false,
             bool selection = false,
             bool composite = false)
         {
@@ -49,7 +59,7 @@ namespace SwMateAI.Core.Skills
             m.Category = category;
             m.RiskLevel = risk;
             m.RequiresPartDocument = part;
-            m.RequiresActiveDocument = part;
+            m.RequiresActiveDocument = part || document;
             m.RequiresSelection = selection;
             m.IsComposite = composite;
             m.RequiresConfirmation = false;

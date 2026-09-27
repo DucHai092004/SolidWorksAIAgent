@@ -15,5 +15,14 @@ namespace SwMateAI.Core.Skills
         public const string CreateChamfer = "CreateChamfer";
         public const string CreatePlate = "CreatePlate";
         public const string CreatePlateWithHole = "CreatePlateWithHole";
+        public const string ReadFeatureTree = "ReadFeatureTree";
+        public const string ReadFeatures = "ReadFeatures";
+        public const string ReadSketches = "ReadSketches";
+        public const string ReadDimensions = "ReadDimensions";
+        public const string ReadMaterial = "ReadMaterial";
+        public const string ReadMassProperties = "ReadMassProperties";
+        public const string ReadCustomProperties = "ReadCustomProperties";
+        public const string ReadSelectedObject = "ReadSelectedObject";
+        public const string ReadBoundingBox = "ReadBoundingBox";
     }
 }

@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using SolidWorks.Interop.sldworks;
 using SwMateAI.Core.Tools;
 using SwMateAI.Core.Tools.CAD;
+using SwMateAI.Core.Tools.ModelReader;
 using SwMateAI.Core.Common;
 using SwMateAI.Core.Planning;
 using SwMateAI.Core.Skills;
@@ -95,6 +96,17 @@ namespace SwMateAI.Core.Agent
             Register(new ChamferPlateCornersTool(_swApp));
             Register(new AddDimensionTool(_swApp));
             Register(new ModifyDimensionTool(_swApp));
+
+            // Phase 2 Model Understanding skills
+            Register(new ReadFeatureTreeTool(_swApp));
+            Register(new ReadFeaturesTool(_swApp));
+            Register(new ReadSketchesTool(_swApp));
+            Register(new ReadDimensionsTool(_swApp));
+            Register(new ReadMaterialTool(_swApp));
+            Register(new ReadMassPropertiesTool(_swApp));
+            Register(new ReadCustomPropertiesTool(_swApp));
+            Register(new ReadSelectedObjectTool(_swApp));
+            Register(new ReadBoundingBoxTool(_swApp));
         }
 
         private void Register(ISwTool tool)
