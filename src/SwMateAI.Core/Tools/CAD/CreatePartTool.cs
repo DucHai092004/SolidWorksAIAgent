@@ -54,7 +54,7 @@ namespace SwMateAI.Core.Tools.CAD
                 if (string.IsNullOrWhiteSpace(templatePath))
                     return ToolResult.Error("No default Part template is configured in SOLIDWORKS.");
 
-                var document = SwApp.NewDocument(templatePath, 0, 0, 0);
+                var document = SwApp.NewDocument(templatePath, 0, 0, 0) as IModelDoc2;
 
                 if (document == null)
                     return ToolResult.Error("SOLIDWORKS did not create the new Part document.");
