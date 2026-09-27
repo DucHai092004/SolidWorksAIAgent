@@ -388,15 +388,24 @@ namespace SwMateAI.UI.ViewModels
                 return;
             }
 
-            AddLog($"  [PARSED] {command.Intent}: {command.Width} x {command.Height} x {command.Thickness} mm, hole Ø{command.HoleDiameter} mm");
-            var result = _agentCore.ExecuteTool(command.Intent, new Dictionary<string, object>
+            AddLog(command.Intent == "CreatePlateWithHole"
+                ? $"  [PARSED] Plate {command.Width} x {command.Height} x {command.Thickness} mm, hole Ø{command.HoleDiameter} at X={command.HoleX}, Y={command.HoleY}"
+                : $"  [PARSED] Solid plate {command.Width} x {command.Height} x {command.Thickness} mm");
+
+            var toolParameters = new Dictionary<string, object>
             {
                 ["Width"] = command.Width,
                 ["Height"] = command.Height,
-                ["Thickness"] = command.Thickness,
-                ["HoleDiameter"] = command.HoleDiameter,
-                ["HoleDepth"] = command.HoleDepth
-            });
+                ["Thickness"] = command.Thickness
+            };
+            if (command.Intent == "CreatePlateWithHole")
+            {
+                toolParameters["HoleDiameter"] = command.HoleDiameter;
+                toolParameters["HoleDepth"] = command.HoleDepth;
+                toolParameters["HoleX"] = command.HoleX;
+                toolParameters["HoleY"] = command.HoleY;
+            }
+            var result = _agentCore.ExecuteTool(command.Intent, toolParameters);
             if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "CAD command failed."; return; }
             AddLog($"  [OK] {result.Data}");
             StatusText = "CAD command completed.";
