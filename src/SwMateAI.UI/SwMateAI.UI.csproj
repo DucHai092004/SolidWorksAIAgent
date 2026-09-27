@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <OutputType>Library</OutputType>
+    <AssemblyName>SwMateAI.UI</AssemblyName>
+    <RootNamespace>SwMateAI.UI</RootNamespace>
+    <LangVersion>8.0</LangVersion>
+    <Configurations>Debug;Release</Configurations>
+    <Platforms>x64</Platforms>
+  </PropertyGroup>
+
+  <!-- SwMateAI.UI has NO dependency on SOLIDWORKS API or xCAD.NET.
+       Only depends on SwMateAI.Core for ModelInfo, ToolResult, AgentCore. -->
+  <ItemGroup>
+    <ProjectReference Include="..\SwMateAI.Core\SwMateAI.Core.csproj" />
+  </ItemGroup>
+
+</Project>

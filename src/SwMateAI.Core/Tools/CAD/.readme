@@ -1,0 +1,10 @@
+// This folder is reserved for Phase 2B+ CAD tool implementations.
+// Examples: CreateSketchTool, ExtrudeTool, HoleTool, CutTool, FilletTool, etc.
+//
+// Each tool should:
+//   1. Inherit SwToolBase (not required, but recommended for CAD tools)
+//   2. Override CanExecute() to validate document type and selection state
+//   3. Implement Execute() with try/catch returning ToolResult.Success or ToolResult.Error
+//   4. Be registered in AgentCore.RegisterTools()
+//
+// Do NOT add tools here until Phase 2B is approved.

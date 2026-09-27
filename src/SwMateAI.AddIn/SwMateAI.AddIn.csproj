@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <OutputType>Library</OutputType>
+    <AssemblyName>SwMateAI.AddIn</AssemblyName>
+    <RootNamespace>SwMateAI.AddIn</RootNamespace>
+    <LangVersion>8.0</LangVersion>
+    <Configurations>Debug;Release</Configurations>
+    <Platforms>x64</Platforms>
+
+    <!--
+      Disable auto-generated AssemblyInfo.
+      Properties\AssemblyInfo.cs handles all assembly attributes manually,
+      including [assembly: ComVisible(false)] at assembly level.
+    -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <!-- xCAD.NET 0.8.3 — latest stable, supports SOLIDWORKS 2018-2024 -->
+  <ItemGroup>
+    <PackageReference Include="Xarial.XCad.SolidWorks" Version="0.8.3" />
+  </ItemGroup>
+
+  <!-- Project references: AddIn depends on both Core and UI -->
+  <ItemGroup>
+    <ProjectReference Include="..\SwMateAI.Core\SwMateAI.Core.csproj" />
+    <ProjectReference Include="..\SwMateAI.UI\SwMateAI.UI.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,199 @@
+using System;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Windows.Input;
+using SwMateAI.Core.Agent;
+using SwMateAI.Core.Models;
+
+namespace SwMateAI.UI.ViewModels
+{
+    /// <summary>
+    /// ViewModel for the SW-MATE AI Task Pane.
+    /// Coordinates between <see cref="AgentCore"/> and the WPF data bindings.
+    /// Implements MVVM pattern via <see cref="INotifyPropertyChanged"/>.
+    /// </summary>
+    public class TaskPaneViewModel : INotifyPropertyChanged
+    {
+        private readonly AgentCore _agentCore;
+
+        // ─── Backing fields ───────────────────────────────────────────────────
+
+        private bool   _isConnected;
+        private string _swVersion       = string.Empty;
+        private bool   _hasActiveDoc;
+        private string _documentType    = "None";
+        private string _documentTitle   = string.Empty;
+        private string _filePath        = string.Empty;
+        private bool   _isSaved;
+        private string _statusText      = "Connecting…";
+        private bool   _isRefreshing;
+
+        // ─── Public properties (bound to XAML) ───────────────────────────────
+
+        public bool IsConnected
+        {
+            get => _isConnected;
+            private set { _isConnected = value; OnPropertyChanged(); OnPropertyChanged(nameof(ConnectionColor)); }
+        }
+
+        public string SwVersion
+        {
+            get => _swVersion;
+            private set { _swVersion = value; OnPropertyChanged(); }
+        }
+
+        public bool HasActiveDoc
+        {
+            get => _hasActiveDoc;
+            private set { _hasActiveDoc = value; OnPropertyChanged(); }
+        }
+
+        public string DocumentType
+        {
+            get => _documentType;
+            private set { _documentType = value; OnPropertyChanged(); OnPropertyChanged(nameof(DocTypeIcon)); }
+        }
+
+        public string DocumentTitle
+        {
+            get => _documentTitle;
+            private set { _documentTitle = value; OnPropertyChanged(); }
+        }
+
+        public string FilePath
+        {
+            get => _filePath;
+            private set { _filePath = value; OnPropertyChanged(); }
+        }
+
+        public bool IsSaved
+        {
+            get => _isSaved;
+            private set { _isSaved = value; OnPropertyChanged(); }
+        }
+
+        public string StatusText
+        {
+            get => _statusText;
+            private set { _statusText = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>Green when connected, red when not.</summary>
+        public string ConnectionColor => IsConnected ? "#2ECC71" : "#E74C3C";
+
+        /// <summary>Icon character representing the document type.</summary>
+        public string DocTypeIcon
+        {
+            get
+            {
+                return DocumentType switch
+                {
+                    "Part"     => "◈",
+                    "Assembly" => "⬡",
+                    "Drawing"  => "▭",
+                    _          => "○"
+                };
+            }
+        }
+
+        public bool IsRefreshing
+        {
+            get => _isRefreshing;
+            private set { _isRefreshing = value; OnPropertyChanged(); RelayCommand.RaiseCanExecuteChanged(); }
+        }
+
+        /// <summary>Log entries shown in the agent console panel.</summary>
+        public ObservableCollection<string> ConsoleLog { get; } = new ObservableCollection<string>();
+
+        // ─── Commands ─────────────────────────────────────────────────────────
+
+        public ICommand RefreshInfoCommand { get; }
+
+        // ─── Constructor ──────────────────────────────────────────────────────
+
+        public TaskPaneViewModel(AgentCore agentCore)
+        {
+            _agentCore = agentCore ?? throw new ArgumentNullException(nameof(agentCore));
+
+            RefreshInfoCommand = new RelayCommand(
+                execute:    RefreshInfo,
+                canExecute: () => !IsRefreshing);
+        }
+
+        // ─── Actions ──────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Invokes the GetModelInfo tool and updates all bound properties.
+        /// Called on startup and when the user presses Refresh.
+        /// </summary>
+        public void RefreshInfo()
+        {
+            IsRefreshing = true;
+            AddLog("> GetModelInfo called");
+
+            try
+            {
+                var result = _agentCore.ExecuteTool("GetModelInfo");
+
+                if (!result.IsSuccess)
+                {
+                    AddLog($"  [ERR] {result.ErrorMessage}");
+                    StatusText = "Error retrieving model info.";
+                    return;
+                }
+
+                var info = result.Data as ModelInfo;
+                if (info == null)
+                {
+                    AddLog("  [ERR] Unexpected result type from GetModelInfo.");
+                    return;
+                }
+
+                // Update all bound properties
+                IsConnected   = info.IsConnected;
+                SwVersion     = info.SolidWorksVersion;
+                HasActiveDoc  = info.HasActiveDocument;
+                DocumentType  = info.DocumentType;
+                DocumentTitle = info.DocumentTitle;
+                FilePath      = info.FilePath;
+                IsSaved       = info.IsSaved;
+                StatusText    = IsConnected ? $"SOLIDWORKS {SwVersion}" : "Not connected";
+
+                AddLog($"  IsConnected   : {info.IsConnected}");
+                AddLog($"  SW Version    : {info.SolidWorksVersion}");
+                AddLog($"  Document Type : {info.DocumentType}");
+                if (info.HasActiveDocument)
+                {
+                    AddLog($"  Title         : {info.DocumentTitle}");
+                    AddLog($"  Saved         : {info.IsSaved}");
+                    if (info.IsSaved) AddLog($"  Path          : {info.FilePath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                AddLog($"  [EXCEPTION] {ex.Message}");
+                StatusText = "Unexpected error.";
+            }
+            finally
+            {
+                IsRefreshing = false;
+            }
+        }
+
+        private void AddLog(string message)
+        {
+            ConsoleLog.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
+            // Keep console manageable — cap at 200 entries
+            while (ConsoleLog.Count > 200)
+                ConsoleLog.RemoveAt(0);
+        }
+
+        // ─── INotifyPropertyChanged ───────────────────────────────────────────
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged([CallerMemberName] string propertyName = null) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+}
