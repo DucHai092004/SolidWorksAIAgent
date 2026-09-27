@@ -70,7 +70,9 @@ namespace SwMateAI.Core.Tools.CAD
                 if (boss == null) return ToolResult.Error("Could not create the plate extrusion.");
 
                 // 2) Select the largest planar face of the resulting body.
-                object[] bodies = model.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[];
+                var part = model as IPartDoc;
+                if (part == null) return ToolResult.Error("The active document is not a valid Part document.");
+                object[] bodies = part.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[];
                 if (bodies == null || bodies.Length == 0) return ToolResult.Error("No solid body was found after extrusion.");
 
                 IFace2 bestFace = null;
@@ -83,7 +85,9 @@ namespace SwMateAI.Core.Tools.CAD
                     foreach (object faceObj in faces)
                     {
                         var face = faceObj as IFace2;
-                        if (face == null || face.GetSurface() == null || !face.GetSurface().IsPlane()) continue;
+                        if (face == null) continue;
+                        var surface = face.GetSurface() as ISurface;
+                        if (surface == null || !surface.IsPlane()) continue;
                         double area = face.GetArea();
                         if (area > bestArea) { bestArea = area; bestFace = face; }
                     }
@@ -91,7 +95,9 @@ namespace SwMateAI.Core.Tools.CAD
                 if (bestFace == null) return ToolResult.Error("Could not find a planar face for the hole sketch.");
 
                 model.ClearSelection2(true);
-                if (!bestFace.Select(false)) return ToolResult.Error("Could not select the plate face.");
+                var faceEntity = bestFace as IEntity;
+                if (faceEntity == null || !faceEntity.Select4(false, null))
+                    return ToolResult.Error("Could not select the plate face.");
                 model.SketchManager.InsertSketch(true);
                 if (model.SketchManager.ActiveSketch == null) return ToolResult.Error("Could not create the hole sketch.");
 
