@@ -276,6 +276,11 @@
                         <Button Content="+  Create New Part"
                                 Command="{Binding CreatePartCommand}"
                                 Style="{StaticResource RefreshButton}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,6"/>
+                        <Button Content="✎  Create Sketch"
+                                Command="{Binding CreateSketchCommand}"
+                                Style="{StaticResource RefreshButton}"
                                 HorizontalAlignment="Stretch"/>
                     </StackPanel>
                 </Border>
