@@ -354,6 +354,33 @@
                     </StackPanel>
                 </Border>
 
+                <!-- ── One-click CAD workflow ─────────────────────── -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="AUTO WORKFLOW" Style="{StaticResource SectionLabel}"/>
+                        <TextBlock Text="Plate with centered hole" Style="{StaticResource ValueLabel}" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/><ColumnDefinition Width="5"/>
+                                <ColumnDefinition Width="*"/><ColumnDefinition Width="5"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0"><TextBlock Text="Width" Style="{StaticResource SectionLabel}"/><TextBox Text="{Binding PlateWidth, UpdateSourceTrigger=PropertyChanged}" Padding="4"/></StackPanel>
+                            <StackPanel Grid.Column="2"><TextBlock Text="Height" Style="{StaticResource SectionLabel}"/><TextBox Text="{Binding PlateHeight, UpdateSourceTrigger=PropertyChanged}" Padding="4"/></StackPanel>
+                            <StackPanel Grid.Column="4"><TextBlock Text="Thick." Style="{StaticResource SectionLabel}"/><TextBox Text="{Binding PlateThickness, UpdateSourceTrigger=PropertyChanged}" Padding="4"/></StackPanel>
+                        </Grid>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0"><TextBlock Text="Hole Ø" Style="{StaticResource SectionLabel}"/><TextBox Text="{Binding PlateHoleDiameter, UpdateSourceTrigger=PropertyChanged}" Padding="4"/></StackPanel>
+                            <StackPanel Grid.Column="2"><TextBlock Text="Hole Depth" Style="{StaticResource SectionLabel}"/><TextBox Text="{Binding PlateHoleDepth, UpdateSourceTrigger=PropertyChanged}" Padding="4"/></StackPanel>
+                        </Grid>
+                        <Button Content="⚡  AUTO CREATE PLATE + HOLE"
+                                Command="{Binding CreatePlateWithHoleCommand}"
+                                Style="{StaticResource RefreshButton}"
+                                HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- ── Agent Console Card ─────────────────────────── -->
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
@@ -383,7 +410,7 @@
                 </Border>
 
                 <!-- ── Version footer ────────────────────────────── -->
-                <TextBlock Text="SW-MATE AI  ·  Phase 2C  ·  v0.3.0"
+                <TextBlock Text="SW-MATE AI  ·  Phase 2C  ·  v0.3.1"
                            HorizontalAlignment="Center"
                            Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="9"
