@@ -109,6 +109,7 @@ namespace SwMateAI.UI.ViewModels
         // ─── Commands ─────────────────────────────────────────────────────────
 
         public ICommand RefreshInfoCommand { get; }
+        public ICommand CreatePartCommand { get; }
 
         // ─── Constructor ──────────────────────────────────────────────────────
 
@@ -118,6 +119,10 @@ namespace SwMateAI.UI.ViewModels
 
             RefreshInfoCommand = new RelayCommand(
                 execute:    RefreshInfo,
+                canExecute: () => !IsRefreshing);
+
+            CreatePartCommand = new RelayCommand(
+                execute:    CreatePart,
                 canExecute: () => !IsRefreshing);
         }
 
@@ -178,6 +183,32 @@ namespace SwMateAI.UI.ViewModels
             finally
             {
                 IsRefreshing = false;
+            }
+        }
+
+        private void CreatePart()
+        {
+            AddLog("> CreatePart called");
+
+            try
+            {
+                var result = _agentCore.ExecuteTool("CreatePart");
+
+                if (!result.IsSuccess)
+                {
+                    AddLog($"  [ERR] {result.ErrorMessage}");
+                    StatusText = "Failed to create Part.";
+                    return;
+                }
+
+                AddLog($"  [OK] {result.Data}");
+                StatusText = "New Part created.";
+                RefreshInfo();
+            }
+            catch (Exception ex)
+            {
+                AddLog($"  [EXCEPTION] {ex.Message}");
+                StatusText = "Unexpected error creating Part.";
             }
         }
 
