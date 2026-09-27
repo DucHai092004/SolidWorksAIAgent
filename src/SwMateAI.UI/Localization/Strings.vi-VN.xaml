@@ -36,7 +36,7 @@
  <sys:String x:Key="ActivityHistoryDescription">Lệnh gần đây và chẩn đoán Agent</sys:String>
  <sys:String x:Key="RecentCommands">LỆNH GẦN ĐÂY</sys:String>
  <sys:String x:Key="AgentConsole">BẢNG ĐIỀU KHIỂN AGENT</sys:String>
- <sys:String x:Key="FooterText">SW-MATE AI  ·  Phase 2 Model Understanding  ·  v0.7.1</sys:String>
+ <sys:String x:Key="FooterText">SW-MATE AI  ·  Giai đoạn 2 · Hiểu Model  ·  v0.7.2</sys:String>
  <sys:String x:Key="LanguageLabel">Ngôn ngữ</sys:String>
  <sys:String x:Key="RefreshTooltip">Làm mới ngữ cảnh SolidWorks</sys:String>
  <sys:String x:Key="StatusIdle">Sẵn sàng</sys:String>

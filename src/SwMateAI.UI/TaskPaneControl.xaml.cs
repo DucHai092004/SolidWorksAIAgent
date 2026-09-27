@@ -11,13 +11,17 @@ namespace SwMateAI.UI
     /// </summary>
     public partial class TaskPaneControl : UserControl
     {
+        private bool _isInitialized;
+
         public TaskPaneControl()
         {
             InitializeComponent();
+            _isInitialized = true;
         }
 
         private void LanguageCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (!_isInitialized) return;
             if (!(LanguageCombo?.SelectedItem is ComboBoxItem item)) return;
 
             var languageCode = item.Tag as string ?? "vi-VN";
@@ -29,7 +33,9 @@ namespace SwMateAI.UI
 
         private void ApplyLanguage(string languageCode)
         {
-            var source = new Uri($"Localization/Strings.{languageCode}.xaml", UriKind.Relative);
+            var source = new Uri(
+                $"/SwMateAI.UI;component/Localization/Strings.{languageCode}.xaml",
+                UriKind.Relative);
             var dictionary = new ResourceDictionary { Source = source };
 
             if (Resources.MergedDictionaries.Count == 0)

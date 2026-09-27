@@ -36,7 +36,7 @@
  <sys:String x:Key="ActivityHistoryDescription">Recent commands and agent diagnostics</sys:String>
  <sys:String x:Key="RecentCommands">RECENT COMMANDS</sys:String>
  <sys:String x:Key="AgentConsole">AGENT CONSOLE</sys:String>
- <sys:String x:Key="FooterText">SW-MATE AI  ·  Phase 2 Model Understanding  ·  v0.7.1</sys:String>
+ <sys:String x:Key="FooterText">SW-MATE AI  ·  Phase 2 · Model Understanding  ·  v0.7.2</sys:String>
  <sys:String x:Key="LanguageLabel">Language</sys:String>
  <sys:String x:Key="RefreshTooltip">Refresh SolidWorks context</sys:String>
  <sys:String x:Key="StatusIdle">Idle</sys:String>

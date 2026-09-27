@@ -8,7 +8,7 @@
  <UserControl.Resources>
   <ResourceDictionary>
    <ResourceDictionary.MergedDictionaries>
-   <ResourceDictionary Source="Localization/Strings.vi-VN.xaml"/>
+   <ResourceDictionary Source="/SwMateAI.UI;component/Localization/Strings.vi-VN.xaml"/>
   </ResourceDictionary.MergedDictionaries>
   <SolidColorBrush x:Key="Bg" Color="#0B1220"/>
   <SolidColorBrush x:Key="Surface" Color="#111C2E"/>
@@ -105,7 +105,7 @@
          <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource Muted}" FontSize="10"/>
         </StackPanel>
        </StackPanel>
-       <Button Grid.Column="1" Content="↻" Command="{Binding RefreshInfoCommand}" Style="{StaticResource SecondaryButton}" Padding="9,5" ToolTip="{DynamicResource RefreshTooltip}"/>
+       <Button Grid.Column="1" Content="â†»" Command="{Binding RefreshInfoCommand}" Style="{StaticResource SecondaryButton}" Padding="9,5" ToolTip="{DynamicResource RefreshTooltip}"/>
       </Grid>
       <Grid>
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
