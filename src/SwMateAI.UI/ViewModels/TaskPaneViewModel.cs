@@ -110,6 +110,7 @@ namespace SwMateAI.UI.ViewModels
 
         public ICommand RefreshInfoCommand { get; }
         public ICommand CreatePartCommand { get; }
+        public ICommand CreateSketchCommand { get; }
 
         // ─── Constructor ──────────────────────────────────────────────────────
 
@@ -123,6 +124,10 @@ namespace SwMateAI.UI.ViewModels
 
             CreatePartCommand = new RelayCommand(
                 execute:    CreatePart,
+                canExecute: () => !IsRefreshing);
+
+            CreateSketchCommand = new RelayCommand(
+                execute:    CreateSketch,
                 canExecute: () => !IsRefreshing);
         }
 
@@ -209,6 +214,32 @@ namespace SwMateAI.UI.ViewModels
             {
                 AddLog($"  [EXCEPTION] {ex.Message}");
                 StatusText = "Unexpected error creating Part.";
+            }
+        }
+
+        private void CreateSketch()
+        {
+            AddLog("> CreateSketch called");
+
+            try
+            {
+                var result = _agentCore.ExecuteTool("CreateSketch");
+
+                if (!result.IsSuccess)
+                {
+                    AddLog($"  [ERR] {result.ErrorMessage}");
+                    StatusText = "Failed to create Sketch.";
+                    return;
+                }
+
+                AddLog($"  [OK] {result.Data}");
+                StatusText = "New Sketch created.";
+                RefreshInfo();
+            }
+            catch (Exception ex)
+            {
+                AddLog($"  [EXCEPTION] {ex.Message}");
+                StatusText = "Unexpected error creating Sketch.";
             }
         }
 
