@@ -313,6 +313,43 @@
                         <Button Content="⬆  Extrude"
                                 Command="{Binding ExtrudeCommand}"
                                 Style="{StaticResource RefreshButton}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,10"/>
+
+                        <TextBlock Text="HOLE / CUT (mm)" Style="{StaticResource SectionLabel}"/>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="6"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="6"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Diameter" Style="{StaticResource SectionLabel}"/>
+                                <TextBox Text="{Binding CircleDiameter, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="X" Style="{StaticResource SectionLabel}"/>
+                                <TextBox Text="{Binding CircleX, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="Y" Style="{StaticResource SectionLabel}"/>
+                                <TextBox Text="{Binding CircleY, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+                            </StackPanel>
+                        </Grid>
+                        <Button Content="○  Create Circle"
+                                Command="{Binding CreateCircleCommand}"
+                                Style="{StaticResource RefreshButton}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,6"/>
+                        <StackPanel Margin="0,0,0,6">
+                            <TextBlock Text="Cut Depth" Style="{StaticResource SectionLabel}"/>
+                            <TextBox Text="{Binding CutDepth, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+                        </StackPanel>
+                        <Button Content="✂  Cut Extrude"
+                                Command="{Binding CutExtrudeCommand}"
+                                Style="{StaticResource RefreshButton}"
                                 HorizontalAlignment="Stretch"/>
                     </StackPanel>
                 </Border>
@@ -346,7 +383,7 @@
                 </Border>
 
                 <!-- ── Version footer ────────────────────────────── -->
-                <TextBlock Text="SW-MATE AI  ·  Phase 2B  ·  v0.2.0"
+                <TextBlock Text="SW-MATE AI  ·  Phase 2C  ·  v0.3.0"
                            HorizontalAlignment="Center"
                            Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="9"
