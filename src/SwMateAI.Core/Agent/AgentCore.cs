@@ -74,6 +74,8 @@ namespace SwMateAI.Core.Agent
             Register(new CutExtrudeTool(_swApp));
             Register(new CreatePlateWithHoleTool(_swApp));
             Register(new CreatePlateTool(_swApp));
+            Register(new FilletPlateCornersTool(_swApp));
+            Register(new ChamferPlateCornersTool(_swApp));
         }
 
         private void Register(ISwTool tool)

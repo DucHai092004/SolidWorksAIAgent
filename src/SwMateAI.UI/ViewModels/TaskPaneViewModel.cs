@@ -388,9 +388,10 @@ namespace SwMateAI.UI.ViewModels
                 return;
             }
 
-            AddLog(command.Intent == "CreatePlateWithHole"
-                ? $"  [PARSED] Plate {command.Width} x {command.Height} x {command.Thickness} mm, hole Ø{command.HoleDiameter} at X={command.HoleX}, Y={command.HoleY}"
-                : $"  [PARSED] Solid plate {command.Width} x {command.Height} x {command.Thickness} mm");
+            string holesInfo = command.Holes.Count > 0 ? $"{command.Holes.Count} hole(s)" : "no holes";
+            string cornerInfo = command.FilletRadius > 0 ? $", fillet R{command.FilletRadius}" :
+                                command.ChamferDistance > 0 ? $", chamfer {command.ChamferDistance} mm" : string.Empty;
+            AddLog($"  [PARSED] Plate {command.Width} x {command.Height} x {command.Thickness} mm, {holesInfo}{cornerInfo}");
 
             var toolParameters = new Dictionary<string, object>
             {
@@ -398,16 +399,29 @@ namespace SwMateAI.UI.ViewModels
                 ["Height"] = command.Height,
                 ["Thickness"] = command.Thickness
             };
-            if (command.Intent == "CreatePlateWithHole")
+            if (command.Holes.Count > 0)
             {
-                toolParameters["HoleDiameter"] = command.HoleDiameter;
-                toolParameters["HoleDepth"] = command.HoleDepth;
-                toolParameters["HoleX"] = command.HoleX;
-                toolParameters["HoleY"] = command.HoleY;
+                toolParameters["Holes"] = command.Holes;
+                toolParameters["HoleDepth"] = command.Thickness;
             }
+
             var result = _agentCore.ExecuteTool(command.Intent, toolParameters);
             if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "CAD command failed."; return; }
             AddLog($"  [OK] {result.Data}");
+
+            if (command.FilletRadius > 0)
+            {
+                var fillet = _agentCore.ExecuteTool("FilletPlateCorners", new Dictionary<string, object> { ["Radius"] = command.FilletRadius });
+                if (!fillet.IsSuccess) { AddLog($"  [ERR] Base created, fillet failed: {fillet.ErrorMessage}"); StatusText = "Part created; fillet failed."; return; }
+                AddLog($"  [OK] {fillet.Data}");
+            }
+            else if (command.ChamferDistance > 0)
+            {
+                var chamfer = _agentCore.ExecuteTool("ChamferPlateCorners", new Dictionary<string, object> { ["Distance"] = command.ChamferDistance });
+                if (!chamfer.IsSuccess) { AddLog($"  [ERR] Base created, chamfer failed: {chamfer.ErrorMessage}"); StatusText = "Part created; chamfer failed."; return; }
+                AddLog($"  [OK] {chamfer.Data}");
+            }
+
             StatusText = "CAD command completed.";
             RefreshInfo();
         }
