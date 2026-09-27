@@ -43,6 +43,13 @@ namespace SwMateAI.UI.ViewModels
         private string _plateHoleDiameter = "10";
         private string _plateHoleDepth = "10";
         private string _naturalLanguageCommand = "Tạo tấm 120 x 80 x 15 mm, lỗ phi 12 ở giữa";
+        private string _planGoal = "No active plan";
+        private string _lastResultText = "Ready for a command.";
+        private string _agentStageText = "Idle";
+        private string _activeConfiguration = "—";
+        private string _selectionSummary = "0 selected";
+        private bool _hasPlan;
+        private bool _lastRunSucceeded;
 
         // ─── Public properties (bound to XAML) ───────────────────────────────
 
@@ -125,6 +132,15 @@ namespace SwMateAI.UI.ViewModels
         public string PlateHoleDiameter { get => _plateHoleDiameter; set { _plateHoleDiameter = value; OnPropertyChanged(); } }
         public string PlateHoleDepth { get => _plateHoleDepth; set { _plateHoleDepth = value; OnPropertyChanged(); } }
         public string NaturalLanguageCommand { get => _naturalLanguageCommand; set { _naturalLanguageCommand = value; OnPropertyChanged(); } }
+        public string PlanGoal { get => _planGoal; private set { _planGoal = value; OnPropertyChanged(); } }
+        public string LastResultText { get => _lastResultText; private set { _lastResultText = value; OnPropertyChanged(); } }
+        public string AgentStageText { get => _agentStageText; private set { _agentStageText = value; OnPropertyChanged(); OnPropertyChanged(nameof(AgentStageColor)); } }
+        public string ActiveConfiguration { get => _activeConfiguration; private set { _activeConfiguration = value; OnPropertyChanged(); } }
+        public string SelectionSummary { get => _selectionSummary; private set { _selectionSummary = value; OnPropertyChanged(); } }
+        public bool HasPlan { get => _hasPlan; private set { _hasPlan = value; OnPropertyChanged(); } }
+        public bool LastRunSucceeded { get => _lastRunSucceeded; private set { _lastRunSucceeded = value; OnPropertyChanged(); OnPropertyChanged(nameof(ResultColor)); } }
+        public string AgentStageColor => AgentStageText == "Failed" ? "#EF4444" : AgentStageText == "Completed" ? "#22C55E" : "#38BDF8";
+        public string ResultColor => LastRunSucceeded ? "#22C55E" : "#94A3B8";
 
         public bool IsRefreshing
         {
@@ -134,6 +150,8 @@ namespace SwMateAI.UI.ViewModels
 
         /// <summary>Log entries shown in the agent console panel.</summary>
         public ObservableCollection<string> ConsoleLog { get; } = new ObservableCollection<string>();
+        public ObservableCollection<PlanStep> CurrentPlanSteps { get; } = new ObservableCollection<PlanStep>();
+        public ObservableCollection<string> CommandHistory { get; } = new ObservableCollection<string>();
 
         // ─── Commands ─────────────────────────────────────────────────────────
 
@@ -240,7 +258,9 @@ namespace SwMateAI.UI.ViewModels
                 }
 
                 var context = _agentCore.ObserveContext();
-                AddLog($"  Active Config : {context.ActiveConfiguration}");
+                ActiveConfiguration = string.IsNullOrWhiteSpace(context.ActiveConfiguration) ? "—" : context.ActiveConfiguration;
+                SelectionSummary = $"{context.SelectedObjectCount} selected";
+                AddLog($"  Active Config : {ActiveConfiguration}");
                 AddLog($"  Selection     : {context.SelectedObjectCount} object(s)");
             }
             catch (Exception ex)
@@ -399,18 +419,36 @@ namespace SwMateAI.UI.ViewModels
             AddLog($"  [PARSED] Plate {command.Width} x {command.Height} x {command.Thickness} mm, {holesInfo}{cornerInfo}");
 
             var plan = BasicCadPlanner.Build(command);
+            PlanGoal = plan.Goal;
+            HasPlan = true;
+            CurrentPlanSteps.Clear();
+            foreach (var step in plan.Steps) CurrentPlanSteps.Add(step);
+            AgentStageText = "Planning";
+            LastResultText = "Plan ready. Executing skills...";
+            LastRunSucceeded = false;
             AddLog($"  [PLAN] {plan.Goal}");
-            foreach (var step in plan.Steps)
-                AddLog($"    {step.Index}. {step.SkillName} - {step.Description}");
+            foreach (var step in plan.Steps) AddLog($"    {step.Index}. {step.SkillName} - {step.Description}");
 
             _agentCore.State.CurrentRequest = NaturalLanguageCommand;
+            AgentStageText = "Executing";
             var execution = _agentCore.ExecutePlan(plan);
             if (!execution.IsSuccess)
             {
+                CurrentPlanSteps.Clear(); foreach (var step in plan.Steps) CurrentPlanSteps.Add(step);
+                AgentStageText = "Failed";
+                LastResultText = execution.Error;
+                LastRunSucceeded = false;
+                CommandHistory.Insert(0, $"FAIL • {NaturalLanguageCommand}");
                 AddLog($"  [AGENT ERR] {execution.Error}");
                 StatusText = "Agent plan failed.";
                 return;
             }
+            CurrentPlanSteps.Clear(); foreach (var step in plan.Steps) CurrentPlanSteps.Add(step);
+            AgentStageText = "Completed";
+            LastRunSucceeded = true;
+            LastResultText = $"Completed {execution.CompletedSteps}/{plan.Steps.Count} skill(s) successfully.";
+            CommandHistory.Insert(0, $"OK • {NaturalLanguageCommand}");
+            while (CommandHistory.Count > 20) CommandHistory.RemoveAt(CommandHistory.Count - 1);
             AddLog($"  [CHECK] Completed {execution.CompletedSteps}/{plan.Steps.Count} step(s).");
 
             StatusText = "CAD command completed.";
