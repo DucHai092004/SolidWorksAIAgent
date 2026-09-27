@@ -58,9 +58,12 @@ namespace SwMateAI.Core.Agent
             double d = Number(hole.Groups["d"].Value);
             if (d <= 0 || d >= Math.Min(w, h)) { error = "Hole diameter is invalid for this plate."; return false; }
 
+            // Coordinates are accepted only with an explicit ':' or '='.
+            // This prevents the 'x' dimension separator in "150 x 100" from being read as X=100.
             double x = 0, y = 0;
-            var mx = Regex.Match(s, @"(?:\bx|tọa\s*độ\s*x|toa\s*do\s*x)\s*[:=]?\s*(?<v>-?\d+(?:[\.,]\d+)?)");
-            var my = Regex.Match(s, @"(?:\by|tọa\s*độ\s*y|toa\s*do\s*y)\s*[:=]?\s*(?<v>-?\d+(?:[\.,]\d+)?)");
+            string coordinateText = s.Substring(hole.Index + hole.Length);
+            var mx = Regex.Match(coordinateText, @"(?:tọa\s*độ\s*|toa\s*do\s*)?\bx\s*[:=]\s*(?<v>-?\d+(?:[\.,]\d+)?)");
+            var my = Regex.Match(coordinateText, @"(?:tọa\s*độ\s*|toa\s*do\s*)?\by\s*[:=]\s*(?<v>-?\d+(?:[\.,]\d+)?)");
             if (mx.Success) x = Number(mx.Groups["v"].Value);
             if (my.Success) y = Number(my.Groups["v"].Value);
 
