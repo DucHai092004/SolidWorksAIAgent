@@ -36,6 +36,11 @@ namespace SwMateAI.UI.ViewModels
         private string _circleX = "0";
         private string _circleY = "0";
         private string _cutDepth = "10";
+        private string _plateWidth = "100";
+        private string _plateHeight = "60";
+        private string _plateThickness = "10";
+        private string _plateHoleDiameter = "10";
+        private string _plateHoleDepth = "10";
 
         // ─── Public properties (bound to XAML) ───────────────────────────────
 
@@ -112,6 +117,11 @@ namespace SwMateAI.UI.ViewModels
         public string CircleX { get => _circleX; set { _circleX = value; OnPropertyChanged(); } }
         public string CircleY { get => _circleY; set { _circleY = value; OnPropertyChanged(); } }
         public string CutDepth { get => _cutDepth; set { _cutDepth = value; OnPropertyChanged(); } }
+        public string PlateWidth { get => _plateWidth; set { _plateWidth = value; OnPropertyChanged(); } }
+        public string PlateHeight { get => _plateHeight; set { _plateHeight = value; OnPropertyChanged(); } }
+        public string PlateThickness { get => _plateThickness; set { _plateThickness = value; OnPropertyChanged(); } }
+        public string PlateHoleDiameter { get => _plateHoleDiameter; set { _plateHoleDiameter = value; OnPropertyChanged(); } }
+        public string PlateHoleDepth { get => _plateHoleDepth; set { _plateHoleDepth = value; OnPropertyChanged(); } }
 
         public bool IsRefreshing
         {
@@ -131,6 +141,7 @@ namespace SwMateAI.UI.ViewModels
         public ICommand ExtrudeCommand { get; }
         public ICommand CreateCircleCommand { get; }
         public ICommand CutExtrudeCommand { get; }
+        public ICommand CreatePlateWithHoleCommand { get; }
 
         // ─── Constructor ──────────────────────────────────────────────────────
 
@@ -164,6 +175,10 @@ namespace SwMateAI.UI.ViewModels
 
             CutExtrudeCommand = new RelayCommand(
                 execute:    CutExtrude,
+                canExecute: () => !IsRefreshing);
+
+            CreatePlateWithHoleCommand = new RelayCommand(
+                execute:    CreatePlateWithHole,
                 canExecute: () => !IsRefreshing);
         }
 
@@ -335,6 +350,25 @@ namespace SwMateAI.UI.ViewModels
                 AddLog($"  [OK] {result.Data}"); StatusText = "Cut-Extrude created."; RefreshInfo();
             }
             catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected cut error."; }
+        }
+
+        private void CreatePlateWithHole()
+        {
+            AddLog($"> AUTO PlateWithHole ({PlateWidth} x {PlateHeight} x {PlateThickness}, Ø{PlateHoleDiameter})");
+            try
+            {
+                var result = _agentCore.ExecuteTool("CreatePlateWithHole", new Dictionary<string, object>
+                {
+                    ["Width"] = PlateWidth,
+                    ["Height"] = PlateHeight,
+                    ["Thickness"] = PlateThickness,
+                    ["HoleDiameter"] = PlateHoleDiameter,
+                    ["HoleDepth"] = PlateHoleDepth
+                });
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Auto workflow failed."; return; }
+                AddLog($"  [OK] {result.Data}"); StatusText = "Plate with hole created automatically."; RefreshInfo();
+            }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected auto workflow error."; }
         }
 
         private void AddLog(string message)
