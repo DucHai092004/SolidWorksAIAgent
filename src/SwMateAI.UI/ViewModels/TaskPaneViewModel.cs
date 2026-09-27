@@ -41,6 +41,7 @@ namespace SwMateAI.UI.ViewModels
         private string _plateThickness = "10";
         private string _plateHoleDiameter = "10";
         private string _plateHoleDepth = "10";
+        private string _naturalLanguageCommand = "Tạo tấm 120 x 80 x 15 mm, lỗ phi 12 ở giữa";
 
         // ─── Public properties (bound to XAML) ───────────────────────────────
 
@@ -122,6 +123,7 @@ namespace SwMateAI.UI.ViewModels
         public string PlateThickness { get => _plateThickness; set { _plateThickness = value; OnPropertyChanged(); } }
         public string PlateHoleDiameter { get => _plateHoleDiameter; set { _plateHoleDiameter = value; OnPropertyChanged(); } }
         public string PlateHoleDepth { get => _plateHoleDepth; set { _plateHoleDepth = value; OnPropertyChanged(); } }
+        public string NaturalLanguageCommand { get => _naturalLanguageCommand; set { _naturalLanguageCommand = value; OnPropertyChanged(); } }
 
         public bool IsRefreshing
         {
@@ -142,6 +144,7 @@ namespace SwMateAI.UI.ViewModels
         public ICommand CreateCircleCommand { get; }
         public ICommand CutExtrudeCommand { get; }
         public ICommand CreatePlateWithHoleCommand { get; }
+        public ICommand ExecuteNaturalLanguageCommand { get; }
 
         // ─── Constructor ──────────────────────────────────────────────────────
 
@@ -179,6 +182,10 @@ namespace SwMateAI.UI.ViewModels
 
             CreatePlateWithHoleCommand = new RelayCommand(
                 execute:    CreatePlateWithHole,
+                canExecute: () => !IsRefreshing);
+
+            ExecuteNaturalLanguageCommand = new RelayCommand(
+                execute:    ExecuteNaturalLanguage,
                 canExecute: () => !IsRefreshing);
         }
 
@@ -369,6 +376,31 @@ namespace SwMateAI.UI.ViewModels
                 AddLog($"  [OK] {result.Data}"); StatusText = "Plate with hole created automatically."; RefreshInfo();
             }
             catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected auto workflow error."; }
+        }
+
+        private void ExecuteNaturalLanguage()
+        {
+            AddLog($"> COMMAND: {NaturalLanguageCommand}");
+            if (!NaturalLanguageCadParser.TryParse(NaturalLanguageCommand, out var command, out var parseError))
+            {
+                AddLog($"  [PARSE ERR] {parseError}");
+                StatusText = "Could not understand CAD command.";
+                return;
+            }
+
+            AddLog($"  [PARSED] {command.Intent}: {command.Width} x {command.Height} x {command.Thickness} mm, hole Ø{command.HoleDiameter} mm");
+            var result = _agentCore.ExecuteTool(command.Intent, new Dictionary<string, object>
+            {
+                ["Width"] = command.Width,
+                ["Height"] = command.Height,
+                ["Thickness"] = command.Thickness,
+                ["HoleDiameter"] = command.HoleDiameter,
+                ["HoleDepth"] = command.HoleDepth
+            });
+            if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "CAD command failed."; return; }
+            AddLog($"  [OK] {result.Data}");
+            StatusText = "CAD command completed.";
+            RefreshInfo();
         }
 
         private void AddLog(string message)
