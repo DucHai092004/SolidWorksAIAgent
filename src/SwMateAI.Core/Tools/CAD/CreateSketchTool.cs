@@ -56,9 +56,9 @@ namespace SwMateAI.Core.Tools.CAD
                 if (model == null)
                     return ToolResult.Error("No active SOLIDWORKS document.");
 
-                IFeature plane = model.FirstFeature();
+                IFeature plane = model.FirstFeature() as IFeature;
                 while (plane != null && plane.GetTypeName2() != "RefPlane")
-                    plane = plane.GetNextFeature();
+                    plane = plane.GetNextFeature() as IFeature;
 
                 if (plane == null)
                     return ToolResult.Error("No reference plane was found in the active Part.");
