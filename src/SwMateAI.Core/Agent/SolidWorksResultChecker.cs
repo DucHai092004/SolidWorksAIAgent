@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
@@ -113,7 +113,9 @@ namespace SwMateAI.Core.Agent
                    skillName == "CreatePlate" ||
                    skillName == "CreatePlateWithHole" ||
                    skillName == "FilletPlateCorners" ||
-                   skillName == "ChamferPlateCorners";
+                   skillName == "ChamferPlateCorners" ||
+                   skillName == "AddDimension" ||
+                   skillName == "ModifyDimension";
         }
 
         private static bool RequiresFeatureGrowth(string skillName)
@@ -143,4 +145,3 @@ namespace SwMateAI.Core.Agent
         }
     }
 }
-

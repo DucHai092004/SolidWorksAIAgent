@@ -92,6 +92,8 @@ namespace SwMateAI.Core.Agent
             Register(new CreatePlateTool(_swApp));
             Register(new FilletPlateCornersTool(_swApp));
             Register(new ChamferPlateCornersTool(_swApp));
+            Register(new AddDimensionTool(_swApp));
+            Register(new ModifyDimensionTool(_swApp));
         }
 
         private void Register(ISwTool tool)

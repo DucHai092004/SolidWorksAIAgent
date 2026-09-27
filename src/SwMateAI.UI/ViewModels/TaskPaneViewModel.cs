@@ -50,6 +50,8 @@ namespace SwMateAI.UI.ViewModels
         private string _selectionSummary = "0 selected";
         private bool _hasPlan;
         private bool _lastRunSucceeded;
+        private string _dimensionName = string.Empty;
+        private string _dimensionValue = "20";
 
         // ─── Public properties (bound to XAML) ───────────────────────────────
 
@@ -131,6 +133,8 @@ namespace SwMateAI.UI.ViewModels
         public string PlateThickness { get => _plateThickness; set { _plateThickness = value; OnPropertyChanged(); } }
         public string PlateHoleDiameter { get => _plateHoleDiameter; set { _plateHoleDiameter = value; OnPropertyChanged(); } }
         public string PlateHoleDepth { get => _plateHoleDepth; set { _plateHoleDepth = value; OnPropertyChanged(); } }
+        public string DimensionName { get => _dimensionName; set { _dimensionName = value; OnPropertyChanged(); } }
+        public string DimensionValue { get => _dimensionValue; set { _dimensionValue = value; OnPropertyChanged(); } }
         public string NaturalLanguageCommand { get => _naturalLanguageCommand; set { _naturalLanguageCommand = value; OnPropertyChanged(); } }
         public string PlanGoal { get => _planGoal; private set { _planGoal = value; OnPropertyChanged(); } }
         public string LastResultText { get => _lastResultText; private set { _lastResultText = value; OnPropertyChanged(); } }
@@ -164,6 +168,8 @@ namespace SwMateAI.UI.ViewModels
         public ICommand CutExtrudeCommand { get; }
         public ICommand CreatePlateWithHoleCommand { get; }
         public ICommand ExecuteNaturalLanguageCommand { get; }
+        public ICommand AddDimensionCommand { get; }
+        public ICommand ModifyDimensionCommand { get; }
 
         // ─── Constructor ──────────────────────────────────────────────────────
 
@@ -205,6 +211,14 @@ namespace SwMateAI.UI.ViewModels
 
             ExecuteNaturalLanguageCommand = new RelayCommand(
                 execute:    ExecuteNaturalLanguage,
+                canExecute: () => !IsRefreshing);
+
+            AddDimensionCommand = new RelayCommand(
+                execute:    AddDimension,
+                canExecute: () => !IsRefreshing);
+
+            ModifyDimensionCommand = new RelayCommand(
+                execute:    ModifyDimension,
                 canExecute: () => !IsRefreshing);
         }
 
@@ -401,6 +415,32 @@ namespace SwMateAI.UI.ViewModels
                 AddLog($"  [OK] {result.Data}"); StatusText = "Plate with hole created automatically."; RefreshInfo();
             }
             catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected auto workflow error."; }
+        }
+
+        private void AddDimension()
+        {
+            AddLog($"> AddDimension called ({DimensionValue} mm)");
+            try
+            {
+                var result = _agentCore.ExecuteTool("AddDimension", new Dictionary<string, object> { ["Value"] = DimensionValue });
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to add dimension."; return; }
+                AddLog($"  [OK] {result.Data}"); StatusText = "Dimension added."; RefreshInfo();
+            }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected dimension error."; }
+        }
+
+        private void ModifyDimension()
+        {
+            AddLog($"> ModifyDimension called ({DimensionName}, {DimensionValue} mm)");
+            try
+            {
+                var args = new Dictionary<string, object> { ["Value"] = DimensionValue };
+                if (!string.IsNullOrWhiteSpace(DimensionName)) args["Name"] = DimensionName;
+                var result = _agentCore.ExecuteTool("ModifyDimension", args);
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to modify dimension."; return; }
+                AddLog($"  [OK] {result.Data}"); StatusText = "Dimension modified."; RefreshInfo();
+            }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected dimension error."; }
         }
 
         private void ExecuteNaturalLanguage()

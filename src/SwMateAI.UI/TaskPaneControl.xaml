@@ -184,6 +184,18 @@
       <Button Content="Create Circle" Command="{Binding CreateCircleCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,6"/>
       <TextBox Text="{Binding CutDepth, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
       <Button Content="Cut Extrude" Command="{Binding CutExtrudeCommand}" Style="{StaticResource SecondaryButton}" Margin="0,6,0,10"/>
+      <TextBlock Text="DIMENSIONS" Style="{StaticResource Caption}" Margin="0,2,0,5"/>
+      <TextBlock Text="Select sketch geometry to add, or enter a full dimension name to modify." Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,0,0,5"/>
+      <Grid Margin="0,0,0,6">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <TextBox Grid.Column="0" Text="{Binding DimensionName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}" ToolTip="Dimension name, e.g. D1@Sketch1. Leave empty to use selected dimension."/>
+       <TextBox Grid.Column="2" Text="{Binding DimensionValue, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}" ToolTip="Dimension value in mm"/>
+      </Grid>
+      <Grid Margin="0,0,0,10">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <Button Grid.Column="0" Content="Add to Selection" Command="{Binding AddDimensionCommand}" Style="{StaticResource SecondaryButton}"/>
+       <Button Grid.Column="2" Content="Modify Dimension" Command="{Binding ModifyDimensionCommand}" Style="{StaticResource SecondaryButton}"/>
+      </Grid>
       <TextBlock Text="QUICK WORKFLOW" Style="{StaticResource Caption}" Margin="0,2,0,5"/>
       <Grid Margin="0,0,0,6">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
