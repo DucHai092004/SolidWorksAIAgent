@@ -36,6 +36,8 @@ namespace SwMateAI.Core.Tools.CAD
                 double thickness = Positive(parameters, "Thickness", 10);
                 double holeDiameter = Positive(parameters, "HoleDiameter", 10);
                 double holeDepth = Positive(parameters, "HoleDepth", thickness);
+                double holeX = Number(parameters, "HoleX", 0);
+                double holeY = Number(parameters, "HoleY", 0);
 
                 if (holeDiameter >= Math.Min(width, height))
                     return ToolResult.Error("Hole diameter must be smaller than the plate width and height.");
@@ -102,7 +104,7 @@ namespace SwMateAI.Core.Tools.CAD
                 if (model.SketchManager.ActiveSketch == null) return ToolResult.Error("Could not create the hole sketch.");
 
                 double radius = holeDiameter / 2000.0;
-                if (model.SketchManager.CreateCircleByRadius(0, 0, 0, radius) == null)
+                if (model.SketchManager.CreateCircleByRadius(holeX / 1000.0, holeY / 1000.0, 0, radius) == null)
                     return ToolResult.Error("Could not create the hole circle.");
 
                 model.SketchManager.InsertSketch(true);
@@ -116,9 +118,15 @@ namespace SwMateAI.Core.Tools.CAD
                 if (cut == null) return ToolResult.Error("Could not create the hole Cut-Extrude.");
 
                 model.ViewZoomtofit2();
-                return ToolResult.Success($"Plate created: {width:0.###} x {height:0.###} x {thickness:0.###} mm, centered hole Ø{holeDiameter:0.###} mm, cut depth {holeDepth:0.###} mm.");
+                return ToolResult.Success($"Plate created: {width:0.###} x {height:0.###} x {thickness:0.###} mm, hole Ø{holeDiameter:0.###} mm at X={holeX:0.###}, Y={holeY:0.###}, cut depth {holeDepth:0.###} mm.");
             }
             catch (Exception ex) { return ToolResult.Error($"CreatePlateWithHole failed: {ex.Message}"); }
+        }
+
+        private static double Number(Dictionary<string, object> p, string key, double fallback)
+        {
+            if (!p.TryGetValue(key, out var raw) || raw == null) return fallback;
+            return Convert.ToDouble(raw, System.Globalization.CultureInfo.InvariantCulture);
         }
 
         private static double Positive(Dictionary<string, object> p, string key, double fallback)
