@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using SwMateAI.Core.Agent;
 using SwMateAI.Core.Models;
+using SwMateAI.Core.Models.Understanding;
 using SwMateAI.Core.Planning;
 
 namespace SwMateAI.UI.ViewModels
@@ -52,6 +53,7 @@ namespace SwMateAI.UI.ViewModels
         private bool _lastRunSucceeded;
         private string _dimensionName = string.Empty;
         private string _dimensionValue = "20";
+        private string _modelSummary = "No model inspection yet.";
 
         // ─── Public properties (bound to XAML) ───────────────────────────────
 
@@ -135,6 +137,7 @@ namespace SwMateAI.UI.ViewModels
         public string PlateHoleDepth { get => _plateHoleDepth; set { _plateHoleDepth = value; OnPropertyChanged(); } }
         public string DimensionName { get => _dimensionName; set { _dimensionName = value; OnPropertyChanged(); } }
         public string DimensionValue { get => _dimensionValue; set { _dimensionValue = value; OnPropertyChanged(); } }
+        public string ModelSummary { get => _modelSummary; private set { _modelSummary = value; OnPropertyChanged(); } }
         public string NaturalLanguageCommand { get => _naturalLanguageCommand; set { _naturalLanguageCommand = value; OnPropertyChanged(); } }
         public string PlanGoal { get => _planGoal; private set { _planGoal = value; OnPropertyChanged(); } }
         public string LastResultText { get => _lastResultText; private set { _lastResultText = value; OnPropertyChanged(); } }
@@ -170,6 +173,7 @@ namespace SwMateAI.UI.ViewModels
         public ICommand ExecuteNaturalLanguageCommand { get; }
         public ICommand AddDimensionCommand { get; }
         public ICommand ModifyDimensionCommand { get; }
+        public ICommand InspectModelCommand { get; }
 
         // ─── Constructor ──────────────────────────────────────────────────────
 
@@ -219,6 +223,10 @@ namespace SwMateAI.UI.ViewModels
 
             ModifyDimensionCommand = new RelayCommand(
                 execute:    ModifyDimension,
+                canExecute: () => !IsRefreshing);
+
+            InspectModelCommand = new RelayCommand(
+                execute:    InspectModel,
                 canExecute: () => !IsRefreshing);
         }
 
@@ -441,6 +449,32 @@ namespace SwMateAI.UI.ViewModels
                 AddLog($"  [OK] {result.Data}"); StatusText = "Dimension modified."; RefreshInfo();
             }
             catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected dimension error."; }
+        }
+
+        private void InspectModel()
+        {
+            try
+            {
+                var features = _agentCore.ExecuteTool("ReadFeatureTree").Data as List<FeatureInfo> ?? new List<FeatureInfo>();
+                var sketches = _agentCore.ExecuteTool("ReadSketches").Data as List<FeatureInfo> ?? new List<FeatureInfo>();
+                var dimensions = _agentCore.ExecuteTool("ReadDimensions").Data as List<DimensionInfo> ?? new List<DimensionInfo>();
+                string material = _agentCore.ExecuteTool("ReadMaterial").Data as string ?? string.Empty;
+                var mass = _agentCore.ExecuteTool("ReadMassProperties").Data as MassPropertiesInfo;
+                var box = _agentCore.ExecuteTool("ReadBoundingBox").Data as BoundingBoxInfo;
+                var selected = _agentCore.ExecuteTool("ReadSelectedObject").Data as List<SelectedObjectInfo> ?? new List<SelectedObjectInfo>();
+
+                ModelSummary = $"Features: {features.Count}   Sketches: {sketches.Count}   Dimensions: {dimensions.Count}\n" +
+                               $"Material: {(string.IsNullOrWhiteSpace(material) ? "<not specified>" : material)}\n" +
+                               $"Mass: {(mass == null ? "?" : mass.MassKg.ToString("0.###") + " kg")}   Size: {(box == null ? "?" : box.ToString())}\n" +
+                               $"Selection: {selected.Count} object(s)";
+                StatusText = "Model inspection completed.";
+                AddLog($"  [MODEL] {features.Count} features, {dimensions.Count} dimensions, size={(box == null ? "?" : box.ToString())}");
+            }
+            catch (Exception ex)
+            {
+                ModelSummary = $"Model inspection failed: {ex.Message}";
+                AddLog($"  [MODEL ERR] {ex.Message}");
+            }
         }
 
         private void ExecuteNaturalLanguage()

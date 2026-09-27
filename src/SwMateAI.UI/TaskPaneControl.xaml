@@ -112,6 +112,21 @@
     </Border>
     <Border Style="{StaticResource Card}">
      <StackPanel>
+      <Grid Margin="0,0,0,7">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <StackPanel>
+        <TextBlock Text="MODEL INSPECTOR" Style="{StaticResource SectionTitle}"/>
+        <TextBlock Text="Read actual CAD data from the active model." Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+       </StackPanel>
+       <Button Grid.Column="1" Content="READ MODEL" Command="{Binding InspectModelCommand}" Style="{StaticResource SecondaryButton}"/>
+      </Grid>
+      <Border Background="{StaticResource Surface2}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6" Padding="8">
+       <TextBlock Text="{Binding ModelSummary}" Foreground="{StaticResource Text}" FontSize="10" TextWrapping="Wrap"/>
+      </Border>
+     </StackPanel>
+    </Border>
+    <Border Style="{StaticResource Card}">
+     <StackPanel>
       <TextBlock Text="AI CAD COMMAND" Style="{StaticResource SectionTitle}"/>
       <TextBlock Text="Describe what you want SW-MATE AI to create or modify." Style="{StaticResource Caption}" Margin="0,3,0,8"/>
       <TextBox Text="{Binding NaturalLanguageCommand, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" VerticalScrollBarVisibility="Auto"/>
