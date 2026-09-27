@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
@@ -28,6 +29,9 @@ namespace SwMateAI.UI.ViewModels
         private bool   _isSaved;
         private string _statusText      = "Connecting…";
         private bool   _isRefreshing;
+        private string _rectangleWidth = "60";
+        private string _rectangleHeight = "40";
+        private string _extrudeDepth = "20";
 
         // ─── Public properties (bound to XAML) ───────────────────────────────
 
@@ -97,6 +101,10 @@ namespace SwMateAI.UI.ViewModels
             }
         }
 
+        public string RectangleWidth { get => _rectangleWidth; set { _rectangleWidth = value; OnPropertyChanged(); } }
+        public string RectangleHeight { get => _rectangleHeight; set { _rectangleHeight = value; OnPropertyChanged(); } }
+        public string ExtrudeDepth { get => _extrudeDepth; set { _extrudeDepth = value; OnPropertyChanged(); } }
+
         public bool IsRefreshing
         {
             get => _isRefreshing;
@@ -111,6 +119,8 @@ namespace SwMateAI.UI.ViewModels
         public ICommand RefreshInfoCommand { get; }
         public ICommand CreatePartCommand { get; }
         public ICommand CreateSketchCommand { get; }
+        public ICommand CreateRectangleCommand { get; }
+        public ICommand ExtrudeCommand { get; }
 
         // ─── Constructor ──────────────────────────────────────────────────────
 
@@ -128,6 +138,14 @@ namespace SwMateAI.UI.ViewModels
 
             CreateSketchCommand = new RelayCommand(
                 execute:    CreateSketch,
+                canExecute: () => !IsRefreshing);
+
+            CreateRectangleCommand = new RelayCommand(
+                execute:    CreateRectangle,
+                canExecute: () => !IsRefreshing);
+
+            ExtrudeCommand = new RelayCommand(
+                execute:    Extrude,
                 canExecute: () => !IsRefreshing);
         }
 
@@ -241,6 +259,37 @@ namespace SwMateAI.UI.ViewModels
                 AddLog($"  [EXCEPTION] {ex.Message}");
                 StatusText = "Unexpected error creating Sketch.";
             }
+        }
+
+        private void CreateRectangle()
+        {
+            AddLog($"> CreateRectangle called ({RectangleWidth} x {RectangleHeight} mm)");
+            try
+            {
+                var result = _agentCore.ExecuteTool("CreateRectangle", new Dictionary<string, object>
+                {
+                    ["Width"] = RectangleWidth,
+                    ["Height"] = RectangleHeight
+                });
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to create Rectangle."; return; }
+                AddLog($"  [OK] {result.Data}");
+                StatusText = "Rectangle created.";
+            }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected rectangle error."; }
+        }
+
+        private void Extrude()
+        {
+            AddLog($"> Extrude called ({ExtrudeDepth} mm)");
+            try
+            {
+                var result = _agentCore.ExecuteTool("Extrude", new Dictionary<string, object> { ["Depth"] = ExtrudeDepth });
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to Extrude."; return; }
+                AddLog($"  [OK] {result.Data}");
+                StatusText = "Boss-Extrude created.";
+                RefreshInfo();
+            }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected extrude error."; }
         }
 
         private void AddLog(string message)
