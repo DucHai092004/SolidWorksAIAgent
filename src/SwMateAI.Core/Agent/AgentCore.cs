@@ -4,6 +4,9 @@ using System.Collections.ObjectModel;
 using SolidWorks.Interop.sldworks;
 using SwMateAI.Core.Tools;
 using SwMateAI.Core.Tools.CAD;
+using SwMateAI.Core.Common;
+using SwMateAI.Core.Planning;
+using SwMateAI.Core.Skills;
 
 namespace SwMateAI.Core.Agent
 {
@@ -24,11 +27,17 @@ namespace SwMateAI.Core.Agent
     {
         private readonly ISldWorks _swApp;
         private readonly Dictionary<string, ISwTool> _tools;
+        private readonly SkillRegistry _skills;
+        private readonly InMemoryAgentLogger _logger;
+        private readonly AgentOrchestrator _orchestrator;
 
         /// <summary>
         /// Read-only view of registered tool names, for display or future planner use.
         /// </summary>
         public IEnumerable<string> RegisteredTools => _tools.Keys;
+        public IEnumerable<string> RegisteredSkills => _skills.Names;
+        public AgentState State => _orchestrator.State;
+        public IReadOnlyList<string> AgentLogs => _logger.Entries;
 
         /// <summary>
         /// Read-only map of tool name → description, for display in UI or future planner.
@@ -53,7 +62,10 @@ namespace SwMateAI.Core.Agent
         {
             _swApp = swApp ?? throw new ArgumentNullException(nameof(swApp));
             _tools = new Dictionary<string, ISwTool>(StringComparer.OrdinalIgnoreCase);
+            _skills = new SkillRegistry();
+            _logger = new InMemoryAgentLogger();
             RegisterTools();
+            _orchestrator = new AgentOrchestrator(new SolidWorksContextReader(_swApp), _skills, _logger);
         }
 
         // ─── Tool Registration ────────────────────────────────────────────────
@@ -82,7 +94,13 @@ namespace SwMateAI.Core.Agent
         {
             if (tool == null) throw new ArgumentNullException(nameof(tool));
             _tools[tool.Name] = tool;
+            _skills.Register(new ToolSkillAdapter(tool));
         }
+
+        public AgentContext ObserveContext() => _orchestrator.Observe();
+
+        public ExecutionResult ExecutePlan(TaskPlan plan, bool confirmed = false) =>
+            _orchestrator.ExecutePlan(plan, confirmed);
 
         // ─── Tool Dispatch ────────────────────────────────────────────────────
 

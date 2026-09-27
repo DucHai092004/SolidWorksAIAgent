@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using SwMateAI.Core.Agent;
 using SwMateAI.Core.Models;
+using SwMateAI.Core.Planning;
 
 namespace SwMateAI.UI.ViewModels
 {
@@ -237,6 +238,10 @@ namespace SwMateAI.UI.ViewModels
                     AddLog($"  Saved         : {info.IsSaved}");
                     if (info.IsSaved) AddLog($"  Path          : {info.FilePath}");
                 }
+
+                var context = _agentCore.ObserveContext();
+                AddLog($"  Active Config : {context.ActiveConfiguration}");
+                AddLog($"  Selection     : {context.SelectedObjectCount} object(s)");
             }
             catch (Exception ex)
             {
@@ -393,34 +398,20 @@ namespace SwMateAI.UI.ViewModels
                                 command.ChamferDistance > 0 ? $", chamfer {command.ChamferDistance} mm" : string.Empty;
             AddLog($"  [PARSED] Plate {command.Width} x {command.Height} x {command.Thickness} mm, {holesInfo}{cornerInfo}");
 
-            var toolParameters = new Dictionary<string, object>
-            {
-                ["Width"] = command.Width,
-                ["Height"] = command.Height,
-                ["Thickness"] = command.Thickness
-            };
-            if (command.Holes.Count > 0)
-            {
-                toolParameters["Holes"] = command.Holes;
-                toolParameters["HoleDepth"] = command.Thickness;
-            }
+            var plan = BasicCadPlanner.Build(command);
+            AddLog($"  [PLAN] {plan.Goal}");
+            foreach (var step in plan.Steps)
+                AddLog($"    {step.Index}. {step.SkillName} - {step.Description}");
 
-            var result = _agentCore.ExecuteTool(command.Intent, toolParameters);
-            if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "CAD command failed."; return; }
-            AddLog($"  [OK] {result.Data}");
-
-            if (command.FilletRadius > 0)
+            _agentCore.State.CurrentRequest = NaturalLanguageCommand;
+            var execution = _agentCore.ExecutePlan(plan);
+            if (!execution.IsSuccess)
             {
-                var fillet = _agentCore.ExecuteTool("FilletPlateCorners", new Dictionary<string, object> { ["Radius"] = command.FilletRadius });
-                if (!fillet.IsSuccess) { AddLog($"  [ERR] Base created, fillet failed: {fillet.ErrorMessage}"); StatusText = "Part created; fillet failed."; return; }
-                AddLog($"  [OK] {fillet.Data}");
+                AddLog($"  [AGENT ERR] {execution.Error}");
+                StatusText = "Agent plan failed.";
+                return;
             }
-            else if (command.ChamferDistance > 0)
-            {
-                var chamfer = _agentCore.ExecuteTool("ChamferPlateCorners", new Dictionary<string, object> { ["Distance"] = command.ChamferDistance });
-                if (!chamfer.IsSuccess) { AddLog($"  [ERR] Base created, chamfer failed: {chamfer.ErrorMessage}"); StatusText = "Part created; chamfer failed."; return; }
-                AddLog($"  [OK] {chamfer.Data}");
-            }
+            AddLog($"  [CHECK] Completed {execution.CompletedSteps}/{plan.Steps.Count} step(s).");
 
             StatusText = "CAD command completed.";
             RefreshInfo();
