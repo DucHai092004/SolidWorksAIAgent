@@ -93,6 +93,39 @@ namespace SwMateAI.Core.Readers
             return result;
         }
 
+        /// <summary>
+        /// Returns every downstream feature reachable from the requested feature.
+        /// This is conservative impact analysis: descendants may be affected by a
+        /// change, but the reader does not claim they will definitely fail.
+        /// </summary>
+        public FeatureImpactInfo AnalyzeFeatureImpact(string featureName)
+        {
+            if (string.IsNullOrWhiteSpace(featureName)) return null;
+            var graph = ReadFeatureDependencies();
+            var target = graph.FirstOrDefault(x => string.Equals(x.Name, featureName, StringComparison.OrdinalIgnoreCase));
+            if (target == null) return null;
+
+            var result = new FeatureImpactInfo
+            {
+                TargetFeature = target.Name,
+                TargetTypeName = target.TypeName
+            };
+            foreach (var child in target.Children) result.DirectChildren.Add(child);
+
+            var map = graph.ToDictionary(x => x.Name, x => x, StringComparer.OrdinalIgnoreCase);
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var queue = new Queue<string>(target.Children);
+            while (queue.Count > 0)
+            {
+                string name = queue.Dequeue();
+                if (!visited.Add(name)) continue;
+                result.AffectedFeatures.Add(name);
+                if (!map.TryGetValue(name, out var node)) continue;
+                foreach (var child in node.Children) queue.Enqueue(child);
+            }
+            return result;
+        }
+
         private static void AddFeatureNames(List<string> target, object raw)
         {
             if (target == null || raw == null) return;

@@ -28,6 +28,7 @@ namespace SwMateAI.Core.Agent
         public double ChamferDistance { get; set; }
         public string DimensionName { get; set; } = string.Empty;
         public double DimensionValue { get; set; }
+        public string TargetFeatureName { get; set; } = string.Empty;
     }
 
     public static class NaturalLanguageCadParser
@@ -38,6 +39,9 @@ namespace SwMateAI.Core.Agent
             if (string.IsNullOrWhiteSpace(input)) { error = "Command is empty."; return false; }
 
             if (TryModifyDimension(input, out command))
+                return true;
+
+            if (TryFeatureImpactQuery(input, out command))
                 return true;
 
             if (TryReadModelQuery(input, out command))
@@ -104,6 +108,27 @@ namespace SwMateAI.Core.Agent
             return true;
         }
 
+
+        private static bool TryFeatureImpactQuery(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            string token = @"(?<name>""[^""]+""|[A-Za-z][A-Za-z0-9_\-]*\d[A-Za-z0-9_\-]*)";
+            string[] patterns =
+            {
+                @"(?:nếu\s*(?:sửa|thay\s*đổi)|neu\s*(?:sua|thay\s*doi)|if\s+(?:i\s+)?(?:change|modify))\s*" + token,
+                token + @"\s*(?:ảnh\s*hưởng|anh\s*huong|affect)",
+                @"(?:feature\s*nào\s*phụ\s*thuộc|feature\s*nao\s*phu\s*thuoc|what\s+depends\s+on|impact\s+of)\s*" + token
+            };
+            foreach (var pattern in patterns)
+            {
+                var match = Regex.Match(input, pattern, RegexOptions.IgnoreCase);
+                if (!match.Success) continue;
+                string name = match.Groups["name"].Value.Trim().Trim('\"');
+                command = new NaturalLanguageCadCommand { Intent = SkillNames.AnalyzeFeatureImpact, TargetFeatureName = name };
+                return true;
+            }
+            return false;
+        }
 
         private static bool TryReadModelQuery(string input, out NaturalLanguageCadCommand command)
         {

@@ -268,6 +268,7 @@ namespace SwMateAI.UI.ViewModels
             if (goal == "Create requested CAD part") return Tr("Tạo chi tiết CAD theo yêu cầu", goal);
             if (goal == "Modify requested CAD dimension") return Tr("Chỉnh sửa kích thước CAD theo yêu cầu", goal);
             if (goal == "Read requested CAD model data") return Tr("Đọc dữ liệu model theo yêu cầu", goal);
+            if (goal == "Analyze feature change impact") return Tr("Phân tích ảnh hưởng khi thay đổi Feature", goal);
             return goal;
         }
 
@@ -281,6 +282,8 @@ namespace SwMateAI.UI.ViewModels
                 case "Chamfer four vertical plate edges": return "Vát 4 cạnh đứng của tấm";
                 case "Read data from the active SOLIDWORKS model": return "Đọc dữ liệu từ model SOLIDWORKS đang mở";
             }
+            if (step.Description.StartsWith("Find downstream dependencies of ", StringComparison.OrdinalIgnoreCase))
+                return "Tìm các Feature phía sau phụ thuộc vào " + step.Description.Substring("Find downstream dependencies of ".Length);
             if (step.Description.StartsWith("Set ", StringComparison.OrdinalIgnoreCase))
                 return "Đặt " + step.Description.Substring(4).Replace(" to ", " thành ");
             return step.Description;
@@ -627,7 +630,7 @@ namespace SwMateAI.UI.ViewModels
 
         private static bool IsReadIntent(string intent)
         {
-            return intent == "ReadFeatureTree" || intent == "ReadFeatures" || intent == "ReadFeatureDependencies" || intent == "ReadSketches" ||
+            return intent == "ReadFeatureTree" || intent == "ReadFeatures" || intent == "ReadFeatureDependencies" || intent == "AnalyzeFeatureImpact" || intent == "ReadSketches" ||
                    intent == "ReadDimensions" || intent == "ReadMaterial" || intent == "ReadMassProperties" ||
                    intent == "ReadCustomProperties" || intent == "ReadSelectedObject" || intent == "ReadBoundingBox";
         }
@@ -659,6 +662,14 @@ namespace SwMateAI.UI.ViewModels
                 int relations = dependencies.Sum(x => x.Children.Count);
                 return Tr($"Đồ thị phụ thuộc: {dependencies.Count} feature, {relations} quan hệ trực tiếp:\n{list}",
                           $"Dependency graph: {dependencies.Count} features, {relations} direct relation(s):\n{list}");
+            }
+            if (intent == "AnalyzeFeatureImpact" && data is FeatureImpactInfo impact)
+            {
+                string direct = impact.DirectChildren.Count == 0 ? "—" : string.Join(", ", impact.DirectChildren);
+                string all = impact.AffectedFeatures.Count == 0 ? "—" : string.Join(", ", impact.AffectedFeatures);
+                return Tr(
+                    $"Feature phân tích: {impact.TargetFeature} [{impact.TargetTypeName}]\nPhụ thuộc trực tiếp phía sau: {direct}\nCó thể bị ảnh hưởng khi thay đổi ({impact.AffectedFeatures.Count}): {all}",
+                    $"Analyzed feature: {impact.TargetFeature} [{impact.TargetTypeName}]\nDirect downstream dependencies: {direct}\nPotentially affected by a change ({impact.AffectedFeatures.Count}): {all}");
             }
             if (intent == "ReadDimensions" && data is List<DimensionInfo> dimensions)
             {

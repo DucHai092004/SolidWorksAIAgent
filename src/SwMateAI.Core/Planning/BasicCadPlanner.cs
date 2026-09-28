@@ -7,6 +7,20 @@ namespace SwMateAI.Core.Planning
     {
         public static TaskPlan Build(NaturalLanguageCadCommand command)
         {
+            if (command.Intent == SkillNames.AnalyzeFeatureImpact)
+            {
+                var impactPlan = new TaskPlan { Goal = "Analyze feature change impact" };
+                var impactStep = new PlanStep
+                {
+                    Index = 1,
+                    SkillName = SkillNames.AnalyzeFeatureImpact,
+                    Description = $"Find downstream dependencies of {command.TargetFeatureName}"
+                };
+                impactStep.Parameters["FeatureName"] = command.TargetFeatureName;
+                impactPlan.Steps.Add(impactStep);
+                return impactPlan;
+            }
+
             if (IsReadIntent(command.Intent))
             {
                 var readPlan = new TaskPlan { Goal = "Read requested CAD model data" };
@@ -59,7 +73,7 @@ namespace SwMateAI.Core.Planning
         private static bool IsReadIntent(string intent)
         {
             return intent == SkillNames.ReadFeatureTree || intent == SkillNames.ReadFeatures ||
-                   intent == SkillNames.ReadFeatureDependencies ||
+                   intent == SkillNames.ReadFeatureDependencies || intent == SkillNames.AnalyzeFeatureImpact ||
                    intent == SkillNames.ReadSketches || intent == SkillNames.ReadDimensions ||
                    intent == SkillNames.ReadMaterial || intent == SkillNames.ReadMassProperties ||
                    intent == SkillNames.ReadCustomProperties || intent == SkillNames.ReadSelectedObject ||
