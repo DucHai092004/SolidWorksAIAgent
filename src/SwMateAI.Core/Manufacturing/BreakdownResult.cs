@@ -10,5 +10,11 @@ namespace SwMateAI.Core.Manufacturing
         public int SuppressedSkipped { get; set; }
         public int UnloadedPartCount { get; set; }
         public double AllowancePerSideMm { get; set; }
+        public int MaterialFilesScanned { get; set; }
+        public int MaterialRecordsFound { get; set; }
+        public int StockMaterialsFromDocuments { get; set; }
+        public int StockMaterialsFromCad { get; set; }
+        public int StockMaterialsNeedReview { get; set; }
+        public int MaterialImportErrors { get; set; }
     }
 }

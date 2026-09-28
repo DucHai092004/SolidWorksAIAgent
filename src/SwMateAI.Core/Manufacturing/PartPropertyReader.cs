@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
+using SwMateAI.Core.Common;
 
 namespace SwMateAI.Core.Manufacturing
 {
@@ -26,9 +27,10 @@ namespace SwMateAI.Core.Manufacturing
             var assembly = _swApp.ActiveDoc as IAssemblyDoc;
             var component = FindComponent(assembly, occurrence.ComponentName);
             var model = component?.GetModelDoc2() as IModelDoc2;
-            string fallback = !string.IsNullOrWhiteSpace(occurrence.SourcePath)
-                ? Path.GetFileNameWithoutExtension(occurrence.SourcePath)
-                : Path.GetFileNameWithoutExtension(occurrence.ModelTitle);
+            string fallback = PartCodeNormalizer.CleanDisplay(
+                !string.IsNullOrWhiteSpace(occurrence.SourcePath)
+                    ? occurrence.SourcePath
+                    : occurrence.ModelTitle);
 
             if (model == null)
             {
@@ -50,7 +52,8 @@ namespace SwMateAI.Core.Manufacturing
                 string database;
                 item.Material = part.GetMaterialPropertyName2(config, out database) ?? string.Empty;
                 ReadBoundingBox(part, item);
-                item.HasCylindricalFace = HasCylindricalFace(part);
+                item.LargestCylinderDiameterMm = GetLargestCylinderDiameterMm(part);
+                item.HasCylindricalFace = item.LargestCylinderDiameterMm > 0;
                 var mass = model.Extension.CreateMassProperty() as IMassProperty;
                 if (mass != null) item.DensityKgM3 = mass.Density;
             }
@@ -95,22 +98,26 @@ namespace SwMateAI.Core.Manufacturing
             item.FinishedZmm = Math.Abs(maxZ - minZ) * 1000.0;
         }
 
-        private static bool HasCylindricalFace(IPartDoc part)
+        private static double GetLargestCylinderDiameterMm(IPartDoc part)
         {
+            double largest = 0;
             var bodies = part?.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[];
-            if (bodies == null) return false;
+            if (bodies == null) return largest;
             foreach (var bodyObj in bodies)
             {
-                var body = bodyObj as IBody2;
-                var faces = body?.GetFaces() as object[];
+                var faces = (bodyObj as IBody2)?.GetFaces() as object[];
                 if (faces == null) continue;
                 foreach (var faceObj in faces)
                 {
                     var surface = (faceObj as IFace2)?.GetSurface() as ISurface;
-                    if (surface != null && surface.IsCylinder()) return true;
+                    if (surface == null || !surface.IsCylinder()) continue;
+                    var parameters = surface.CylinderParams as Array;
+                    if (parameters == null || parameters.Length < 7) continue;
+                    double radiusM = Math.Abs(Convert.ToDouble(parameters.GetValue(6)));
+                    largest = Math.Max(largest, radiusM * 2000.0);
                 }
             }
-            return false;
+            return largest;
         }
 
         private static string FirstNonEmpty(params string[] values)

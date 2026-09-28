@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
@@ -12,7 +11,8 @@ namespace SwMateAI.Core.Tools.Manufacturing
     {
         public ExportManufacturingBreakdownTool(ISldWorks swApp) : base(swApp) { }
         public override string Name => "ExportManufacturingBreakdown";
-        public override string Description => "Builds the manufacturing breakdown, captures Part images and exports an Excel workbook.";
+        public override string Description =>
+            "Reads related material documents, calculates stock, captures images and exports the stock-material Excel table.";
 
         public override bool CanExecute(out string reason)
         {
@@ -26,28 +26,27 @@ namespace SwMateAI.Core.Tools.Manufacturing
 
         public override ToolResult Execute(Dictionary<string, object> parameters)
         {
+
             var model = SwApp.ActiveDoc as IModelDoc2;
-            double allowance = ReadDouble(parameters, "AllowancePerSideMm", 3.0);
             string output = Text(parameters, "OutputPath");
             if (string.IsNullOrWhiteSpace(output)) output = DefaultOutputPath(model);
+            var options = new StockCalculationOptions
+            {
+                DocumentRoot = Text(parameters, "DocumentRoot"),
+                StandardThicknessCatalogPath = Text(parameters, "ThicknessCatalogPath")
+            };
             string imageFolder = Text(parameters, "ImageFolder");
-            var options = new StockCalculationOptions { AllowancePerSideMm = allowance, RoundDiameterAllowancePerSideMm = allowance };
             return ToolResult.Success(new ManufacturingBreakdownExporter(SwApp).Export(output, imageFolder, options));
         }
 
-        private static string Text(Dictionary<string, object> input, string key)
-        {
-            return input != null && input.TryGetValue(key, out var value) ? Convert.ToString(value)?.Trim() ?? string.Empty : string.Empty;
-        }
-
-        private static double ReadDouble(Dictionary<string, object> input, string key, double fallback)
-        {
-            string s = Text(input, key).Replace(',', '.');
-            return double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : fallback;
-        }
+        private static string Text(Dictionary<string, object> input, string key) =>
+            input != null && input.TryGetValue(key, out var value)
+                ? Convert.ToString(value)?.Trim() ?? string.Empty
+                : string.Empty;
 
         private static string DefaultOutputPath(IModelDoc2 model)
         {
+
             string assemblyPath = model?.GetPathName() ?? string.Empty;
             string root = !string.IsNullOrWhiteSpace(assemblyPath)
                 ? Path.GetDirectoryName(assemblyPath)
@@ -56,7 +55,7 @@ namespace SwMateAI.Core.Tools.Manufacturing
                 ? Path.GetFileNameWithoutExtension(assemblyPath)
                 : Path.GetFileNameWithoutExtension(model?.GetTitle() ?? "Assembly");
             string folder = Path.Combine(root ?? string.Empty, "SW-MATE_AI_Output");
-            return Path.Combine(folder, name + "_Breakdown.xlsx");
+            return Path.Combine(folder, name + "_StockMaterial.xlsx");
         }
     }
 }

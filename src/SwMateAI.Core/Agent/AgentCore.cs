@@ -131,6 +131,7 @@ namespace SwMateAI.Core.Agent
             // Phase 4 Manufacturing Breakdown
             Register(new BuildManufacturingBreakdownTool(_swApp));
             Register(new ExportManufacturingBreakdownTool(_swApp));
+            Register(new ApplyStockMaterialsTool(_swApp));
 
             // Phase 5 BOM
             Register(new CreateBomTool(_swApp));

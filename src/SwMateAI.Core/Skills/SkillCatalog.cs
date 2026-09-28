@@ -51,6 +51,7 @@ namespace SwMateAI.Core.Skills
                 case SkillNames.ReplaceComponent: Configure(m, SkillNames.ReplaceComponent, "Assembly.Action", SkillRiskLevel.High, assembly: true, confirm: true, undo: true); break;
                 case SkillNames.BuildManufacturingBreakdown: Configure(m, SkillNames.BuildManufacturingBreakdown, "Manufacturing.Breakdown", SkillRiskLevel.ReadOnly, assembly: true); break;
                 case SkillNames.ExportManufacturingBreakdown: Configure(m, SkillNames.ExportManufacturingBreakdown, "Manufacturing.Export", SkillRiskLevel.Low, assembly: true); break;
+                case SkillNames.ApplyStockMaterials: Configure(m, SkillNames.ApplyStockMaterials, "Manufacturing.Material", SkillRiskLevel.Medium, assembly: true, confirm: true); break;
                 case SkillNames.CreateBOM: Configure(m, SkillNames.CreateBOM, "BOM", SkillRiskLevel.Low, assembly: true); break;
                 case SkillNames.InsertSolidWorksBOM: Configure(m, SkillNames.InsertSolidWorksBOM, "BOM.Native", SkillRiskLevel.Medium, assembly: true, confirm: true, undo: true); break;
                 case SkillNames.CreateDrawing: Configure(m, SkillNames.CreateDrawing, "Drawing.Create", SkillRiskLevel.Low, document: true); break;

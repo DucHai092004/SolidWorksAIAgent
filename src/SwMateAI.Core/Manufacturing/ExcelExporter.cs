@@ -29,7 +29,7 @@ namespace SwMateAI.Core.Manufacturing
                 workbookObject = workbook;
                 dynamic sheet = workbook.Worksheets[1];
                 worksheetObject = sheet;
-                sheet.Name = "Breakdown";
+                sheet.Name = "Bang phoi";
 
                 for (int c = 0; c < table.Headers.Count; c++)
                 {
@@ -59,7 +59,9 @@ namespace SwMateAI.Core.Manufacturing
 
                 sheet.Columns.AutoFit();
                 sheet.Columns[1].ColumnWidth = 14;
-                sheet.Range["A1:K1"].AutoFilter();
+                dynamic firstHeader = sheet.Cells[1, 1];
+                dynamic lastHeader = sheet.Cells[1, table.Headers.Count];
+                sheet.Range[firstHeader, lastHeader].AutoFilter();
                 workbook.SaveAs(outputPath, 51);
                 workbook.Close(false);
                 excel.Quit();

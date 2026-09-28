@@ -8,6 +8,13 @@ namespace SwMateAI.Core.Manufacturing
         public string PartName { get; set; } = string.Empty;
         public int Quantity { get; set; }
         public string Material { get; set; } = string.Empty;
+        // Raw-stock material can come from manufacturing Excel/PDF and is kept separate from CAD material.
+        public string StockMaterial { get; set; } = string.Empty;
+        public string StockMaterialSource { get; set; } = string.Empty;
+        public string StockMaterialSourceLocation { get; set; } = string.Empty;
+        public double StockMaterialConfidence { get; set; }
+        public string StockMatchMethod { get; set; } = string.Empty;
+        public bool StockMaterialNeedsReview { get; set; }
         public double FinishedXmm { get; set; }
         public double FinishedYmm { get; set; }
         public double FinishedZmm { get; set; }
@@ -17,7 +24,10 @@ namespace SwMateAI.Core.Manufacturing
         public double StockVolumeMm3 { get; set; }
         public double DensityKgM3 { get; set; }
         public bool HasCylindricalFace { get; set; }
+        public double LargestCylinderDiameterMm { get; set; }
         public string StockClassificationBasis { get; set; } = string.Empty;
+        public string StockSizeRule { get; set; } = string.Empty;
+        public string StockThicknessBasis { get; set; } = string.Empty;
         public string ManufacturingTechnology { get; set; } = string.Empty;
         public string Supplier { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;

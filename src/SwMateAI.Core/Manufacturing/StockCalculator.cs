@@ -9,12 +9,15 @@ namespace SwMateAI.Core.Manufacturing
             if (item == null) return;
             options = options ?? new StockCalculationOptions();
 
-            if (item.StockType == "Round Bar" && StockClassifier.TryGetRoundBarDimensions(item, out var diameter, out var length))
+            if (item.StockType == "Round Bar" &&
+                StockClassifier.TryGetRoundBarDimensions(item, out var diameter, out var length))
             {
-                double stockD = diameter + 2.0 * options.RoundDiameterAllowancePerSideMm;
-                double stockL = length + 2.0 * options.AllowancePerSideMm;
-                item.StockSize = $"Ø{stockD:0.###} x {stockL:0.###} mm";
-                item.StockVolumeMm3 = Math.PI * stockD * stockD * 0.25 * stockL;
+                double stockD = diameter + options.RoundDiameterTotalAllowanceMm;
+                double roundStockL = length + options.RoundLengthTotalAllowanceMm;
+                item.StockSize = $"Ø{stockD:0.###} x {roundStockL:0.###} mm";
+                item.StockVolumeMm3 = Math.PI * stockD * stockD * 0.25 * roundStockL;
+                item.StockSizeRule = $"Round: Ø +{options.RoundDiameterTotalAllowanceMm:0.###} mm; L +{options.RoundLengthTotalAllowanceMm:0.###} mm";
+                item.StockThicknessBasis = "Not applicable to round stock";
                 return;
             }
 
@@ -22,14 +25,36 @@ namespace SwMateAI.Core.Manufacturing
             {
                 item.StockSize = string.Empty;
                 item.StockVolumeMm3 = 0;
+                item.StockSizeRule = "Missing finished dimensions";
                 return;
             }
 
-            double ax = item.FinishedXmm + 2.0 * options.AllowancePerSideMm;
-            double ay = item.FinishedYmm + 2.0 * options.AllowancePerSideMm;
-            double az = item.FinishedZmm + 2.0 * options.AllowancePerSideMm;
-            item.StockSize = $"{ax:0.###} x {ay:0.###} x {az:0.###} mm";
-            item.StockVolumeMm3 = ax * ay * az;
+            double[] d = { item.FinishedXmm, item.FinishedYmm, item.FinishedZmm };
+            Array.Sort(d);
+            double finishedH = d[0], finishedW = d[1], finishedL = d[2];
+
+            double stockL = finishedL + options.PrismaticLengthTotalAllowanceMm;
+            double stockW = finishedW + options.PrismaticWidthTotalAllowanceMm;
+            double minimumH = finishedH + options.MinimumThicknessAllowanceMm;
+            double stockH = minimumH;
+            item.StockThicknessBasis = $"Fallback: H +{options.MinimumThicknessAllowanceMm:0.###} mm";
+
+            if (options.UseStandardThicknessTable)
+            {
+                var catalog = StandardThicknessCatalog.Load(options.StandardThicknessCatalogPath);
+                string material = !string.IsNullOrWhiteSpace(item.StockMaterial) ? item.StockMaterial : item.Material;
+                if (catalog.TryGetNext(material, minimumH, out double standardH))
+                {
+                    stockH = standardH;
+                    item.StockThicknessBasis = $"Approved thickness table: next >= {minimumH:0.###} mm";
+                }
+            }
+
+            item.StockSize = $"{stockL:0.###} x {stockW:0.###} x {stockH:0.###} mm";
+            item.StockVolumeMm3 = stockL * stockW * stockH;
+            item.StockSizeRule =
+                $"Prismatic: L +{options.PrismaticLengthTotalAllowanceMm:0.###}; " +
+                $"W +{options.PrismaticWidthTotalAllowanceMm:0.###}; H >= +{options.MinimumThicknessAllowanceMm:0.###} mm";
         }
     }
 }

@@ -12,10 +12,15 @@ namespace SwMateAI.Core.Manufacturing
                 return "Unclassified";
             }
 
-            if (item.HasCylindricalFace && TryGetRoundBarDimensions(item, out _, out _))
+            if (item.HasCylindricalFace && TryGetRoundBarDimensions(item, out var boxDiameter, out _))
             {
-                item.StockClassificationBasis = "CAD cylindrical surface + near-equal diameter axes";
-                return "Round Bar";
+                double tolerance = Math.Max(0.5, boxDiameter * 0.05);
+                if (item.LargestCylinderDiameterMm > 0 &&
+                    Math.Abs(item.LargestCylinderDiameterMm - boxDiameter) <= tolerance)
+                {
+                    item.StockClassificationBasis = "Outer CAD cylinder diameter matches two transverse bounding-box axes";
+                    return "Round Bar";
+                }
             }
 
             double[] d = { item.FinishedXmm, item.FinishedYmm, item.FinishedZmm };

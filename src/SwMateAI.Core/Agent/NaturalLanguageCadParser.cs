@@ -87,6 +87,9 @@ namespace SwMateAI.Core.Agent
             if (TryBomQuery(input, out command))
                 return true;
 
+            if (TryApplyStockMaterialQuery(input, out command))
+                return true;
+
             if (TryManufacturingBreakdownQuery(input, out command))
                 return true;
 
@@ -325,16 +328,29 @@ namespace SwMateAI.Core.Agent
             return true;
         }
 
+        private static bool TryApplyStockMaterialQuery(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            string s = input.Trim().ToLowerInvariant();
+            bool material = Regex.IsMatch(s, @"(?:vật\s*liệu\s*phôi|vat\s*lieu\s*phoi|stock\s*material)");
+            bool action = Regex.IsMatch(s, @"(?:nhập|nhap|gán|gan|điền|dien|apply|assign|import)");
+            if (!material || !action) return false;
+            command = new NaturalLanguageCadCommand { Intent = SkillNames.ApplyStockMaterials };
+            return true;
+        }
+
         private static bool TryManufacturingBreakdownQuery(string input, out NaturalLanguageCadCommand command)
         {
             command = null;
             string s = input.Trim().ToLowerInvariant();
-            if (!Regex.IsMatch(s, @"(?:bóc\s*tách|boc\s*tach|manufacturing\s*breakdown|breakdown\s*(?:parts|assembly)?|chi\s*tiết\s*gia\s*công|chi\s*tiet\s*gia\s*cong)")) return false;
+            bool stockTable = Regex.IsMatch(s,
+                @"(?:bảng\s*phôi|bang\s*phoi|bảng\s*vật\s*liệu\s*phôi|bang\s*vat\s*lieu\s*phoi|stock\s*(?:material\s*)?table)");
+            if (!stockTable && !Regex.IsMatch(s, @"(?:bóc\s*tách|boc\s*tach|manufacturing\s*breakdown|breakdown\s*(?:parts|assembly)?|chi\s*tiết\s*gia\s*công|chi\s*tiet\s*gia\s*cong)")) return false;
             double allowance = 3.0;
             var m = Regex.Match(input, @"(?:lượng\s*dư|luong\s*du|allowance)\s*[:=]?\s*(?<v>\d+(?:[\.,]\d+)?)\s*(?:mm)?", RegexOptions.IgnoreCase);
             if (!m.Success) m = Regex.Match(input, @"(?<v>\d+(?:[\.,]\d+)?)\s*(?:mm)?\s*allowance", RegexOptions.IgnoreCase);
             if (m.Success) allowance = Number(m.Groups["v"].Value);
-            bool wantsExport = Regex.IsMatch(s, @"(?:xuất|xuat|export)\s*(?:excel|xlsx)?|(?:excel|xlsx)");
+            bool wantsExport = stockTable || Regex.IsMatch(s, @"(?:xuất|xuat|export)\s*(?:excel|xlsx)?|(?:excel|xlsx)");
             string exportPath = string.Empty;
             var pathMatch = Regex.Match(input, @"(?:""(?<p>[A-Za-z]:\\[^""]+\.xlsx)""|(?<p>[A-Za-z]:\\[^\r\n]+?\.xlsx))", RegexOptions.IgnoreCase);
             if (pathMatch.Success) exportPath = pathMatch.Groups["p"].Value;

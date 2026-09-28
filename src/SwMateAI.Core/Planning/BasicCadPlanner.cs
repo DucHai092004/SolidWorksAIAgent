@@ -158,12 +158,23 @@ namespace SwMateAI.Core.Planning
                 return bomPlan;
             }
 
+            if (command.Intent == SkillNames.ApplyStockMaterials)
+            {
+                var materialPlan = new TaskPlan { Goal = "Apply stock materials from related documents" };
+                materialPlan.Steps.Add(new PlanStep
+                {
+                    Index = 1,
+                    SkillName = SkillNames.ApplyStockMaterials,
+                    Description = "Read Excel/CSV/PDF material sources and write Stock Material custom properties to matched Parts"
+                });
+                return materialPlan;
+            }
+
             if (command.Intent == SkillNames.ExportManufacturingBreakdown)
             {
-                var exportPlan = new TaskPlan { Goal = "Export manufacturing breakdown" };
+                var exportPlan = new TaskPlan { Goal = "Export stock-material table" };
                 var step = new PlanStep { Index = 1, SkillName = SkillNames.ExportManufacturingBreakdown,
-                    Description = $"Capture Part images and export Excel with {command.StockAllowanceMm:0.###} mm allowance per side" };
-                step.Parameters["AllowancePerSideMm"] = command.StockAllowanceMm;
+                    Description = "Read related material documents, calculate stock by configured rules, capture images and export Excel" };
                 if (!string.IsNullOrWhiteSpace(command.ExportPath)) step.Parameters["OutputPath"] = command.ExportPath;
                 exportPlan.Steps.Add(step);
                 return exportPlan;
@@ -173,8 +184,7 @@ namespace SwMateAI.Core.Planning
             {
                 var breakdownPlan = new TaskPlan { Goal = "Build manufacturing breakdown" };
                 var step = new PlanStep { Index = 1, SkillName = SkillNames.BuildManufacturingBreakdown,
-                    Description = $"Scan Assembly and calculate stock with {command.StockAllowanceMm:0.###} mm allowance per side" };
-                step.Parameters["AllowancePerSideMm"] = command.StockAllowanceMm;
+                    Description = "Scan Assembly, read stock material documents and calculate stock by configured rules" };
                 breakdownPlan.Steps.Add(step);
                 return breakdownPlan;
             }
