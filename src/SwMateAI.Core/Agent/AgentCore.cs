@@ -8,6 +8,8 @@ using SwMateAI.Core.Tools.ModelReader;
 using SwMateAI.Core.Tools.Assembly;
 using SwMateAI.Core.Tools.Manufacturing;
 using SwMateAI.Core.Tools.BOM;
+using SwMateAI.Core.Tools.Drawing;
+using SwMateAI.Core.Drawing;
 using SwMateAI.Core.Common;
 using SwMateAI.Core.Planning;
 using SwMateAI.Core.Skills;
@@ -34,6 +36,7 @@ namespace SwMateAI.Core.Agent
         private readonly SkillRegistry _skills;
         private readonly InMemoryAgentLogger _logger;
         private readonly AgentOrchestrator _orchestrator;
+        private readonly DrawingSessionContext _drawingSession;
 
         /// <summary>
         /// Read-only view of registered tool names, for display or future planner use.
@@ -69,6 +72,7 @@ namespace SwMateAI.Core.Agent
             _tools = new Dictionary<string, ISwTool>(StringComparer.OrdinalIgnoreCase);
             _skills = new SkillRegistry();
             _logger = new InMemoryAgentLogger();
+            _drawingSession = new DrawingSessionContext();
             RegisterTools();
             _orchestrator = new AgentOrchestrator(
                 new SolidWorksContextReader(_swApp),
@@ -131,6 +135,9 @@ namespace SwMateAI.Core.Agent
             // Phase 5 BOM
             Register(new CreateBomTool(_swApp));
             Register(new InsertSolidWorksBomTool(_swApp));
+
+            // Phase 6A.1 Drawing Automation
+            Register(new CreateDrawingTool(_swApp, _drawingSession));
         }
 
         private void Register(ISwTool tool)
