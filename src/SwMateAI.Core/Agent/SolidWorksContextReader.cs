@@ -1,30 +1,86 @@
 using System;
 using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.swconst;
 
 namespace SwMateAI.Core.Agent
 {
     public class SolidWorksContextReader
     {
         private readonly ISldWorks _swApp;
-        public SolidWorksContextReader(ISldWorks swApp) { _swApp = swApp; }
+
+        public SolidWorksContextReader(ISldWorks swApp)
+        {
+            _swApp = swApp;
+        }
 
         public AgentContext Read()
         {
-            var ctx = new AgentContext { IsConnected = _swApp != null, ObservedAt = DateTime.Now };
-            if (_swApp == null) return ctx;
+            var ctx = new AgentContext
+            {
+                IsConnected = _swApp != null,
+                ObservedAt = DateTime.Now
+            };
 
-            ctx.SolidWorksVersion = _swApp.RevisionNumber();
-            var doc = _swApp.IActiveDoc2;
-            if (doc == null) return ctx;
+            if (_swApp == null)
+                return ctx;
+
+            try
+            {
+                ctx.SolidWorksVersion = _swApp.RevisionNumber();
+            }
+            catch
+            {
+                ctx.SolidWorksVersion = string.Empty;
+            }
+
+            // ActiveDoc is more reliable than IActiveDoc2 for imported/3D Interconnect
+            // documents in older SOLIDWORKS versions. Keep IActiveDoc2 only as fallback.
+            var doc = _swApp.ActiveDoc as IModelDoc2;
+            if (doc == null)
+                doc = _swApp.IActiveDoc2;
+
+            if (doc == null)
+                return ctx;
 
             ctx.HasActiveDocument = true;
-            ctx.DocumentName = doc.GetTitle();
-            ctx.DocumentType = doc is IPartDoc ? "Part" : doc is IAssemblyDoc ? "Assembly" : doc is IDrawingDoc ? "Drawing" : "Unknown";
+
+            try
+            {
+                ctx.DocumentName = doc.GetTitle() ?? string.Empty;
+            }
+            catch
+            {
+                ctx.DocumentName = string.Empty;
+            }
+
+            try
+            {
+                switch ((swDocumentTypes_e)doc.GetType())
+                {
+                    case swDocumentTypes_e.swDocPART:
+                        ctx.DocumentType = "Part";
+                        break;
+                    case swDocumentTypes_e.swDocASSEMBLY:
+                        ctx.DocumentType = "Assembly";
+                        break;
+                    case swDocumentTypes_e.swDocDRAWING:
+                        ctx.DocumentType = "Drawing";
+                        break;
+                    default:
+                        ctx.DocumentType = "Unknown";
+                        break;
+                }
+            }
+            catch
+            {
+                ctx.DocumentType = "Unknown";
+            }
 
             try
             {
                 var cfg = doc.ConfigurationManager?.ActiveConfiguration;
-                if (cfg != null) ctx.ActiveConfiguration = cfg.Name;
+                if (cfg != null)
+                    ctx.ActiveConfiguration = cfg.Name;
             }
             catch { }
 
