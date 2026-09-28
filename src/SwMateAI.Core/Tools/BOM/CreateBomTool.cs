@@ -101,10 +101,31 @@ namespace SwMateAI.Core.Tools.BOM
         private static string SafeBaseName(IModelDoc2 model)
         {
             string path = model?.GetPathName() ?? string.Empty;
-            string name = !string.IsNullOrWhiteSpace(path)
-                ? Path.GetFileNameWithoutExtension(path)
-                : Path.GetFileNameWithoutExtension(model?.GetTitle() ?? "Assembly");
+            string rawName = !string.IsNullOrWhiteSpace(path)
+                ? Path.GetFileName(path)
+                : model?.GetTitle() ?? "Assembly";
+            string name = CleanCadName(rawName);
             return string.IsNullOrWhiteSpace(name) ? "Assembly" : name;
+        }
+
+        private static string CleanCadName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+            string name = Path.GetFileName(value.Trim());
+            string[] extensions = { ".sldprt", ".sldasm", ".slddrw", ".step", ".stp", ".iges", ".igs", ".x_t", ".x_b", ".sat" };
+            bool removed;
+            do
+            {
+                removed = false;
+                foreach (var ext in extensions)
+                {
+                    if (!name.EndsWith(ext, StringComparison.OrdinalIgnoreCase)) continue;
+                    name = name.Substring(0, name.Length - ext.Length);
+                    removed = true;
+                    break;
+                }
+            } while (removed && !string.IsNullOrWhiteSpace(name));
+            return name;
         }
 
         private static string UniquePath(string path)

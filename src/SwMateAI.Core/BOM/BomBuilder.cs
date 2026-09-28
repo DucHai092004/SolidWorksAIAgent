@@ -62,15 +62,15 @@ namespace SwMateAI.Core.BOM
             string path = component.GetPathName() ?? string.Empty;
             string config = component.ReferencedConfiguration ?? string.Empty;
             var model = component.GetModelDoc2() as IModelDoc2;
-            string title = model?.GetTitle() ?? Path.GetFileNameWithoutExtension(path) ?? component.Name2 ?? string.Empty;
+            string title = CleanCadName(model?.GetTitle() ?? Path.GetFileName(path) ?? component.Name2 ?? string.Empty);
             string type = ResolveType(model, path);
             bool isVirtual = component.IsVirtual;
             string identity = !string.IsNullOrWhiteSpace(path)
                 ? path.ToUpperInvariant() + "|" + config.ToUpperInvariant()
                 : "VIRTUAL::" + title.ToUpperInvariant() + "|" + config.ToUpperInvariant();
 
-            string fallback = !string.IsNullOrWhiteSpace(path) ? Path.GetFileNameWithoutExtension(path) : title;
-            string partNumber = model == null ? fallback : FirstNonEmpty(ReadProperty(model, config, "Part Number"), ReadProperty(model, config, "PartNumber"), fallback);
+            string fallback = CleanCadName(!string.IsNullOrWhiteSpace(path) ? Path.GetFileName(path) : title);
+            string partNumber = CleanCadName(model == null ? fallback : FirstNonEmpty(ReadProperty(model, config, "Part Number"), ReadProperty(model, config, "PartNumber"), fallback));
             string description = model == null ? string.Empty : FirstNonEmpty(ReadProperty(model, config, "Description"), ReadProperty(model, config, "DESCRIPTION"));
             string material = string.Empty;
             if (model is IPartDoc part)
@@ -122,6 +122,27 @@ namespace SwMateAI.Core.BOM
             foreach (var value in values) if (!string.IsNullOrWhiteSpace(value)) return value;
             return string.Empty;
         }
+
+        private static string CleanCadName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+            string name = Path.GetFileName(value.Trim());
+            string[] extensions = { ".sldprt", ".sldasm", ".slddrw", ".step", ".stp", ".iges", ".igs", ".x_t", ".x_b", ".sat" };
+            bool removed;
+            do
+            {
+                removed = false;
+                foreach (var ext in extensions)
+                {
+                    if (!name.EndsWith(ext, StringComparison.OrdinalIgnoreCase)) continue;
+                    name = name.Substring(0, name.Length - ext.Length);
+                    removed = true;
+                    break;
+                }
+            } while (removed && !string.IsNullOrWhiteSpace(name));
+            return name;
+        }
+
 
         private sealed class ComponentRecord
         {
