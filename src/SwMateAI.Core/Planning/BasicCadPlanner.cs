@@ -7,6 +7,28 @@ namespace SwMateAI.Core.Planning
     {
         public static TaskPlan Build(NaturalLanguageCadCommand command)
         {
+            if (command.Intent == SkillNames.AddMate)
+            {
+                var actionPlan = new TaskPlan { Goal = "Modify Assembly" };
+                var step = new PlanStep { Index = 1, SkillName = SkillNames.AddMate,
+                    Description = $"Add {command.MateType} Mate to the selected Assembly entities" };
+                step.Parameters["MateType"] = command.MateType;
+                step.Parameters["Distance"] = command.MateDistance;
+                actionPlan.Steps.Add(step);
+                return actionPlan;
+            }
+
+            if (command.Intent == SkillNames.ReplaceComponent)
+            {
+                var actionPlan = new TaskPlan { Goal = "Modify Assembly" };
+                var step = new PlanStep { Index = 1, SkillName = SkillNames.ReplaceComponent,
+                    Description = $"Replace {command.ComponentName} with {command.ReplacementPath}" };
+                step.Parameters["ComponentName"] = command.ComponentName;
+                step.Parameters["NewPath"] = command.ReplacementPath;
+                actionPlan.Steps.Add(step);
+                return actionPlan;
+            }
+
             if (command.Intent == SkillNames.InsertComponent)
             {
                 var actionPlan = new TaskPlan { Goal = "Modify Assembly" };

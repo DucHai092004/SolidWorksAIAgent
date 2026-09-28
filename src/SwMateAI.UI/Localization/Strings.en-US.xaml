@@ -41,7 +41,7 @@
  <sys:String x:Key="ActivityHistoryDescription">Recent commands and agent diagnostics</sys:String>
  <sys:String x:Key="RecentCommands">RECENT COMMANDS</sys:String>
  <sys:String x:Key="AgentConsole">AGENT CONSOLE</sys:String>
- <sys:String x:Key="FooterText">SW-MATE AI  ·  Phase 3B · Assembly Actions  ·  v1.1.0</sys:String>
+ <sys:String x:Key="FooterText">SW-MATE AI  ·  Phase 3C · Mate &amp; Replace  ·  v1.2.0</sys:String>
  <sys:String x:Key="LanguageLabel">Language</sys:String>
  <sys:String x:Key="RefreshTooltip">Refresh SolidWorks context</sys:String>
  <sys:String x:Key="StatusIdle">Idle</sys:String>
@@ -61,6 +61,7 @@
  <sys:String x:Key="GuideStep6">6. Ask about feature dependencies to see what depends on what and inspect design intent.</sys:String>
  <sys:String x:Key="GuideStep7">7. For Assemblies, read the summary, components and mates before asking the Agent to modify the assembly.</sys:String>
  <sys:String x:Key="GuideStep8">8. Insert/Move always uses Preview → Confirm; after execution you can Undo the last Agent action.</sys:String>
+ <sys:String x:Key="GuideStep9">9. AddMate uses two selected entities; ReplaceComponent also requires Preview/Confirm and supports Undo.</sys:String>
  <sys:String x:Key="GuideExamples">Example commands:</sys:String>
  <sys:String x:Key="GuideExample1">• Create a 160 x 100 x 12 mm plate, two Ø12 holes, fillet R8</sys:String>
  <sys:String x:Key="GuideExample2">• Change D1@Sketch1 to 70 mm</sys:String>
@@ -74,5 +75,7 @@
  <sys:String x:Key="GuideExample10">• Check interference in this Assembly.</sys:String>
  <sys:String x:Key="GuideExample11">• Insert component &quot;E:\Models\Bracket.SLDPRT&quot; into Assembly at X=100, Y=0, Z=25 mm</sys:String>
  <sys:String x:Key="GuideExample12">• Move component Bracket-1 to X=150, Y=20, Z=0 mm</sys:String>
+ <sys:String x:Key="GuideExample13">• Select two entities, then: Add coincident mate to selected entities</sys:String>
+ <sys:String x:Key="GuideExample14">• Replace component Bracket-1 with &quot;E:\Models\BracketV2.SLDPRT&quot;</sys:String>
  <sys:String x:Key="GuideTip">Tip: clearer dimensions, positions, and target objects help the Agent build a more accurate plan.</sys:String>
 </ResourceDictionary>

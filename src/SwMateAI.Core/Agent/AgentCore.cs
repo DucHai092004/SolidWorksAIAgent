@@ -118,6 +118,8 @@ namespace SwMateAI.Core.Agent
             Register(new CheckInterferenceTool(_swApp));
             Register(new InsertComponentTool(_swApp));
             Register(new MoveComponentTool(_swApp));
+            Register(new AddMateTool(_swApp));
+            Register(new ReplaceComponentTool(_swApp));
         }
 
         private void Register(ISwTool tool)

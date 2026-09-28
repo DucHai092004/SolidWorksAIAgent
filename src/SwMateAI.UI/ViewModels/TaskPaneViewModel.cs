@@ -610,7 +610,7 @@ namespace SwMateAI.UI.ViewModels
             {
                 AddLog($"  [PARSED] Modify dimension {command.DimensionName} -> {command.DimensionValue:0.###} mm");
             }
-            else if (command.Intent == "InsertComponent" || command.Intent == "MoveComponent")
+            else if (command.Intent == "InsertComponent" || command.Intent == "MoveComponent" || command.Intent == "AddMate" || command.Intent == "ReplaceComponent")
             {
                 AddLog($"  [PARSED] Assembly action: {command.Intent}");
             }
@@ -692,6 +692,8 @@ namespace SwMateAI.UI.ViewModels
             RefreshPlanDisplay(); AgentStageText = "Completed"; LastRunSucceeded = true;
             if (execution.LastData is AssemblyActionResult action)
                 LastResultText = Tr($"Đã thực hiện và kiểm tra: {action}", $"Completed and verified: {action}");
+            else if (execution.LastData is AssemblyMateActionResult mateAction)
+                LastResultText = Tr($"Đã thực hiện và kiểm tra: {mateAction}", $"Completed and verified: {mateAction}");
             else
                 LastResultText = Tr($"Hoàn thành và đã kiểm tra {execution.CompletedSteps}/{_currentPlan.Steps.Count} skill.", $"Completed and verified {execution.CompletedSteps}/{_currentPlan.Steps.Count} skill(s).");
             CommandHistory.Insert(0, $"OK • {_pendingCommandText}");

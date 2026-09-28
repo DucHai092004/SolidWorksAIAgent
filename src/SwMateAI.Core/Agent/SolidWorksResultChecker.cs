@@ -74,7 +74,7 @@ namespace SwMateAI.Core.Agent
                 return true;
             }
 
-            if (skillName == "InsertComponent" || skillName == "MoveComponent")
+            if (skillName == "InsertComponent" || skillName == "MoveComponent" || skillName == "AddMate" || skillName == "ReplaceComponent")
             {
                 if (!RequireAssembly(model, out reason)) return false;
                 if (!model.EditRebuild3()) { reason = "SOLIDWORKS rebuild failed after Assembly action."; return false; }

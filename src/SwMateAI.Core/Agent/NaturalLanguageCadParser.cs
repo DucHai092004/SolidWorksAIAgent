@@ -34,6 +34,9 @@ namespace SwMateAI.Core.Agent
         public double PositionX { get; set; }
         public double PositionY { get; set; }
         public double PositionZ { get; set; }
+        public string MateType { get; set; } = string.Empty;
+        public double MateDistance { get; set; }
+        public string ReplacementPath { get; set; } = string.Empty;
     }
 
     public static class NaturalLanguageCadParser
@@ -144,6 +147,33 @@ namespace SwMateAI.Core.Agent
         private static bool TryAssemblyActionQuery(string input, out NaturalLanguageCadCommand command)
         {
             command = null;
+            var replace = Regex.Match(input,
+                @"(?:thay|replace)\s+(?:component\s+)?(?:""(?<name>[^""]+)""|(?<name>[A-Za-z0-9_.\-]+))\s+(?:bằng|bang|with)\s*(?:""(?<path>[A-Za-z]:\\[^""]+\.(?:sldprt|sldasm))""|(?<path>[A-Za-z]:\\.+?\.(?:sldprt|sldasm)))",
+                RegexOptions.IgnoreCase);
+            if (replace.Success)
+            {
+                command = new NaturalLanguageCadCommand {
+                    Intent = SkillNames.ReplaceComponent,
+                    ComponentName = replace.Groups["name"].Value,
+                    ReplacementPath = replace.Groups["path"].Value };
+                return true;
+            }
+
+            string mateTypePattern = @"coincident|concentric|parallel|perpendicular|tangent|distance|đồng\s*tâm|dong\s*tam|song\s*song|vuông\s*góc|vuong\s*goc|tiếp\s*tuyến|tiep\s*tuyen|khoảng\s*cách|khoang\s*cach";
+            var addMate = Regex.Match(input,
+                @"(?:thêm|them|add)\s+(?:(?:mate|ràng\s*buộc|rang\s*buoc)\s*(?<type1>" + mateTypePattern + @")?|(?<type2>" + mateTypePattern + @")\s+(?:mate|ràng\s*buộc|rang\s*buoc))",
+                RegexOptions.IgnoreCase);
+            if (addMate.Success)
+            {
+                string mateType = !string.IsNullOrWhiteSpace(addMate.Groups["type1"].Value) ? addMate.Groups["type1"].Value : addMate.Groups["type2"].Value;
+                if (string.IsNullOrWhiteSpace(mateType)) mateType = "coincident";
+                double mateDistance = 0;
+                var distance = Regex.Match(input, @"(?:distance|khoảng\s*cách|khoang\s*cach)\s*[:=]?\s*(?<d>\d+(?:[\.,]\d+)?)\s*(?:mm)?", RegexOptions.IgnoreCase);
+                if (distance.Success) mateDistance = Number(distance.Groups["d"].Value);
+                command = new NaturalLanguageCadCommand { Intent = SkillNames.AddMate, MateType = mateType, MateDistance = mateDistance };
+                return true;
+            }
+
             var insert = Regex.Match(input,
                 @"(?:chèn|chen|thêm|them|insert|add)\s+(?:component|chi\s*tiết|chi\s*tiet)?\s*(?:""(?<path>[A-Za-z]:\\[^""]+\.(?:sldprt|sldasm))""|(?<path>[A-Za-z]:\\.+?\.(?:sldprt|sldasm)))",
                 RegexOptions.IgnoreCase);
