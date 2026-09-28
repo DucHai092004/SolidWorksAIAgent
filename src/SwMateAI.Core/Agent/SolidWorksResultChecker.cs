@@ -38,6 +38,11 @@ namespace SwMateAI.Core.Agent
                 var bodies = part?.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[];
                 snapshot.SolidBodyCount = bodies?.Length ?? 0;
             }
+            if (model.GetType() == (int)swDocumentTypes_e.swDocDRAWING)
+            {
+                var drawing = model as IDrawingDoc;
+                snapshot.DrawingSheetCount = drawing?.GetSheetCount() ?? 0;
+            }
 
             return snapshot;
         }
@@ -66,6 +71,24 @@ namespace SwMateAI.Core.Agent
                 if (drawing == null || drawing.GetCurrentSheet() == null)
                 {
                     reason = "Drawing exists but no active sheet was created.";
+                    return false;
+                }
+                return true;
+            }
+
+            if (skillName == "CreateSheet")
+            {
+                if (!RequireDrawing(model, out reason)) return false;
+                var drawing = model as IDrawingDoc;
+                var after = Capture();
+                if (before != null && before.HasDocument && after.DrawingSheetCount <= before.DrawingSheetCount)
+                {
+                    reason = "Drawing sheet count did not increase after CreateSheet.";
+                    return false;
+                }
+                if (drawing == null || drawing.GetCurrentSheet() == null)
+                {
+                    reason = "No active drawing sheet exists after CreateSheet.";
                     return false;
                 }
                 return true;
@@ -164,6 +187,14 @@ namespace SwMateAI.Core.Agent
                 sub = sub.GetNextSubFeature() as IFeature;
             }
             return count;
+        }
+
+        private static bool RequireDrawing(IModelDoc2 model, out string reason)
+        {
+            reason = null;
+            if (model.GetType() == (int)swDocumentTypes_e.swDocDRAWING) return true;
+            reason = "The active document is not a Drawing after execution.";
+            return false;
         }
 
         private static bool RequireAssembly(IModelDoc2 model, out string reason)

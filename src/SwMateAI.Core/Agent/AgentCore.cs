@@ -138,6 +138,7 @@ namespace SwMateAI.Core.Agent
 
             // Phase 6A.1 Drawing Automation
             Register(new CreateDrawingTool(_swApp, _drawingSession));
+            Register(new CreateSheetTool(_swApp));
         }
 
         private void Register(ISwTool tool)

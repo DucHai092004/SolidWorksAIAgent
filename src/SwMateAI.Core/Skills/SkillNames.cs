@@ -40,5 +40,6 @@ namespace SwMateAI.Core.Skills
         public const string CreateBOM = "CreateBOM";
         public const string InsertSolidWorksBOM = "InsertSolidWorksBOM";
         public const string CreateDrawing = "CreateDrawing";
+        public const string CreateSheet = "CreateSheet";
     }
 }
