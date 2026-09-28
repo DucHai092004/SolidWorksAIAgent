@@ -11,5 +11,6 @@ namespace SwMateAI.Core.Agent
         public int AssemblyMateCount { get; set; }
         public int AssemblyBomCount { get; set; }
         public int DrawingSheetCount { get; set; }
+        public int DrawingModelViewCount { get; set; }
     }
 }

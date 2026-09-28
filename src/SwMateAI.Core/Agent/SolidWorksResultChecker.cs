@@ -42,6 +42,7 @@ namespace SwMateAI.Core.Agent
             {
                 var drawing = model as IDrawingDoc;
                 snapshot.DrawingSheetCount = drawing?.GetSheetCount() ?? 0;
+                snapshot.DrawingModelViewCount = CountDrawingModelViews(drawing);
             }
 
             return snapshot;
@@ -89,6 +90,19 @@ namespace SwMateAI.Core.Agent
                 if (drawing == null || drawing.GetCurrentSheet() == null)
                 {
                     reason = "No active drawing sheet exists after CreateSheet.";
+                    return false;
+                }
+                return true;
+            }
+
+            if (skillName == "InsertStandardViews")
+            {
+                if (!RequireDrawing(model, out reason)) return false;
+                var after = Capture();
+                if (before != null && before.HasDocument &&
+                    after.DrawingModelViewCount < before.DrawingModelViewCount + 3)
+                {
+                    reason = "Expected at least three new model views after InsertStandardViews.";
                     return false;
                 }
                 return true;
@@ -161,6 +175,20 @@ namespace SwMateAI.Core.Agent
             }
 
             return true;
+        }
+
+        private static int CountDrawingModelViews(IDrawingDoc drawing)
+        {
+            if (drawing == null) return 0;
+            int count = 0;
+            var sheetView = drawing.GetFirstView() as IView;
+            var view = sheetView?.GetNextView() as IView;
+            while (view != null)
+            {
+                count++;
+                view = view.GetNextView() as IView;
+            }
+            return count;
         }
 
         private static int CountBomFeatures(IModelDoc2 model)
