@@ -53,6 +53,7 @@ namespace SwMateAI.Core.Skills
                 case SkillNames.ExportManufacturingBreakdown: Configure(m, SkillNames.ExportManufacturingBreakdown, "Manufacturing.Export", SkillRiskLevel.Low, assembly: true); break;
                 case SkillNames.CreateBOM: Configure(m, SkillNames.CreateBOM, "BOM", SkillRiskLevel.Low, assembly: true); break;
                 case SkillNames.InsertSolidWorksBOM: Configure(m, SkillNames.InsertSolidWorksBOM, "BOM.Native", SkillRiskLevel.Medium, assembly: true, confirm: true, undo: true); break;
+                case SkillNames.CreateDrawing: Configure(m, SkillNames.CreateDrawing, "Drawing.Create", SkillRiskLevel.Low, document: true); break;
                 default: m.Name = tool.Name; break;
             }
 
