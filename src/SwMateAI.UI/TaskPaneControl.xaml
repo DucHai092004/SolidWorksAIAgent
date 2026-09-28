@@ -193,14 +193,18 @@
       <TextBlock Text="{DynamicResource GuideStep3}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
       <TextBlock Text="{DynamicResource GuideStep4}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
       <TextBlock Text="{DynamicResource GuideStep5}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
-      <TextBlock Text="{DynamicResource GuideStep6}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2,0,8"/>
+      <TextBlock Text="{DynamicResource GuideStep6}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep7}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2,0,8"/>
       <TextBlock Text="{DynamicResource GuideExamples}" Foreground="#7DD3FC" FontSize="9" FontWeight="SemiBold" Margin="0,2,0,3"/>
       <TextBlock Text="{DynamicResource GuideExample1}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
       <TextBlock Text="{DynamicResource GuideExample2}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
       <TextBlock Text="{DynamicResource GuideExample3}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
       <TextBlock Text="{DynamicResource GuideExample4}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
       <TextBlock Text="{DynamicResource GuideExample5}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
-      <TextBlock Text="{DynamicResource GuideExample6}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1,0,7"/>
+      <TextBlock Text="{DynamicResource GuideExample6}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample7}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample8}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample9}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1,0,7"/>
       <Border Background="#0F172A" CornerRadius="5" Padding="7"><TextBlock Text="{DynamicResource GuideTip}" Foreground="#A5B4FC" FontSize="9" TextWrapping="Wrap"/></Border>
      </StackPanel>
     </Expander>

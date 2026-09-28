@@ -5,6 +5,7 @@ using SolidWorks.Interop.sldworks;
 using SwMateAI.Core.Tools;
 using SwMateAI.Core.Tools.CAD;
 using SwMateAI.Core.Tools.ModelReader;
+using SwMateAI.Core.Tools.Assembly;
 using SwMateAI.Core.Common;
 using SwMateAI.Core.Planning;
 using SwMateAI.Core.Skills;
@@ -109,6 +110,11 @@ namespace SwMateAI.Core.Agent
             Register(new ReadCustomPropertiesTool(_swApp));
             Register(new ReadSelectedObjectTool(_swApp));
             Register(new ReadBoundingBoxTool(_swApp));
+
+            // Phase 3 Assembly readers
+            Register(new ReadAssemblyTool(_swApp));
+            Register(new ReadComponentsTool(_swApp));
+            Register(new ReadMatesTool(_swApp));
         }
 
         private void Register(ISwTool tool)

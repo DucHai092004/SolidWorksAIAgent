@@ -40,6 +40,9 @@ namespace SwMateAI.Core.Skills
                 case SkillNames.ReadCustomProperties: Configure(m, SkillNames.ReadCustomProperties, "ModelReader", SkillRiskLevel.ReadOnly, document: true); break;
                 case SkillNames.ReadSelectedObject: Configure(m, SkillNames.ReadSelectedObject, "ModelReader", SkillRiskLevel.ReadOnly, document: true); break;
                 case SkillNames.ReadBoundingBox: Configure(m, SkillNames.ReadBoundingBox, "ModelReader", SkillRiskLevel.ReadOnly, part: true); break;
+                case SkillNames.ReadAssembly: Configure(m, SkillNames.ReadAssembly, "Assembly.Reader", SkillRiskLevel.ReadOnly, document: true); break;
+                case SkillNames.ReadComponents: Configure(m, SkillNames.ReadComponents, "Assembly.Reader", SkillRiskLevel.ReadOnly, document: true); break;
+                case SkillNames.ReadMates: Configure(m, SkillNames.ReadMates, "Assembly.Reader", SkillRiskLevel.ReadOnly, document: true); break;
                 default: m.Name = tool.Name; break;
             }
 

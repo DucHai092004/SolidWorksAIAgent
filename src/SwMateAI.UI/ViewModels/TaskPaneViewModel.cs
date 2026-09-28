@@ -8,6 +8,7 @@ using System.Windows.Input;
 using SwMateAI.Core.Agent;
 using SwMateAI.Core.Models;
 using SwMateAI.Core.Models.Understanding;
+using SwMateAI.Core.Models.Assembly;
 using SwMateAI.Core.Planning;
 
 namespace SwMateAI.UI.ViewModels
@@ -536,6 +537,18 @@ namespace SwMateAI.UI.ViewModels
         {
             try
             {
+                if (string.Equals(DocumentType, "Assembly", StringComparison.OrdinalIgnoreCase))
+                {
+                    var assembly = _agentCore.ExecuteTool("ReadAssembly").Data as AssemblyInfo;
+                    var components = _agentCore.ExecuteTool("ReadComponents").Data as List<AssemblyComponentInfo> ?? new List<AssemblyComponentInfo>();
+                    var mates = _agentCore.ExecuteTool("ReadMates").Data as List<AssemblyMateInfo> ?? new List<AssemblyMateInfo>();
+                    ModelSummary = assembly == null ? Tr("Không thể đọc Assembly.", "Could not read Assembly.") : Tr(
+                        $"Assembly: {assembly.Name}\nComponent: {components.Count}   Mate: {mates.Count}   Suppressed: {assembly.SuppressedComponentCount}\nConfiguration: {assembly.Configuration}   Lightweight: {assembly.LightweightComponentCount}",
+                        $"Assembly: {assembly.Name}\nComponents: {components.Count}   Mates: {mates.Count}   Suppressed: {assembly.SuppressedComponentCount}\nConfiguration: {assembly.Configuration}   Lightweight: {assembly.LightweightComponentCount}");
+                    StatusText = Tr("Đã đọc Assembly thành công.", "Assembly inspection completed.");
+                    AddLog($"  [ASSEMBLY] {components.Count} components, {mates.Count} mates");
+                    return;
+                }
                 var features = _agentCore.ExecuteTool("ReadFeatureTree").Data as List<FeatureInfo> ?? new List<FeatureInfo>();
                 var sketches = _agentCore.ExecuteTool("ReadSketches").Data as List<FeatureInfo> ?? new List<FeatureInfo>();
                 var dimensions = _agentCore.ExecuteTool("ReadDimensions").Data as List<DimensionInfo> ?? new List<DimensionInfo>();
@@ -632,11 +645,25 @@ namespace SwMateAI.UI.ViewModels
         {
             return intent == "ReadFeatureTree" || intent == "ReadFeatures" || intent == "ReadFeatureDependencies" || intent == "AnalyzeFeatureImpact" || intent == "ReadSketches" ||
                    intent == "ReadDimensions" || intent == "ReadMaterial" || intent == "ReadMassProperties" ||
-                   intent == "ReadCustomProperties" || intent == "ReadSelectedObject" || intent == "ReadBoundingBox";
+                   intent == "ReadCustomProperties" || intent == "ReadSelectedObject" || intent == "ReadBoundingBox" ||
+                   intent == "ReadAssembly" || intent == "ReadComponents" || intent == "ReadMates";
         }
 
         private string FormatModelQueryResult(string intent, object data)
         {
+            if (intent == "ReadAssembly" && data is AssemblyInfo assembly)
+                return Tr($"Assembly: {assembly.Name}\nComponent: {assembly.TotalComponentCount} (top-level {assembly.TopLevelComponentCount})\nMate: {assembly.MateCount}\nConfiguration: {assembly.Configuration}\nSuppressed: {assembly.SuppressedComponentCount}   Lightweight: {assembly.LightweightComponentCount}",
+                          $"Assembly: {assembly.Name}\nComponents: {assembly.TotalComponentCount} (top-level {assembly.TopLevelComponentCount})\nMates: {assembly.MateCount}\nConfiguration: {assembly.Configuration}\nSuppressed: {assembly.SuppressedComponentCount}   Lightweight: {assembly.LightweightComponentCount}");
+            if (intent == "ReadComponents" && data is List<AssemblyComponentInfo> components)
+            {
+                string list = string.Join("\n", components.Take(18).Select(c => $"• {new string('·', Math.Min(c.Depth, 8))} {c.Name} | {c.ReferencedConfiguration} | {c.SuppressionStateName}"));
+                return Tr($"Assembly có {components.Count} component occurrence:\n{list}", $"Assembly has {components.Count} component occurrence(s):\n{list}");
+            }
+            if (intent == "ReadMates" && data is List<AssemblyMateInfo> mates)
+            {
+                string list = string.Join("\n", mates.Take(18).Select(m => $"• {m.Name} [{m.TypeName}] → {string.Join(", ", m.Components)}"));
+                return Tr($"Assembly có {mates.Count} Mate:\n{list}", $"Assembly has {mates.Count} mate(s):\n{list}");
+            }
             if (intent == "ReadMaterial")
             {
                 var value = data as string;

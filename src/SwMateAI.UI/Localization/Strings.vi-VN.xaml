@@ -36,7 +36,7 @@
  <sys:String x:Key="ActivityHistoryDescription">Lệnh gần đây và chẩn đoán Agent</sys:String>
  <sys:String x:Key="RecentCommands">LỆNH GẦN ĐÂY</sys:String>
  <sys:String x:Key="AgentConsole">BẢNG ĐIỀU KHIỂN AGENT</sys:String>
- <sys:String x:Key="FooterText">SW-MATE AI  ·  Giai đoạn 2 · Hiểu Model  ·  v0.9.1</sys:String>
+ <sys:String x:Key="FooterText">SW-MATE AI  ·  Giai đoạn 3 · Assembly  ·  v1.0.0</sys:String>
  <sys:String x:Key="LanguageLabel">Ngôn ngữ</sys:String>
  <sys:String x:Key="RefreshTooltip">Làm mới ngữ cảnh SolidWorks</sys:String>
  <sys:String x:Key="StatusIdle">Sẵn sàng</sys:String>
@@ -54,6 +54,7 @@
  <sys:String x:Key="GuideStep4">4. Dùng TRÌNH ĐỌC MODEL khi muốn xem nhanh dữ liệu CAD thực tế.</sys:String>
  <sys:String x:Key="GuideStep5">5. CÔNG CỤ CAD THỦ CÔNG chỉ dùng để kiểm thử hoặc xử lý khi cần.</sys:String>
  <sys:String x:Key="GuideStep6">6. Hỏi về quan hệ Feature để xem Feature nào phụ thuộc vào Feature nào và hiểu Design Intent.</sys:String>
+ <sys:String x:Key="GuideStep7">7. Khi làm việc với Assembly, hãy đọc tổng quan, Component và Mate trước khi yêu cầu Agent thay đổi cụm.</sys:String>
  <sys:String x:Key="GuideExamples">Ví dụ lệnh:</sys:String>
  <sys:String x:Key="GuideExample1">• Tạo tấm 160 x 100 x 12 mm, 2 lỗ phi 12, bo góc R8</sys:String>
  <sys:String x:Key="GuideExample2">• Đổi kích thước D1@Sketch1 thành 70 mm</sys:String>
@@ -61,5 +62,8 @@
  <sys:String x:Key="GuideExample4">• Kích thước tổng thể bao nhiêu?</sys:String>
  <sys:String x:Key="GuideExample5">• Quan hệ feature của chi tiết này như thế nào?</sys:String>
  <sys:String x:Key="GuideExample6">• Nếu sửa Boss-Extrude1 thì những Feature nào có thể bị ảnh hưởng?</sys:String>
+ <sys:String x:Key="GuideExample7">• Assembly này có thông tin gì?</sys:String>
+ <sys:String x:Key="GuideExample8">• Assembly này có những component nào?</sys:String>
+ <sys:String x:Key="GuideExample9">• Assembly này có những Mate nào?</sys:String>
  <sys:String x:Key="GuideTip">Mẹo: câu lệnh càng rõ kích thước, vị trí và đối tượng thì Agent càng dễ lập kế hoạch chính xác.</sys:String>
 </ResourceDictionary>

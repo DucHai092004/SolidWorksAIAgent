@@ -44,6 +44,9 @@ namespace SwMateAI.Core.Agent
             if (TryFeatureImpactQuery(input, out command))
                 return true;
 
+            if (TryAssemblyReadQuery(input, out command))
+                return true;
+
             if (TryReadModelQuery(input, out command))
                 return true;
 
@@ -128,6 +131,19 @@ namespace SwMateAI.Core.Agent
                 return true;
             }
             return false;
+        }
+
+        private static bool TryAssemblyReadQuery(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            string s = input.Trim().ToLowerInvariant();
+            string intent = null;
+            if (Regex.IsMatch(s, @"(?:mate|ràng\s*buộc|rang\s*buoc)") && Regex.IsMatch(s, @"(?:assembly|cụm|cum|mate)")) intent = SkillNames.ReadMates;
+            else if (Regex.IsMatch(s, @"(?:component|linh\s*kiện|linh\s*kien|chi\s*tiết|chi\s*tiet)") && Regex.IsMatch(s, @"(?:assembly|cụm|cum|component)")) intent = SkillNames.ReadComponents;
+            else if (Regex.IsMatch(s, @"(?:đọc|doc|thông\s*tin|thong\s*tin|tổng\s*quan|tong\s*quan|summary|read|assembly|cụm|cum)\s*.*(?:assembly|cụm|cum)|(?:assembly|cụm|cum)\s*(?:này|nay)?\s*(?:có\s*gì|co\s*gi|summary|information)?")) intent = SkillNames.ReadAssembly;
+            if (intent == null) return false;
+            command = new NaturalLanguageCadCommand { Intent = intent };
+            return true;
         }
 
         private static bool TryReadModelQuery(string input, out NaturalLanguageCadCommand command)

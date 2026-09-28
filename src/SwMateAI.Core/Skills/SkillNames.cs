@@ -26,5 +26,8 @@ namespace SwMateAI.Core.Skills
         public const string ReadCustomProperties = "ReadCustomProperties";
         public const string ReadSelectedObject = "ReadSelectedObject";
         public const string ReadBoundingBox = "ReadBoundingBox";
+        public const string ReadAssembly = "ReadAssembly";
+        public const string ReadComponents = "ReadComponents";
+        public const string ReadMates = "ReadMates";
     }
 }
