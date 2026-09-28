@@ -47,6 +47,7 @@ namespace SwMateAI.Core.Agent
         public string SheetPaperSize { get; set; } = "A3";
         public double SheetScaleNumerator { get; set; } = 1.0;
         public double SheetScaleDenominator { get; set; } = 1.0;
+        public string DrawingProjection { get; set; } = "Third";
     }
 
     public static class NaturalLanguageCadParser
@@ -60,6 +61,9 @@ namespace SwMateAI.Core.Agent
                 return true;
 
             if (TryFeatureImpactQuery(input, out command))
+                return true;
+
+            if (TryStandardViewsQuery(input, out command))
                 return true;
 
             if (TrySheetQuery(input, out command))
@@ -167,6 +171,29 @@ namespace SwMateAI.Core.Agent
                 return true;
             }
             return false;
+        }
+
+        private static bool TryStandardViewsQuery(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            string s = input.Trim().ToLowerInvariant();
+            bool standard = Regex.IsMatch(s,
+                @"(?:hình\s*chiếu\s*chuẩn|hinh\s*chieu\s*chuan|3\s*hình\s*chiếu|3\s*hinh\s*chieu|standard\s*views?|orthographic\s*views?|front\s*[,/+&-]?\s*top\s*[,/+&-]?\s*(?:right|side))");
+            bool action = Regex.IsMatch(s, @"(?:chèn|chen|thêm|them|tạo|tao|insert|add|create)");
+            if (!standard || !action) return false;
+
+            string projection = "Third";
+            if (Regex.IsMatch(s, @"(?:góc\s*thứ\s*nhất|goc\s*thu\s*nhat|first[-\s]*angle|1st[-\s]*angle)"))
+                projection = "First";
+            else if (Regex.IsMatch(s, @"(?:góc\s*thứ\s*ba|goc\s*thu\s*ba|third[-\s]*angle|3rd[-\s]*angle)"))
+                projection = "Third";
+
+            command = new NaturalLanguageCadCommand
+            {
+                Intent = SkillNames.InsertStandardViews,
+                DrawingProjection = projection
+            };
+            return true;
         }
 
         private static bool TrySheetQuery(string input, out NaturalLanguageCadCommand command)

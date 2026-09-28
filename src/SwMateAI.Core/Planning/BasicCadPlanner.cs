@@ -7,6 +7,20 @@ namespace SwMateAI.Core.Planning
     {
         public static TaskPlan Build(NaturalLanguageCadCommand command)
         {
+            if (command.Intent == SkillNames.InsertStandardViews)
+            {
+                var viewsPlan = new TaskPlan { Goal = "Insert standard Drawing views" };
+                var step = new PlanStep
+                {
+                    Index = 1,
+                    SkillName = SkillNames.InsertStandardViews,
+                    Description = "Insert standard orthographic views using " + command.DrawingProjection + " angle projection"
+                };
+                step.Parameters["Projection"] = command.DrawingProjection;
+                viewsPlan.Steps.Add(step);
+                return viewsPlan;
+            }
+
             if (command.Intent == SkillNames.CreateSheet)
             {
                 var sheetPlan = new TaskPlan { Goal = "Create Drawing sheet" };
