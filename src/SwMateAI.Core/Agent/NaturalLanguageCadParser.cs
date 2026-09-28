@@ -48,6 +48,9 @@ namespace SwMateAI.Core.Agent
         public double SheetScaleNumerator { get; set; } = 1.0;
         public double SheetScaleDenominator { get; set; } = 1.0;
         public string DrawingProjection { get; set; } = "Third";
+        public string SectionLabel { get; set; } = "A";
+        public string SectionDirection { get; set; } = "Vertical";
+        public string SectionSourceViewName { get; set; } = string.Empty;
     }
 
     public static class NaturalLanguageCadParser
@@ -61,6 +64,9 @@ namespace SwMateAI.Core.Agent
                 return true;
 
             if (TryFeatureImpactQuery(input, out command))
+                return true;
+
+            if (TrySectionQuery(input, out command))
                 return true;
 
             if (TryIsometricViewQuery(input, out command))
@@ -174,6 +180,40 @@ namespace SwMateAI.Core.Agent
                 return true;
             }
             return false;
+        }
+
+        private static bool TrySectionQuery(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            string s = input.Trim().ToLowerInvariant();
+            bool section = Regex.IsMatch(s, @"(?:mặt\s*cắt|mat\s*cat|section(?:\s*view)?)");
+            bool action = Regex.IsMatch(s, @"(?:tạo|tao|chèn|chen|thêm|them|create|insert|add)");
+            if (!section || !action) return false;
+
+            string label = "A";
+            var labelMatch = Regex.Match(input,
+                @"(?:mặt\s*cắt|mat\s*cat|section(?:\s*view)?)\s*(?<label>[A-Za-z])(?:\s*-\s*\k<label>)?",
+                RegexOptions.IgnoreCase);
+            if (labelMatch.Success) label = labelMatch.Groups["label"].Value.ToUpperInvariant();
+
+            string direction = "Vertical";
+            if (Regex.IsMatch(s, @"(?:ngang|horizontal)")) direction = "Horizontal";
+            else if (Regex.IsMatch(s, @"(?:dọc|doc|đứng|dung|vertical)")) direction = "Vertical";
+
+            string sourceView = string.Empty;
+            var viewMatch = Regex.Match(input,
+                @"(?:từ|tu|from)\s*(?:""(?<view>[^""]+)""|(?<view>Drawing\s+View\d+))",
+                RegexOptions.IgnoreCase);
+            if (viewMatch.Success) sourceView = viewMatch.Groups["view"].Value.Trim();
+
+            command = new NaturalLanguageCadCommand
+            {
+                Intent = SkillNames.CreateSection,
+                SectionLabel = label,
+                SectionDirection = direction,
+                SectionSourceViewName = sourceView
+            };
+            return true;
         }
 
         private static bool TryIsometricViewQuery(string input, out NaturalLanguageCadCommand command)

@@ -7,6 +7,24 @@ namespace SwMateAI.Core.Planning
     {
         public static TaskPlan Build(NaturalLanguageCadCommand command)
         {
+            if (command.Intent == SkillNames.CreateSection)
+            {
+                var sectionPlan = new TaskPlan { Goal = "Create section Drawing view" };
+                var step = new PlanStep
+                {
+                    Index = 1,
+                    SkillName = SkillNames.CreateSection,
+                    Description = "Create section " + command.SectionLabel + "-" + command.SectionLabel +
+                                  " with a " + command.SectionDirection.ToLowerInvariant() + " cutting line"
+                };
+                step.Parameters["Label"] = command.SectionLabel;
+                step.Parameters["Direction"] = command.SectionDirection;
+                if (!string.IsNullOrWhiteSpace(command.SectionSourceViewName))
+                    step.Parameters["SourceViewName"] = command.SectionSourceViewName;
+                sectionPlan.Steps.Add(step);
+                return sectionPlan;
+            }
+
             if (command.Intent == SkillNames.InsertIsometricView)
             {
                 var isoPlan = new TaskPlan { Goal = "Insert isometric Drawing view" };
