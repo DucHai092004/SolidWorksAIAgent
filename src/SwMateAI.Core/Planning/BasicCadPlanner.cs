@@ -65,6 +65,17 @@ namespace SwMateAI.Core.Planning
                 return actionPlan;
             }
 
+            if (command.Intent == SkillNames.ExportManufacturingBreakdown)
+            {
+                var exportPlan = new TaskPlan { Goal = "Export manufacturing breakdown" };
+                var step = new PlanStep { Index = 1, SkillName = SkillNames.ExportManufacturingBreakdown,
+                    Description = $"Capture Part images and export Excel with {command.StockAllowanceMm:0.###} mm allowance per side" };
+                step.Parameters["AllowancePerSideMm"] = command.StockAllowanceMm;
+                if (!string.IsNullOrWhiteSpace(command.ExportPath)) step.Parameters["OutputPath"] = command.ExportPath;
+                exportPlan.Steps.Add(step);
+                return exportPlan;
+            }
+
             if (command.Intent == SkillNames.BuildManufacturingBreakdown)
             {
                 var breakdownPlan = new TaskPlan { Goal = "Build manufacturing breakdown" };
@@ -147,7 +158,8 @@ namespace SwMateAI.Core.Planning
                    intent == SkillNames.ReadCustomProperties || intent == SkillNames.ReadSelectedObject ||
                    intent == SkillNames.ReadBoundingBox || intent == SkillNames.ReadAssembly ||
                    intent == SkillNames.ReadComponents || intent == SkillNames.ReadMates ||
-                   intent == SkillNames.CheckInterference || intent == SkillNames.BuildManufacturingBreakdown;
+                   intent == SkillNames.CheckInterference || intent == SkillNames.BuildManufacturingBreakdown ||
+                   intent == SkillNames.ExportManufacturingBreakdown;
         }
     }
 }

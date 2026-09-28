@@ -9,7 +9,7 @@
  <sys:String x:Key="ModelInspectorDescription">Đọc dữ liệu CAD thực tế từ model đang mở.</sys:String>
  <sys:String x:Key="ReadModel">ĐỌC MODEL</sys:String>
  <sys:String x:Key="AiCommandTitle">LỆNH AI CAD</sys:String>
- <sys:String x:Key="AiCommandDescription">Mô tả chi tiết bạn muốn SW-MATE AI tạo hoặc chỉnh sửa.</sys:String>
+ <sys:String x:Key="AiCommandDescription">Mô tả yêu cầu tạo, chỉnh sửa, đọc model, bóc tách hoặc xuất dữ liệu.</sys:String>
  <sys:String x:Key="RunAgentPlan">▶  CHẠY KẾ HOẠCH AGENT</sys:String>
  <sys:String x:Key="TaskPlanTitle">KẾ HOẠCH THỰC HIỆN</sys:String>
  <sys:String x:Key="LastResultTitle">KẾT QUẢ GẦN NHẤT</sys:String>
@@ -41,7 +41,7 @@
  <sys:String x:Key="ActivityHistoryDescription">Lệnh gần đây và chẩn đoán Agent</sys:String>
  <sys:String x:Key="RecentCommands">LỆNH GẦN ĐÂY</sys:String>
  <sys:String x:Key="AgentConsole">BẢNG ĐIỀU KHIỂN AGENT</sys:String>
- <sys:String x:Key="FooterText">SW-MATE AI  ·  Giai đoạn 4B · Tính phôi  ·  v1.5.0</sys:String>
+ <sys:String x:Key="FooterText">SW-MATE AI  ·  Giai đoạn 4C · Ảnh Part &amp; Excel  ·  v1.6.0</sys:String>
  <sys:String x:Key="LanguageLabel">Ngôn ngữ</sys:String>
  <sys:String x:Key="RefreshTooltip">Làm mới ngữ cảnh SolidWorks</sys:String>
  <sys:String x:Key="StatusIdle">Sẵn sàng</sys:String>
@@ -65,6 +65,7 @@
  <sys:String x:Key="GuideStep10">10. DeleteMate chỉ chạy sau Preview/Xác nhận và chỉ cho phép Undo an toàn với các loại Mate được hỗ trợ.</sys:String>
  <sys:String x:Key="GuideStep11">11. Bóc tách Assembly sẽ gom Part duy nhất, đếm số lượng và đọc Part Number, Description, Material, kích thước thành phẩm.</sys:String>
  <sys:String x:Key="GuideStep12">12. Tính phôi dùng lượng dư cấu hình; Round Bar ưu tiên nhận diện từ mặt trụ CAD thật, các loại còn lại dùng quy tắc bounding box có ghi rõ cơ sở phân loại.</sys:String>
+ <sys:String x:Key="GuideStep13">13. Export sẽ chụp ảnh Isometric từng Part loaded, tạo bảng 11 cột và chèn ảnh vào Excel; file cũ không bị ghi đè.</sys:String>
  <sys:String x:Key="GuideExamples">Ví dụ lệnh:</sys:String>
  <sys:String x:Key="GuideExample1">• Tạo tấm 160 x 100 x 12 mm, 2 lỗ phi 12, bo góc R8</sys:String>
  <sys:String x:Key="GuideExample2">• Đổi kích thước D1@Sketch1 thành 70 mm</sys:String>
@@ -83,5 +84,6 @@
  <sys:String x:Key="GuideExample15">• Xóa mate Coincident1</sys:String>
  <sys:String x:Key="GuideExample16">• Bóc tách chi tiết gia công của Assembly hiện tại</sys:String>
  <sys:String x:Key="GuideExample17">• Bóc tách Assembly, lượng dư 3 mm</sys:String>
+ <sys:String x:Key="GuideExample18">• Bóc tách Assembly và xuất Excel, lượng dư 3 mm</sys:String>
  <sys:String x:Key="GuideTip">Mẹo: câu lệnh càng rõ kích thước, vị trí và đối tượng thì Agent càng dễ lập kế hoạch chính xác.</sys:String>
 </ResourceDictionary>

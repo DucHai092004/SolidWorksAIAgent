@@ -125,6 +125,7 @@ namespace SwMateAI.Core.Agent
 
             // Phase 4 Manufacturing Breakdown
             Register(new BuildManufacturingBreakdownTool(_swApp));
+            Register(new ExportManufacturingBreakdownTool(_swApp));
         }
 
         private void Register(ISwTool tool)

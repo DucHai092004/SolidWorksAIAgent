@@ -287,6 +287,7 @@ namespace SwMateAI.UI.ViewModels
             if (goal == "Analyze feature change impact") return Tr("Phân tích ảnh hưởng khi thay đổi Feature", goal);
             if (goal == "Modify Assembly") return Tr("Thay đổi Assembly", goal);
             if (goal == "Build manufacturing breakdown") return Tr("Bóc tách chi tiết gia công và tính phôi", goal);
+            if (goal == "Export manufacturing breakdown") return Tr("Bóc tách, chụp ảnh và xuất Excel", goal);
             return goal;
         }
 
@@ -302,6 +303,8 @@ namespace SwMateAI.UI.ViewModels
             }
             if (step.Description.StartsWith("Find downstream dependencies of ", StringComparison.OrdinalIgnoreCase))
                 return "Tìm các Feature phía sau phụ thuộc vào " + step.Description.Substring("Find downstream dependencies of ".Length);
+            if (step.Description.StartsWith("Capture Part images and export Excel with ", StringComparison.OrdinalIgnoreCase))
+                return "Chụp ảnh Part và xuất Excel với " + step.Description.Substring("Capture Part images and export Excel with ".Length).Replace(" allowance per side", " lượng dư mỗi mặt");
             if (step.Description.StartsWith("Scan Assembly and calculate stock with ", StringComparison.OrdinalIgnoreCase))
                 return "Quét Assembly và tính phôi với " + step.Description.Substring("Scan Assembly and calculate stock with ".Length).Replace(" allowance per side", " lượng dư mỗi mặt");
             if (step.Description.StartsWith("Delete Mate ", StringComparison.OrdinalIgnoreCase))
@@ -608,7 +611,11 @@ namespace SwMateAI.UI.ViewModels
                 return;
             }
 
-            if (IsReadIntent(command.Intent))
+            if (command.Intent == "ExportManufacturingBreakdown")
+            {
+                AddLog($"  [PARSED] Manufacturing export, allowance={command.StockAllowanceMm:0.###} mm");
+            }
+            else if (IsReadIntent(command.Intent))
             {
                 AddLog($"  [PARSED] Read-model intent: {command.Intent}");
             }
@@ -730,11 +737,18 @@ namespace SwMateAI.UI.ViewModels
                    intent == "ReadDimensions" || intent == "ReadMaterial" || intent == "ReadMassProperties" ||
                    intent == "ReadCustomProperties" || intent == "ReadSelectedObject" || intent == "ReadBoundingBox" ||
                    intent == "ReadAssembly" || intent == "ReadComponents" || intent == "ReadMates" || intent == "CheckInterference" ||
-                   intent == "BuildManufacturingBreakdown";
+                   intent == "BuildManufacturingBreakdown" || intent == "ExportManufacturingBreakdown";
         }
 
         private string FormatModelQueryResult(string intent, object data)
         {
+            if (intent == "ExportManufacturingBreakdown" && data is BreakdownExportResult exported)
+            {
+                int count = exported.Breakdown?.UniquePartCount ?? 0;
+                return Tr(
+                    $"Đã xuất bóc tách: {count} Part duy nhất. Ảnh: {exported.CapturedImageCount}.\nExcel: {exported.ExcelPath}\nThư mục ảnh: {exported.ImageFolder}\nCông nghệ gia công và Nhà gia công được để trống.",
+                    $"Breakdown exported: {count} unique Part(s). Images: {exported.CapturedImageCount}.\nExcel: {exported.ExcelPath}\nImage folder: {exported.ImageFolder}\nManufacturing technology and Supplier are left blank.");
+            }
             if (intent == "BuildManufacturingBreakdown" && data is BreakdownResult breakdown)
             {
                 string rows = string.Join("\n", breakdown.Items.Take(14).Select(x =>

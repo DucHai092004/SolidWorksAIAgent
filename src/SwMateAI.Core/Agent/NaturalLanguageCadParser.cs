@@ -39,6 +39,7 @@ namespace SwMateAI.Core.Agent
         public double MateDistance { get; set; }
         public string ReplacementPath { get; set; } = string.Empty;
         public double StockAllowanceMm { get; set; } = 3.0;
+        public string ExportPath { get; set; } = string.Empty;
     }
 
     public static class NaturalLanguageCadParser
@@ -156,8 +157,13 @@ namespace SwMateAI.Core.Agent
             if (!Regex.IsMatch(s, @"(?:bóc\s*tách|boc\s*tach|manufacturing\s*breakdown|breakdown\s*(?:parts|assembly)?|chi\s*tiết\s*gia\s*công|chi\s*tiet\s*gia\s*cong)")) return false;
             double allowance = 3.0;
             var m = Regex.Match(input, @"(?:lượng\s*dư|luong\s*du|allowance)\s*[:=]?\s*(?<v>\d+(?:[\.,]\d+)?)\s*(?:mm)?", RegexOptions.IgnoreCase);
+            if (!m.Success) m = Regex.Match(input, @"(?<v>\d+(?:[\.,]\d+)?)\s*(?:mm)?\s*allowance", RegexOptions.IgnoreCase);
             if (m.Success) allowance = Number(m.Groups["v"].Value);
-            command = new NaturalLanguageCadCommand { Intent = SkillNames.BuildManufacturingBreakdown, StockAllowanceMm = allowance };
+            bool wantsExport = Regex.IsMatch(s, @"(?:xuất|xuat|export)\s*(?:excel|xlsx)?|(?:excel|xlsx)");
+            string exportPath = string.Empty;
+            var pathMatch = Regex.Match(input, @"(?:""(?<p>[A-Za-z]:\\[^""]+\.xlsx)""|(?<p>[A-Za-z]:\\[^\r\n]+?\.xlsx))", RegexOptions.IgnoreCase);
+            if (pathMatch.Success) exportPath = pathMatch.Groups["p"].Value;
+            command = new NaturalLanguageCadCommand { Intent = wantsExport ? SkillNames.ExportManufacturingBreakdown : SkillNames.BuildManufacturingBreakdown, StockAllowanceMm = allowance, ExportPath = exportPath };
             return true;
         }
 

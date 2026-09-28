@@ -22,6 +22,7 @@ namespace SwMateAI.Core.Manufacturing
         public string Supplier { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string SourcePath { get; set; } = string.Empty;
+        public string RepresentativeComponentName { get; set; } = string.Empty;
         public string Configuration { get; set; } = string.Empty;
         public bool IsLoaded { get; set; }
         public string FinishedSize => $"{FinishedXmm:0.###} x {FinishedYmm:0.###} x {FinishedZmm:0.###} mm";

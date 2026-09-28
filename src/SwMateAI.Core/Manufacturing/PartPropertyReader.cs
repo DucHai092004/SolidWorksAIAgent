@@ -16,6 +16,7 @@ namespace SwMateAI.Core.Manufacturing
             {
                 Quantity = quantity,
                 SourcePath = occurrence.SourcePath,
+                RepresentativeComponentName = occurrence.ComponentName,
                 Configuration = occurrence.ReferencedConfiguration,
                 IsLoaded = occurrence.IsLoaded,
                 ManufacturingTechnology = string.Empty,

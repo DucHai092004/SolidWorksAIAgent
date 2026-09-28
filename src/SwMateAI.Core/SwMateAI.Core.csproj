@@ -15,6 +15,7 @@
        EmbedInteropTypes=False is MANDATORY — embedding causes InvalidCastException at runtime.
        Private=False (CopyLocal=False) — SOLIDWORKS loads these DLLs from its own installation. -->
   <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
     <Reference Include="SolidWorks.Interop.sldworks">
       <HintPath>C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\api\redist\SolidWorks.Interop.sldworks.dll</HintPath>
       <EmbedInteropTypes>False</EmbedInteropTypes>
