@@ -66,6 +66,9 @@ namespace SwMateAI.Core.Agent
             if (TryFeatureImpactQuery(input, out command))
                 return true;
 
+            if (TryDrawingFinishingQuery(input, out command))
+                return true;
+
             if (TrySectionQuery(input, out command))
                 return true;
 
@@ -182,6 +185,33 @@ namespace SwMateAI.Core.Agent
                 command = new NaturalLanguageCadCommand { Intent = SkillNames.AnalyzeFeatureImpact, TargetFeatureName = name };
                 return true;
             }
+            return false;
+        }
+
+        private static bool TryDrawingFinishingQuery(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            string s = input.Trim().ToLowerInvariant();
+
+            bool exportAction = Regex.IsMatch(s, @"(?:xuất|xuat|export)");
+            if (exportAction && s.Contains("pdf"))
+            { command = new NaturalLanguageCadCommand { Intent = SkillNames.ExportPDF }; return true; }
+
+            if (exportAction && s.Contains("dxf"))
+            { command = new NaturalLanguageCadCommand { Intent = SkillNames.ExportDXF }; return true; }
+
+            if (Regex.IsMatch(s, @"(?:chèn|chen|nhập|nhap|insert|import).*(?:kích\s*thước|kich\s*thuoc|dimension)"))
+            { command = new NaturalLanguageCadCommand { Intent = SkillNames.InsertDimensions }; return true; }
+
+            if (Regex.IsMatch(s, @"(?:chèn|chen|tạo|tao|insert|create).*(?:balloon|bóng\s*chú\s*thích|bong\s*chu\s*thich)"))
+            { command = new NaturalLanguageCadCommand { Intent = SkillNames.InsertBalloon }; return true; }
+
+            if (Regex.IsMatch(s, @"(?:chèn|chen|insert).*(?:bom).*(?:drawing|bản\s*vẽ|ban\s*ve)|(?:bom).*(?:vào|vao|into).*(?:drawing|bản\s*vẽ|ban\s*ve)"))
+            { command = new NaturalLanguageCadCommand { Intent = SkillNames.InsertDrawingBOM }; return true; }
+
+            if (Regex.IsMatch(s, @"(?:điền|dien|fill|cập|cap).*(?:khung\s*tên|khung\s*ten|title\s*block)"))
+            { command = new NaturalLanguageCadCommand { Intent = SkillNames.FillTitleBlock }; return true; }
+
             return false;
         }
 

@@ -82,6 +82,23 @@ namespace SwMateAI.Core.Planning
                 return drawingPlan;
             }
 
+            if (command.Intent == SkillNames.InsertDimensions ||
+                command.Intent == SkillNames.InsertDrawingBOM ||
+                command.Intent == SkillNames.InsertBalloon ||
+                command.Intent == SkillNames.FillTitleBlock ||
+                command.Intent == SkillNames.ExportPDF ||
+                command.Intent == SkillNames.ExportDXF)
+            {
+                var finishPlan = new TaskPlan { Goal = "Complete Drawing automation task" };
+                finishPlan.Steps.Add(new PlanStep
+                {
+                    Index = 1,
+                    SkillName = command.Intent,
+                    Description = "Execute Drawing skill: " + command.Intent
+                });
+                return finishPlan;
+            }
+
             if (command.Intent == SkillNames.DeleteMate)
             {
                 var actionPlan = new TaskPlan { Goal = "Modify Assembly" };

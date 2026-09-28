@@ -60,6 +60,12 @@ namespace SwMateAI.Core.Skills
                 case SkillNames.InsertIsometricView: Configure(m, SkillNames.InsertIsometricView, "Drawing.View", SkillRiskLevel.Low, document: true); break;
                 case SkillNames.CreateSection: Configure(m, SkillNames.CreateSection, "Drawing.Section", SkillRiskLevel.Medium, document: true); break;
                 case SkillNames.CreateDetail: Configure(m, SkillNames.CreateDetail, "Drawing.Detail", SkillRiskLevel.Medium, document: true); break;
+                case SkillNames.InsertDimensions: Configure(m, SkillNames.InsertDimensions, "Drawing.Annotation", SkillRiskLevel.Low, document: true); break;
+                case SkillNames.InsertDrawingBOM: Configure(m, SkillNames.InsertDrawingBOM, "Drawing.BOM", SkillRiskLevel.Low, document: true); break;
+                case SkillNames.InsertBalloon: Configure(m, SkillNames.InsertBalloon, "Drawing.Annotation", SkillRiskLevel.Low, document: true); break;
+                case SkillNames.FillTitleBlock: Configure(m, SkillNames.FillTitleBlock, "Drawing.TitleBlock", SkillRiskLevel.Medium, document: true, confirm: true); break;
+                case SkillNames.ExportPDF: Configure(m, SkillNames.ExportPDF, "Drawing.Export", SkillRiskLevel.Low, document: true); break;
+                case SkillNames.ExportDXF: Configure(m, SkillNames.ExportDXF, "Drawing.Export", SkillRiskLevel.Low, document: true); break;
                 default: m.Name = tool.Name; break;
             }
 

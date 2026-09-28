@@ -46,5 +46,11 @@ namespace SwMateAI.Core.Skills
         public const string InsertIsometricView = "InsertIsometricView";
         public const string CreateSection = "CreateSection";
         public const string CreateDetail = "CreateDetail";
+        public const string InsertDimensions = "InsertDimensions";
+        public const string InsertDrawingBOM = "InsertDrawingBOM";
+        public const string InsertBalloon = "InsertBalloon";
+        public const string FillTitleBlock = "FillTitleBlock";
+        public const string ExportPDF = "ExportPDF";
+        public const string ExportDXF = "ExportDXF";
     }
 }

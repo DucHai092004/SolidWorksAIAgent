@@ -19,7 +19,7 @@ Source of roadmap: `AgnetAiSoliworkVer1.docx`.
 | 3 | Assembly | Existing; runtime regression required |
 | 4 | Manufacturing breakdown | Extended in current version; unit + runtime regression required |
 | 5 | BOM | Existing; regression required |
-| 6 | Drawing automation | Partial: create/sheet/views/section/detail exist; remaining roadmap skills to implement |
+| 6 | Drawing automation | Implemented: create/sheet/views/section/detail/dimensions/Drawing BOM/balloons/title-block properties/PDF/DXF; SOLIDWORKS 2021 integration PASS |
 | 7 | Drawing understanding | Not complete; SLDDRW reader first, Vision later |
 | 8 | Mechanical design copilot | Future roadmap; implement only with explicit engineering rules/data |
 | 9 | Manufacturing cost | Future roadmap; requires approved price/process data |
@@ -35,4 +35,8 @@ Source of roadmap: `AgnetAiSoliworkVer1.docx`.
 - Natural-language routing for stock-material commands.
 - BOM parser regression.
 
-Run: `scripts\Test-All.cmd`
+Run pure/CI-safe checks: `scripts\Test-All.cmd`
+
+Run SOLIDWORKS 2021 integration checks: `scripts\Test-SolidWorks.cmd`
+
+Latest integration checkpoint: 42 checks PASS, 0 FAIL. It creates disposable Part/Assembly/Drawing files under the Windows temp directory and verifies Part creation, feature creation, model readers, Drawing views, section/detail, marked dimensions, title-block properties, PDF/DXF, Assembly readers, manufacturing breakdown export, BOM, Drawing BOM and balloons.

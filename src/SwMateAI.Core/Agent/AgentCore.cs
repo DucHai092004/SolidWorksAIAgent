@@ -144,6 +144,12 @@ namespace SwMateAI.Core.Agent
             Register(new InsertIsometricViewTool(_swApp, _drawingSession));
             Register(new CreateSectionTool(_swApp));
             Register(new CreateDetailTool(_swApp));
+            Register(new InsertDimensionsTool(_swApp));
+            Register(new InsertDrawingBomTool(_swApp));
+            Register(new InsertBalloonTool(_swApp));
+            Register(new FillTitleBlockTool(_swApp));
+            Register(new ExportPdfTool(_swApp));
+            Register(new ExportDxfTool(_swApp));
         }
 
         private void Register(ISwTool tool)
