@@ -63,6 +63,9 @@ namespace SwMateAI.Core.Agent
             if (TryFeatureImpactQuery(input, out command))
                 return true;
 
+            if (TryIsometricViewQuery(input, out command))
+                return true;
+
             if (TryStandardViewsQuery(input, out command))
                 return true;
 
@@ -171,6 +174,22 @@ namespace SwMateAI.Core.Agent
                 return true;
             }
             return false;
+        }
+
+        private static bool TryIsometricViewQuery(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            string s = input.Trim().ToLowerInvariant();
+            bool iso = Regex.IsMatch(s,
+                @"(?:isometric|iso\s*view|hình\s*chiếu\s*trục\s*đo|hinh\s*chieu\s*truc\s*do|hình\s*chiếu\s*iso|hinh\s*chieu\s*iso)");
+            bool action = Regex.IsMatch(s, @"(?:chèn|chen|thêm|them|tạo|tao|insert|add|create)");
+            if (!iso || !action) return false;
+
+            command = new NaturalLanguageCadCommand
+            {
+                Intent = SkillNames.InsertIsometricView
+            };
+            return true;
         }
 
         private static bool TryStandardViewsQuery(string input, out NaturalLanguageCadCommand command)

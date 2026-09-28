@@ -7,6 +7,18 @@ namespace SwMateAI.Core.Planning
     {
         public static TaskPlan Build(NaturalLanguageCadCommand command)
         {
+            if (command.Intent == SkillNames.InsertIsometricView)
+            {
+                var isoPlan = new TaskPlan { Goal = "Insert isometric Drawing view" };
+                isoPlan.Steps.Add(new PlanStep
+                {
+                    Index = 1,
+                    SkillName = SkillNames.InsertIsometricView,
+                    Description = "Insert an isometric model view on the active Drawing sheet"
+                });
+                return isoPlan;
+            }
+
             if (command.Intent == SkillNames.InsertStandardViews)
             {
                 var viewsPlan = new TaskPlan { Goal = "Insert standard Drawing views" };
