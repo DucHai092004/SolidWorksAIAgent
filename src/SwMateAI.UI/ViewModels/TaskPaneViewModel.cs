@@ -423,7 +423,7 @@ namespace SwMateAI.UI.ViewModels
                 }
 
                 AddLog($"  [OK] {result.Data}");
-                StatusText = Tr("Đã tạo Part mới.", "New Part created.");
+                ReportManualSuccess("Đã tạo Part mới trong SOLIDWORKS.", "New Part created in SOLIDWORKS.");
                 RefreshInfo();
             }
             catch (Exception ex)
@@ -449,7 +449,7 @@ namespace SwMateAI.UI.ViewModels
                 }
 
                 AddLog($"  [OK] {result.Data}");
-                StatusText = Tr("Đã tạo Sketch mới.", "New Sketch created.");
+                ReportManualSuccess("Đã tạo Sketch mới trong Part hiện tại.", "New Sketch created in the current Part.");
                 RefreshInfo();
             }
             catch (Exception ex)
@@ -471,7 +471,7 @@ namespace SwMateAI.UI.ViewModels
                 });
                 if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể tạo hình chữ nhật.", "Failed to create Rectangle."); return; }
                 AddLog($"  [OK] {result.Data}");
-                StatusText = Tr("Đã tạo hình chữ nhật.", "Rectangle created.");
+                ReportManualSuccess("Đã tạo hình chữ nhật trong Sketch hiện tại.", "Rectangle created in the current Sketch.");
             }
             catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi khi tạo hình chữ nhật.", "Unexpected rectangle error."); }
         }
@@ -484,7 +484,7 @@ namespace SwMateAI.UI.ViewModels
                 var result = _agentCore.ExecuteTool("Extrude", new Dictionary<string, object> { ["Depth"] = ExtrudeDepth });
                 if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể Extrude.", "Failed to Extrude."); return; }
                 AddLog($"  [OK] {result.Data}");
-                StatusText = Tr("Đã tạo Boss-Extrude.", "Boss-Extrude created.");
+                ReportManualSuccess("Đã tạo Boss-Extrude và cập nhật model hiện tại.", "Boss-Extrude created and the current model was updated.");
                 RefreshInfo();
             }
             catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi Extrude không mong muốn.", "Unexpected extrude error."); }
@@ -500,7 +500,7 @@ namespace SwMateAI.UI.ViewModels
                     ["Diameter"] = CircleDiameter, ["X"] = CircleX, ["Y"] = CircleY
                 });
                 if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể tạo đường tròn.", "Failed to create Circle."); return; }
-                AddLog($"  [OK] {result.Data}"); StatusText = Tr("Đã tạo đường tròn.", "Circle created.");
+                AddLog($"  [OK] {result.Data}"); ReportManualSuccess("Đã tạo đường tròn trong Sketch hiện tại.", "Circle created in the current Sketch.");
             }
             catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi khi tạo đường tròn.", "Unexpected circle error."); }
         }
@@ -512,7 +512,7 @@ namespace SwMateAI.UI.ViewModels
             {
                 var result = _agentCore.ExecuteTool("CutExtrude", new Dictionary<string, object> { ["Depth"] = CutDepth });
                 if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể Cut-Extrude.", "Failed to Cut-Extrude."); return; }
-                AddLog($"  [OK] {result.Data}"); StatusText = Tr("Đã tạo Cut-Extrude.", "Cut-Extrude created."); RefreshInfo();
+                AddLog($"  [OK] {result.Data}"); ReportManualSuccess("Đã tạo Cut-Extrude và cập nhật model hiện tại.", "Cut-Extrude created and the current model was updated."); RefreshInfo();
             }
             catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi Cut-Extrude không mong muốn.", "Unexpected cut error."); }
         }
@@ -531,7 +531,7 @@ namespace SwMateAI.UI.ViewModels
                     ["HoleDepth"] = PlateHoleDepth
                 });
                 if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Quy trình tự động thất bại.", "Auto workflow failed."); return; }
-                AddLog($"  [OK] {result.Data}"); StatusText = Tr("Đã tự động tạo tấm và lỗ.", "Plate with hole created automatically."); RefreshInfo();
+                AddLog($"  [OK] {result.Data}"); ReportManualSuccess("Đã tạo xong tấm và lỗ trong Part hiện tại.", "Plate and hole were created in the current Part."); RefreshInfo();
             }
             catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi quy trình tự động.", "Unexpected auto workflow error."); }
         }
@@ -543,7 +543,7 @@ namespace SwMateAI.UI.ViewModels
             {
                 var result = _agentCore.ExecuteTool("AddDimension", new Dictionary<string, object> { ["Value"] = DimensionValue });
                 if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể thêm kích thước.", "Failed to add dimension."); return; }
-                AddLog($"  [OK] {result.Data}"); StatusText = Tr("Đã thêm kích thước.", "Dimension added."); RefreshInfo();
+                AddLog($"  [OK] {result.Data}"); ReportManualSuccess("Đã thêm kích thước vào Sketch hiện tại.", "Dimension added to the current Sketch."); RefreshInfo();
             }
             catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi kích thước không mong muốn.", "Unexpected dimension error."); }
         }
@@ -557,7 +557,7 @@ namespace SwMateAI.UI.ViewModels
                 if (!string.IsNullOrWhiteSpace(DimensionName)) args["Name"] = DimensionName;
                 var result = _agentCore.ExecuteTool("ModifyDimension", args);
                 if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể sửa kích thước.", "Failed to modify dimension."); return; }
-                AddLog($"  [OK] {result.Data}"); StatusText = Tr("Đã sửa kích thước.", "Dimension modified."); RefreshInfo();
+                AddLog($"  [OK] {result.Data}"); ReportManualSuccess("Đã sửa kích thước và rebuild model hiện tại.", "Dimension modified and the current model was rebuilt."); RefreshInfo();
             }
             catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi kích thước không mong muốn.", "Unexpected dimension error."); }
         }
@@ -574,7 +574,7 @@ namespace SwMateAI.UI.ViewModels
                     ModelSummary = assembly == null ? Tr("Không thể đọc Assembly.", "Could not read Assembly.") : Tr(
                         $"Assembly: {assembly.Name}\nComponent: {components.Count}   Mate: {mates.Count}   Suppressed: {assembly.SuppressedComponentCount}\nConfiguration: {assembly.Configuration}   Lightweight: {assembly.LightweightComponentCount}",
                         $"Assembly: {assembly.Name}\nComponents: {components.Count}   Mates: {mates.Count}   Suppressed: {assembly.SuppressedComponentCount}\nConfiguration: {assembly.Configuration}   Lightweight: {assembly.LightweightComponentCount}");
-                    StatusText = Tr("Đã đọc Assembly thành công.", "Assembly inspection completed.");
+                    ReportManualSuccess("Đã đọc Assembly thành công. Kết quả hiển thị trong Trình đọc Model.", "Assembly inspection completed. Results are shown in Model Inspector.");
                     AddLog($"  [ASSEMBLY] {components.Count} components, {mates.Count} mates");
                     return;
                 }
@@ -596,7 +596,7 @@ namespace SwMateAI.UI.ViewModels
                     $"Material: {(string.IsNullOrWhiteSpace(material) ? "<not specified>" : material)}\n" +
                     $"Mass: {(mass == null ? "?" : mass.MassKg.ToString("0.###") + " kg")}   Size: {(box == null ? "?" : box.ToString())}\n" +
                     $"Selection: {selected.Count} object(s)   Feature relations: {dependencies.Sum(x => x.Children.Count)}");
-                StatusText = Tr("Đã đọc model thành công.", "Model inspection completed.");
+                ReportManualSuccess("Đã đọc model thành công. Kết quả hiển thị trong Trình đọc Model.", "Model inspection completed. Results are shown in Model Inspector.");
                 AddLog($"  [MODEL] {features.Count} features, {dimensions.Count} dimensions, size={(box == null ? "?" : box.ToString())}");
             }
             catch (Exception ex)
@@ -682,9 +682,7 @@ namespace SwMateAI.UI.ViewModels
             RefreshPlanDisplay();
             AgentStageText = "Completed";
             LastRunSucceeded = true;
-            LastResultText = IsReadIntent(command.Intent)
-                ? FormatModelQueryResult(command.Intent, execution.LastData)
-                : Tr($"Hoàn thành và đã kiểm tra {execution.CompletedSteps}/{plan.Steps.Count} skill.", $"Completed and verified {execution.CompletedSteps}/{plan.Steps.Count} skill(s).");
+            LastResultText = FormatSuccessfulExecution(command.Intent, execution, plan);
             CommandHistory.Insert(0, $"OK • {NaturalLanguageCommand}");
             while (CommandHistory.Count > 20) CommandHistory.RemoveAt(CommandHistory.Count - 1);
             AddLog($"  [CHECK] Completed {execution.CompletedSteps}/{plan.Steps.Count} step(s). Model verification passed.");
@@ -708,14 +706,7 @@ namespace SwMateAI.UI.ViewModels
                 StatusText = Tr("Kế hoạch Agent thất bại.", "Agent plan failed."); RelayCommand.RaiseCanExecuteChanged(); return;
             }
             RefreshPlanDisplay(); AgentStageText = "Completed"; LastRunSucceeded = true;
-            if (execution.LastData is AssemblyActionResult action)
-                LastResultText = Tr($"Đã thực hiện và kiểm tra: {action}", $"Completed and verified: {action}");
-            else if (execution.LastData is AssemblyMateActionResult mateAction)
-                LastResultText = Tr($"Đã thực hiện và kiểm tra: {mateAction}", $"Completed and verified: {mateAction}");
-            else if (execution.LastData is SolidWorksBomResult nativeBom)
-                LastResultText = Tr($"Đã chèn và kiểm tra BOM native: {nativeBom.FeatureName} | Cấu hình: {nativeBom.Configuration}", $"Native BOM inserted and verified: {nativeBom.FeatureName} | Configuration: {nativeBom.Configuration}");
-            else
-                LastResultText = Tr($"Hoàn thành và đã kiểm tra {execution.CompletedSteps}/{_currentPlan.Steps.Count} skill.", $"Completed and verified {execution.CompletedSteps}/{_currentPlan.Steps.Count} skill(s).");
+            LastResultText = FormatSuccessfulExecution(_pendingIntent, execution, _currentPlan);
             CommandHistory.Insert(0, $"OK • {_pendingCommandText}");
             AddLog($"  [CHECK] Completed {execution.CompletedSteps}/{_currentPlan.Steps.Count} step(s). Model verification passed.");
             StatusText = Tr("Hành động Assembly đã hoàn thành.", "Assembly action completed.");
@@ -738,6 +729,45 @@ namespace SwMateAI.UI.ViewModels
             RefreshInfo(); RelayCommand.RaiseCanExecuteChanged();
         }
 
+        private string FormatSuccessfulExecution(string intent, ExecutionResult execution, TaskPlan plan)
+        {
+            string prefix = Tr("✅ Đã hoàn thành.\n", "✅ Completed.\n");
+
+            if (IsReadIntent(intent))
+                return prefix + FormatModelQueryResult(intent, execution.LastData);
+
+            if (execution.LastData is AssemblyActionResult action)
+                return prefix + Tr($"Đã cập nhật Assembly hiện tại và kiểm tra kết quả: {action}", $"The current Assembly was updated and verified: {action}");
+
+            if (execution.LastData is AssemblyMateActionResult mateAction)
+                return prefix + Tr($"Đã cập nhật Mate trong Assembly hiện tại và kiểm tra kết quả: {mateAction}", $"Assembly mate operation completed and verified: {mateAction}");
+
+            if (execution.LastData is SolidWorksBomResult nativeBom)
+                return prefix + Tr($"BOM native đã được chèn vào tài liệu hiện tại. Feature: {nativeBom.FeatureName} | Cấu hình: {nativeBom.Configuration}", $"Native BOM was inserted into the current document. Feature: {nativeBom.FeatureName} | Configuration: {nativeBom.Configuration}");
+
+            string where = SuccessDestination(intent);
+            return prefix + Tr(
+                $"Đã thực hiện và kiểm tra {execution.CompletedSteps}/{plan.Steps.Count} bước. {where}",
+                $"Executed and verified {execution.CompletedSteps}/{plan.Steps.Count} step(s). {where}");
+        }
+
+        private string SuccessDestination(string intent)
+        {
+            switch (intent)
+            {
+                case "CreateDrawing": return Tr("Drawing mới đang mở trong SOLIDWORKS.", "The new Drawing is open in SOLIDWORKS.");
+                case "CreateSheet": return Tr("Sheet mới đã được thêm vào Drawing hiện tại.", "The new sheet was added to the current Drawing.");
+                case "InsertStandardViews":
+                case "InsertIsometricView":
+                case "CreateSection":
+                case "CreateDetail":
+                    return Tr("Kết quả đã được chèn vào Drawing hiện tại.", "The result was inserted into the current Drawing.");
+                case "CreateBOM": return Tr("BOM đã được tạo cho Assembly hiện tại.", "The BOM was created for the current Assembly.");
+                case "ExportManufacturingBreakdown": return Tr("Tệp đã được lưu trong thư mục SW-MATE_AI_Output cạnh Assembly.", "The file was saved in the SW-MATE_AI_Output folder next to the Assembly.");
+                default: return Tr("Kết quả đã được áp dụng trực tiếp vào tài liệu SOLIDWORKS hiện tại.", "The result was applied directly to the current SOLIDWORKS document.");
+            }
+        }
+
         private static bool IsReadIntent(string intent)
         {
             return intent == "ReadFeatureTree" || intent == "ReadFeatures" || intent == "ReadFeatureDependencies" || intent == "AnalyzeFeatureImpact" || intent == "ReadSketches" ||
@@ -752,18 +782,22 @@ namespace SwMateAI.UI.ViewModels
             if (intent == "CreateBOM" && data is BomResult bom)
             {
                 string rows = string.Join("\n", bom.Items.Take(16).Select(x => $"• {x.ItemNumber}. {x.PartNumber} | {x.Description} | SL {x.Quantity} | {x.Material} | {x.ComponentType}"));
-                string paths = string.Empty;
-                if (!string.IsNullOrWhiteSpace(bom.ExcelPath)) paths += $"\nExcel: {bom.ExcelPath}";
-                if (!string.IsNullOrWhiteSpace(bom.CsvPath)) paths += $"\nCSV: {bom.CsvPath}";
-                return Tr($"BOM: {bom.Items.Count} loại component, {bom.TotalOccurrences} occurrence. Suppressed bỏ qua: {bom.SuppressedSkipped}. Chưa loaded: {bom.UnloadedCount}.\n{rows}{paths}",
-                          $"BOM: {bom.Items.Count} unique component(s), {bom.TotalOccurrences} occurrence(s). Suppressed skipped: {bom.SuppressedSkipped}. Unloaded: {bom.UnloadedCount}.\n{rows}{paths}");
+                string saved = !string.IsNullOrWhiteSpace(bom.ExcelPath) && !string.IsNullOrWhiteSpace(bom.CsvPath)
+                    ? Tr("Excel và CSV đã được lưu trong thư mục SW-MATE_AI_Output cạnh Assembly.", "Excel and CSV were saved in the SW-MATE_AI_Output folder next to the Assembly.")
+                    : !string.IsNullOrWhiteSpace(bom.ExcelPath)
+                        ? Tr("Excel đã được lưu trong thư mục SW-MATE_AI_Output cạnh Assembly.", "Excel was saved in the SW-MATE_AI_Output folder next to the Assembly.")
+                        : !string.IsNullOrWhiteSpace(bom.CsvPath)
+                            ? Tr("CSV đã được lưu trong thư mục SW-MATE_AI_Output cạnh Assembly.", "CSV was saved in the SW-MATE_AI_Output folder next to the Assembly.")
+                            : Tr("BOM đã được tạo trong Agent; chưa xuất file.", "BOM was created in the Agent; no file was exported.");
+                return Tr($"BOM: {bom.Items.Count} loại component, {bom.TotalOccurrences} occurrence. Suppressed bỏ qua: {bom.SuppressedSkipped}. Chưa loaded: {bom.UnloadedCount}.\nẢnh đã chèn vào Excel: {bom.CapturedImageCount}/{bom.Items.Count}.\n{saved}\n{rows}",
+                          $"BOM: {bom.Items.Count} unique component(s), {bom.TotalOccurrences} occurrence(s). Suppressed skipped: {bom.SuppressedSkipped}. Unloaded: {bom.UnloadedCount}.\nImages embedded in Excel: {bom.CapturedImageCount}/{bom.Items.Count}.\n{saved}\n{rows}");
             }
             if (intent == "ExportManufacturingBreakdown" && data is BreakdownExportResult exported)
             {
                 int count = exported.Breakdown?.UniquePartCount ?? 0;
                 return Tr(
-                    $"Đã xuất bóc tách: {count} Part duy nhất. Ảnh: {exported.CapturedImageCount}.\nExcel: {exported.ExcelPath}\nThư mục ảnh: {exported.ImageFolder}\nCông nghệ gia công và Nhà gia công được để trống.",
-                    $"Breakdown exported: {count} unique Part(s). Images: {exported.CapturedImageCount}.\nExcel: {exported.ExcelPath}\nImage folder: {exported.ImageFolder}\nManufacturing technology and Supplier are left blank.");
+                    $"Đã xuất bóc tách: {count} Part duy nhất. Ảnh đã chụp: {exported.CapturedImageCount}.\nExcel đã được lưu trong thư mục SW-MATE_AI_Output cạnh Assembly.\nCông nghệ gia công và Nhà gia công được để trống.",
+                    $"Breakdown exported: {count} unique Part(s). Images captured: {exported.CapturedImageCount}.\nExcel was saved in the SW-MATE_AI_Output folder next to the Assembly.\nManufacturing technology and Supplier are left blank.");
             }
             if (intent == "BuildManufacturingBreakdown" && data is BreakdownResult breakdown)
             {
@@ -846,6 +880,14 @@ namespace SwMateAI.UI.ViewModels
                 return Tr($"Đang chọn {selected.Count} đối tượng:\n{list}", $"{selected.Count} selected object(s):\n{list}");
             }
             return Tr("Đã đọc dữ liệu model thành công.", "Model data read successfully.");
+        }
+
+        private void ReportManualSuccess(string vi, string en)
+        {
+            AgentStageText = "Completed";
+            LastRunSucceeded = true;
+            LastResultText = Tr("✅ Đã hoàn thành.\n" + vi, "✅ Completed.\n" + en);
+            StatusText = Tr(vi, en);
         }
 
         private void AddLog(string message)

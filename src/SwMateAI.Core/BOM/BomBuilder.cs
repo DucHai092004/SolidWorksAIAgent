@@ -47,6 +47,7 @@ namespace SwMateAI.Core.BOM
                     ComponentType = first.ComponentType,
                     Configuration = first.Configuration,
                     SourcePath = first.Path,
+                    RepresentativeComponentName = first.ComponentName,
                     IsVirtual = first.IsVirtual,
                     IsLoaded = first.IsLoaded
                 };
@@ -81,6 +82,7 @@ namespace SwMateAI.Core.BOM
             return new ComponentRecord
             {
                 IdentityKey = identity,
+                ComponentName = component.Name2 ?? string.Empty,
                 Path = path,
                 Configuration = config,
                 PartNumber = partNumber,
@@ -124,6 +126,7 @@ namespace SwMateAI.Core.BOM
         private sealed class ComponentRecord
         {
             public string IdentityKey { get; set; } = string.Empty;
+            public string ComponentName { get; set; } = string.Empty;
             public string Path { get; set; } = string.Empty;
             public string Configuration { get; set; } = string.Empty;
             public string PartNumber { get; set; } = string.Empty;

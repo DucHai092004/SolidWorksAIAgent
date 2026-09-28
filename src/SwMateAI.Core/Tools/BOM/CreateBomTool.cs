@@ -29,20 +29,48 @@ namespace SwMateAI.Core.Tools.BOM
             bool excel = Bool(parameters, "ExportExcel");
             bool csv = Bool(parameters, "ExportCsv");
             string folder = Text(parameters, "OutputFolder");
-            if ((excel || csv) && string.IsNullOrWhiteSpace(folder)) folder = DefaultFolder(SwApp.ActiveDoc as IModelDoc2);
+            if ((excel || csv) && string.IsNullOrWhiteSpace(folder))
+                folder = DefaultFolder(SwApp.ActiveDoc as IModelDoc2);
 
             string baseName = SafeBaseName(SwApp.ActiveDoc as IModelDoc2);
-            if (excel)
+            string tempImageFolder = null;
+
+            try
             {
-                string path = UniquePath(Path.Combine(folder, baseName + "_BOM.xlsx"));
-                result.ExcelPath = new BomExcelExporter().Export(result, path);
+                if (excel)
+                {
+                    tempImageFolder = Path.Combine(
+                        Path.GetTempPath(),
+                        "SW-MATE_AI",
+                        "BOM_Images",
+                        Guid.NewGuid().ToString("N"));
+
+                    var capture = new BomImageCapture(SwApp);
+                    foreach (var item in result.Items)
+                    {
+                        string image = capture.Capture(item, tempImageFolder);
+                        if (!string.IsNullOrWhiteSpace(image)) result.CapturedImageCount++;
+                    }
+
+                    string path = UniquePath(Path.Combine(folder, baseName + "_BOM.xlsx"));
+                    result.ExcelPath = new BomExcelExporter().Export(result, path);
+                }
+
+                if (csv)
+                {
+                    string path = UniquePath(Path.Combine(folder, baseName + "_BOM.csv"));
+                    result.CsvPath = new BomCsvExporter().Export(result, path);
+                }
+
+                return ToolResult.Success(result);
             }
-            if (csv)
+            finally
             {
-                string path = UniquePath(Path.Combine(folder, baseName + "_BOM.csv"));
-                result.CsvPath = new BomCsvExporter().Export(result, path);
+                if (!string.IsNullOrWhiteSpace(tempImageFolder) && Directory.Exists(tempImageFolder))
+                {
+                    try { Directory.Delete(tempImageFolder, true); } catch { }
+                }
             }
-            return ToolResult.Success(result);
         }
 
         private static bool Bool(Dictionary<string, object> input, string key)
@@ -54,7 +82,9 @@ namespace SwMateAI.Core.Tools.BOM
 
         private static string Text(Dictionary<string, object> input, string key)
         {
-            return input != null && input.TryGetValue(key, out var raw) ? Convert.ToString(raw)?.Trim() ?? string.Empty : string.Empty;
+            return input != null && input.TryGetValue(key, out var raw)
+                ? Convert.ToString(raw)?.Trim() ?? string.Empty
+                : string.Empty;
         }
 
         private static string DefaultFolder(IModelDoc2 model)

@@ -26,7 +26,11 @@ namespace SwMateAI.Core.BOM
                 dynamic sheet = workbook.Worksheets[1];
                 worksheetObject = sheet;
                 sheet.Name = "BOM";
-                string[] headers = { "Item", "Part Number", "Description", "Quantity", "Material", "Type", "Configuration", "Source Path" };
+                string[] headers =
+                {
+                    "Image", "Item", "Part Number", "Description",
+                    "Quantity", "Material", "Type", "Configuration"
+                };
 
                 for (int c = 0; c < headers.Length; c++)
                 {
@@ -40,17 +44,26 @@ namespace SwMateAI.Core.BOM
                 {
                     var x = result.Items[r];
                     int row = r + 2;
-                    sheet.Cells[row, 1].Value2 = x.ItemNumber;
-                    sheet.Cells[row, 2].Value2 = x.PartNumber;
-                    sheet.Cells[row, 3].Value2 = x.Description;
-                    sheet.Cells[row, 4].Value2 = x.Quantity;
-                    sheet.Cells[row, 5].Value2 = x.Material;
-                    sheet.Cells[row, 6].Value2 = x.ComponentType;
-                    sheet.Cells[row, 7].Value2 = x.Configuration;
-                    sheet.Cells[row, 8].Value2 = x.SourcePath;
+                    sheet.Rows[row].RowHeight = 62;
+                    sheet.Cells[row, 2].Value2 = x.ItemNumber;
+                    sheet.Cells[row, 3].Value2 = x.PartNumber;
+                    sheet.Cells[row, 4].Value2 = x.Description;
+                    sheet.Cells[row, 5].Value2 = x.Quantity;
+                    sheet.Cells[row, 6].Value2 = x.Material;
+                    sheet.Cells[row, 7].Value2 = x.ComponentType;
+                    sheet.Cells[row, 8].Value2 = x.Configuration;
+
+                    if (File.Exists(x.ImagePath))
+                    {
+                        dynamic imageCell = sheet.Cells[row, 1];
+                        double left = Convert.ToDouble(imageCell.Left) + 2;
+                        double top = Convert.ToDouble(imageCell.Top) + 2;
+                        sheet.Shapes.AddPicture(x.ImagePath, false, true, left, top, 76, 56);
+                    }
                 }
 
                 sheet.Columns.AutoFit();
+                sheet.Columns[1].ColumnWidth = 14;
                 sheet.Range["A1:H1"].AutoFilter();
                 workbook.SaveAs(path, 51);
                 workbook.Close(false);
