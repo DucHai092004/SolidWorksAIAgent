@@ -38,5 +38,6 @@ namespace SwMateAI.Core.Skills
         public const string BuildManufacturingBreakdown = "BuildManufacturingBreakdown";
         public const string ExportManufacturingBreakdown = "ExportManufacturingBreakdown";
         public const string CreateBOM = "CreateBOM";
+        public const string InsertSolidWorksBOM = "InsertSolidWorksBOM";
     }
 }

@@ -130,6 +130,7 @@ namespace SwMateAI.Core.Agent
 
             // Phase 5 BOM
             Register(new CreateBomTool(_swApp));
+            Register(new InsertSolidWorksBomTool(_swApp));
         }
 
         private void Register(ISwTool tool)

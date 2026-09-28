@@ -290,6 +290,7 @@ namespace SwMateAI.UI.ViewModels
             if (goal == "Build manufacturing breakdown") return Tr("Bóc tách chi tiết gia công và tính phôi", goal);
             if (goal == "Export manufacturing breakdown") return Tr("Bóc tách, chụp ảnh và xuất Excel", goal);
             if (goal == "Create Assembly BOM") return Tr("Tạo BOM cho Assembly", goal);
+            if (goal == "Insert native SOLIDWORKS BOM") return Tr("Chèn BOM native vào Assembly", goal);
             return goal;
         }
 
@@ -306,6 +307,7 @@ namespace SwMateAI.UI.ViewModels
             if (step.Description.StartsWith("Find downstream dependencies of ", StringComparison.OrdinalIgnoreCase))
                 return "Tìm các Feature phía sau phụ thuộc vào " + step.Description.Substring("Find downstream dependencies of ".Length);
             if (step.Description == "Build BOM from active Assembly components") return "Tạo BOM từ các component của Assembly đang mở";
+            if (step.Description == "Insert native SOLIDWORKS BOM table into active Assembly") return "Chèn bảng BOM native vào Assembly đang mở";
             if (step.Description.StartsWith("Capture Part images and export Excel with ", StringComparison.OrdinalIgnoreCase))
                 return "Chụp ảnh Part và xuất Excel với " + step.Description.Substring("Capture Part images and export Excel with ".Length).Replace(" allowance per side", " lượng dư mỗi mặt");
             if (step.Description.StartsWith("Scan Assembly and calculate stock with ", StringComparison.OrdinalIgnoreCase))
@@ -626,7 +628,7 @@ namespace SwMateAI.UI.ViewModels
             {
                 AddLog($"  [PARSED] Modify dimension {command.DimensionName} -> {command.DimensionValue:0.###} mm");
             }
-            else if (command.Intent == "InsertComponent" || command.Intent == "MoveComponent" || command.Intent == "AddMate" || command.Intent == "DeleteMate" || command.Intent == "ReplaceComponent")
+            else if (command.Intent == "InsertComponent" || command.Intent == "MoveComponent" || command.Intent == "AddMate" || command.Intent == "DeleteMate" || command.Intent == "ReplaceComponent" || command.Intent == "InsertSolidWorksBOM")
             {
                 AddLog($"  [PARSED] Assembly action: {command.Intent}");
             }
@@ -710,6 +712,8 @@ namespace SwMateAI.UI.ViewModels
                 LastResultText = Tr($"Đã thực hiện và kiểm tra: {action}", $"Completed and verified: {action}");
             else if (execution.LastData is AssemblyMateActionResult mateAction)
                 LastResultText = Tr($"Đã thực hiện và kiểm tra: {mateAction}", $"Completed and verified: {mateAction}");
+            else if (execution.LastData is SolidWorksBomResult nativeBom)
+                LastResultText = Tr($"Đã chèn và kiểm tra BOM native: {nativeBom.FeatureName} | Cấu hình: {nativeBom.Configuration}", $"Native BOM inserted and verified: {nativeBom.FeatureName} | Configuration: {nativeBom.Configuration}");
             else
                 LastResultText = Tr($"Hoàn thành và đã kiểm tra {execution.CompletedSteps}/{_currentPlan.Steps.Count} skill.", $"Completed and verified {execution.CompletedSteps}/{_currentPlan.Steps.Count} skill(s).");
             CommandHistory.Insert(0, $"OK • {_pendingCommandText}");

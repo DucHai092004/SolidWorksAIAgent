@@ -65,6 +65,13 @@ namespace SwMateAI.Core.Planning
                 return actionPlan;
             }
 
+            if (command.Intent == SkillNames.InsertSolidWorksBOM)
+            {
+                var nativeBomPlan = new TaskPlan { Goal = "Insert native SOLIDWORKS BOM" };
+                nativeBomPlan.Steps.Add(new PlanStep { Index = 1, SkillName = SkillNames.InsertSolidWorksBOM, Description = "Insert native SOLIDWORKS BOM table into active Assembly" });
+                return nativeBomPlan;
+            }
+
             if (command.Intent == SkillNames.CreateBOM)
             {
                 var bomPlan = new TaskPlan { Goal = "Create Assembly BOM" };

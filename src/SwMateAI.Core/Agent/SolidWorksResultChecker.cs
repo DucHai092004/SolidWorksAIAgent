@@ -30,6 +30,7 @@ namespace SwMateAI.Core.Agent
                 var assembly = model as IAssemblyDoc;
                 snapshot.AssemblyComponentCount = assembly?.GetComponentCount(false) ?? 0;
                 try { snapshot.AssemblyMateCount = new SolidWorksAssemblyReader(_swApp).ReadMates().Count; } catch { snapshot.AssemblyMateCount = 0; }
+                snapshot.AssemblyBomCount = CountBomFeatures(model);
             }
             if (model.GetType() == (int)swDocumentTypes_e.swDocPART)
             {
@@ -76,7 +77,7 @@ namespace SwMateAI.Core.Agent
                 return true;
             }
 
-            if (skillName == "InsertComponent" || skillName == "MoveComponent" || skillName == "AddMate" || skillName == "DeleteMate" || skillName == "ReplaceComponent")
+            if (skillName == "InsertComponent" || skillName == "MoveComponent" || skillName == "AddMate" || skillName == "DeleteMate" || skillName == "ReplaceComponent" || skillName == "InsertSolidWorksBOM")
             {
                 if (!RequireAssembly(model, out reason)) return false;
                 if (!model.EditRebuild3()) { reason = "SOLIDWORKS rebuild failed after Assembly action."; return false; }
@@ -89,6 +90,8 @@ namespace SwMateAI.Core.Agent
                 { reason = "Assembly Mate count did not increase after AddMate."; return false; }
                 if (skillName == "DeleteMate" && before != null && after.AssemblyMateCount >= before.AssemblyMateCount)
                 { reason = "Assembly Mate count did not decrease after DeleteMate."; return false; }
+                if (skillName == "InsertSolidWorksBOM" && before != null && after.AssemblyBomCount <= before.AssemblyBomCount)
+                { reason = "Assembly BOM feature count did not increase after InsertSolidWorksBOM."; return false; }
                 return true;
             }
 
@@ -119,6 +122,32 @@ namespace SwMateAI.Core.Agent
             }
 
             return true;
+        }
+
+        private static int CountBomFeatures(IModelDoc2 model)
+        {
+            int count = 0;
+            var feature = model?.FirstFeature() as IFeature;
+            while (feature != null)
+            {
+                count += CountBomRecursive(feature);
+                feature = feature.GetNextFeature() as IFeature;
+            }
+            return count;
+        }
+
+        private static int CountBomRecursive(IFeature feature)
+        {
+            if (feature == null) return 0;
+            int count = 0;
+            try { if (feature.GetSpecificFeature2() is IBomFeature) count++; } catch { }
+            var sub = feature.GetFirstSubFeature() as IFeature;
+            while (sub != null)
+            {
+                count += CountBomRecursive(sub);
+                sub = sub.GetNextSubFeature() as IFeature;
+            }
+            return count;
         }
 
         private static bool RequireAssembly(IModelDoc2 model, out string reason)

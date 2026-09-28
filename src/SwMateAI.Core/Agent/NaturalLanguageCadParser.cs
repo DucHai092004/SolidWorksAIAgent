@@ -58,6 +58,9 @@ namespace SwMateAI.Core.Agent
             if (TryFeatureImpactQuery(input, out command))
                 return true;
 
+            if (TryNativeBomQuery(input, out command))
+                return true;
+
             if (TryBomQuery(input, out command))
                 return true;
 
@@ -154,6 +157,17 @@ namespace SwMateAI.Core.Agent
                 return true;
             }
             return false;
+        }
+
+        private static bool TryNativeBomQuery(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            string s = input.Trim().ToLowerInvariant();
+            bool bom = Regex.IsMatch(s, @"\bbom\b|bill\s*of\s*materials");
+            bool native = Regex.IsMatch(s, @"solidworks|native|trong\s*assembly|vào\s*assembly|vao\s*assembly|chèn|chen|insert");
+            if (!bom || !native) return false;
+            command = new NaturalLanguageCadCommand { Intent = SkillNames.InsertSolidWorksBOM };
+            return true;
         }
 
         private static bool TryBomQuery(string input, out NaturalLanguageCadCommand command)

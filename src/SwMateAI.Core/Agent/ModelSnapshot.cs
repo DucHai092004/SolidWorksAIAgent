@@ -9,5 +9,6 @@ namespace SwMateAI.Core.Agent
         public int SolidBodyCount { get; set; }
         public int AssemblyComponentCount { get; set; }
         public int AssemblyMateCount { get; set; }
+        public int AssemblyBomCount { get; set; }
     }
 }
