@@ -286,6 +286,7 @@ namespace SwMateAI.UI.ViewModels
             if (goal == "Read requested CAD model data") return Tr("Đọc dữ liệu model theo yêu cầu", goal);
             if (goal == "Analyze feature change impact") return Tr("Phân tích ảnh hưởng khi thay đổi Feature", goal);
             if (goal == "Modify Assembly") return Tr("Thay đổi Assembly", goal);
+            if (goal == "Build manufacturing breakdown") return Tr("Bóc tách chi tiết gia công và tính phôi", goal);
             return goal;
         }
 
@@ -301,6 +302,8 @@ namespace SwMateAI.UI.ViewModels
             }
             if (step.Description.StartsWith("Find downstream dependencies of ", StringComparison.OrdinalIgnoreCase))
                 return "Tìm các Feature phía sau phụ thuộc vào " + step.Description.Substring("Find downstream dependencies of ".Length);
+            if (step.Description.StartsWith("Scan Assembly and calculate stock with ", StringComparison.OrdinalIgnoreCase))
+                return "Quét Assembly và tính phôi với " + step.Description.Substring("Scan Assembly and calculate stock with ".Length).Replace(" allowance per side", " lượng dư mỗi mặt");
             if (step.Description.StartsWith("Delete Mate ", StringComparison.OrdinalIgnoreCase))
                 return "Xóa Mate " + step.Description.Substring("Delete Mate ".Length);
             if (step.Description.StartsWith("Set ", StringComparison.OrdinalIgnoreCase))
@@ -734,10 +737,14 @@ namespace SwMateAI.UI.ViewModels
         {
             if (intent == "BuildManufacturingBreakdown" && data is BreakdownResult breakdown)
             {
-                string rows = string.Join("\n", breakdown.Items.Take(14).Select(x => $"• {x.PartNumber} | SL {x.Quantity} | {x.Material} | {x.FinishedSize}"));
+                string rows = string.Join("\n", breakdown.Items.Take(14).Select(x =>
+                {
+                    string weight = x.StockWeightKg > 0 ? x.StockWeightKg.ToString("0.###") + " kg" : "?";
+                    return $"• {x.PartNumber} | SL {x.Quantity} | {x.Material} | TP {x.FinishedSize} | Phôi {x.StockType}: {x.StockSize} | {weight}";
+                }));
                 return Tr(
-                    $"Bóc tách sơ bộ: {breakdown.TotalPartOccurrences} occurrence, {breakdown.UniquePartCount} Part duy nhất. Suppressed bỏ qua: {breakdown.SuppressedSkipped}. Chưa loaded: {breakdown.UnloadedPartCount}.\n{rows}",
-                    $"Preliminary breakdown: {breakdown.TotalPartOccurrences} occurrence(s), {breakdown.UniquePartCount} unique Part(s). Suppressed skipped: {breakdown.SuppressedSkipped}. Unloaded: {breakdown.UnloadedPartCount}.\n{rows}");
+                    $"Bóc tách + tính phôi: {breakdown.TotalPartOccurrences} occurrence, {breakdown.UniquePartCount} Part duy nhất. Lượng dư: {breakdown.AllowancePerSideMm:0.###} mm/mặt. Suppressed bỏ qua: {breakdown.SuppressedSkipped}. Chưa loaded: {breakdown.UnloadedPartCount}.\n{rows}\nCông nghệ gia công: để trống | Nhà gia công: để trống",
+                    $"Breakdown + stock: {breakdown.TotalPartOccurrences} occurrence(s), {breakdown.UniquePartCount} unique Part(s). Allowance: {breakdown.AllowancePerSideMm:0.###} mm/side. Suppressed skipped: {breakdown.SuppressedSkipped}. Unloaded: {breakdown.UnloadedPartCount}.\n{rows}\nManufacturing technology: blank | Supplier: blank");
             }
             if (intent == "ReadAssembly" && data is AssemblyInfo assembly)
                 return Tr($"Assembly: {assembly.Name}\nComponent: {assembly.TotalComponentCount} (top-level {assembly.TopLevelComponentCount})\nMate: {assembly.MateCount}\nConfiguration: {assembly.Configuration}\nSuppressed: {assembly.SuppressedComponentCount}   Lightweight: {assembly.LightweightComponentCount}",

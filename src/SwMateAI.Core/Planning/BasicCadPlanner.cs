@@ -65,6 +65,16 @@ namespace SwMateAI.Core.Planning
                 return actionPlan;
             }
 
+            if (command.Intent == SkillNames.BuildManufacturingBreakdown)
+            {
+                var breakdownPlan = new TaskPlan { Goal = "Build manufacturing breakdown" };
+                var step = new PlanStep { Index = 1, SkillName = SkillNames.BuildManufacturingBreakdown,
+                    Description = $"Scan Assembly and calculate stock with {command.StockAllowanceMm:0.###} mm allowance per side" };
+                step.Parameters["AllowancePerSideMm"] = command.StockAllowanceMm;
+                breakdownPlan.Steps.Add(step);
+                return breakdownPlan;
+            }
+
             if (command.Intent == SkillNames.AnalyzeFeatureImpact)
             {
                 var impactPlan = new TaskPlan { Goal = "Analyze feature change impact" };

@@ -38,6 +38,7 @@ namespace SwMateAI.Core.Agent
         public string MateName { get; set; } = string.Empty;
         public double MateDistance { get; set; }
         public string ReplacementPath { get; set; } = string.Empty;
+        public double StockAllowanceMm { get; set; } = 3.0;
     }
 
     public static class NaturalLanguageCadParser
@@ -153,7 +154,10 @@ namespace SwMateAI.Core.Agent
             command = null;
             string s = input.Trim().ToLowerInvariant();
             if (!Regex.IsMatch(s, @"(?:bóc\s*tách|boc\s*tach|manufacturing\s*breakdown|breakdown\s*(?:parts|assembly)?|chi\s*tiết\s*gia\s*công|chi\s*tiet\s*gia\s*cong)")) return false;
-            command = new NaturalLanguageCadCommand { Intent = SkillNames.BuildManufacturingBreakdown };
+            double allowance = 3.0;
+            var m = Regex.Match(input, @"(?:lượng\s*dư|luong\s*du|allowance)\s*[:=]?\s*(?<v>\d+(?:[\.,]\d+)?)\s*(?:mm)?", RegexOptions.IgnoreCase);
+            if (m.Success) allowance = Number(m.Groups["v"].Value);
+            command = new NaturalLanguageCadCommand { Intent = SkillNames.BuildManufacturingBreakdown, StockAllowanceMm = allowance };
             return true;
         }
 

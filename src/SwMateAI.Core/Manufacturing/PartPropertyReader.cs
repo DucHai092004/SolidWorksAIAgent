@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.swconst;
 
 namespace SwMateAI.Core.Manufacturing
 {
@@ -48,6 +49,9 @@ namespace SwMateAI.Core.Manufacturing
                 string database;
                 item.Material = part.GetMaterialPropertyName2(config, out database) ?? string.Empty;
                 ReadBoundingBox(part, item);
+                item.HasCylindricalFace = HasCylindricalFace(part);
+                var mass = model.Extension.CreateMassProperty() as IMassProperty;
+                if (mass != null) item.DensityKgM3 = mass.Density;
             }
             return item;
         }
@@ -88,6 +92,24 @@ namespace SwMateAI.Core.Manufacturing
             item.FinishedXmm = Math.Abs(maxX - minX) * 1000.0;
             item.FinishedYmm = Math.Abs(maxY - minY) * 1000.0;
             item.FinishedZmm = Math.Abs(maxZ - minZ) * 1000.0;
+        }
+
+        private static bool HasCylindricalFace(IPartDoc part)
+        {
+            var bodies = part?.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[];
+            if (bodies == null) return false;
+            foreach (var bodyObj in bodies)
+            {
+                var body = bodyObj as IBody2;
+                var faces = body?.GetFaces() as object[];
+                if (faces == null) continue;
+                foreach (var faceObj in faces)
+                {
+                    var surface = (faceObj as IFace2)?.GetSurface() as ISurface;
+                    if (surface != null && surface.IsCylinder()) return true;
+                }
+            }
+            return false;
         }
 
         private static string FirstNonEmpty(params string[] values)

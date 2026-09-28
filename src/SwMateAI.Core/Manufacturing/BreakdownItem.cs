@@ -14,6 +14,10 @@ namespace SwMateAI.Core.Manufacturing
         public string StockType { get; set; } = string.Empty;
         public string StockSize { get; set; } = string.Empty;
         public double StockWeightKg { get; set; }
+        public double StockVolumeMm3 { get; set; }
+        public double DensityKgM3 { get; set; }
+        public bool HasCylindricalFace { get; set; }
+        public string StockClassificationBasis { get; set; } = string.Empty;
         public string ManufacturingTechnology { get; set; } = string.Empty;
         public string Supplier { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;

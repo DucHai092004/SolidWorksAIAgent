@@ -9,5 +9,6 @@ namespace SwMateAI.Core.Manufacturing
         public int UniquePartCount => Items.Count;
         public int SuppressedSkipped { get; set; }
         public int UnloadedPartCount { get; set; }
+        public double AllowancePerSideMm { get; set; }
     }
 }
