@@ -111,7 +111,8 @@ namespace SwMateAI.Core.Agent
             string s = input.Trim().ToLowerInvariant();
             string intent = null;
 
-            if (Regex.IsMatch(s, @"(?:bounding\s*box|kích\s*thước\s*tổng\s*thể|kich\s*thuoc\s*tong\s*the|overall\s*size|overall\s*dimensions)") ) intent = SkillNames.ReadBoundingBox;
+            if (Regex.IsMatch(s, @"(?:feature\s*(?:dependency|dependencies|relation|relationship)|design\s*intent|quan\s*hệ\s*feature|quan\s*he\s*feature|feature\s*nào\s*phụ\s*thuộc|feature\s*nao\s*phu\s*thuoc|phụ\s*thuộc\s*feature|phu\s*thuoc\s*feature|cây\s*phụ\s*thuộc|cay\s*phu\s*thuoc)") ) intent = SkillNames.ReadFeatureDependencies;
+            else if (Regex.IsMatch(s, @"(?:bounding\s*box|kích\s*thước\s*tổng\s*thể|kich\s*thuoc\s*tong\s*the|overall\s*size|overall\s*dimensions)") ) intent = SkillNames.ReadBoundingBox;
             else if (Regex.IsMatch(s, @"(?:vật\s*liệu|vat\s*lieu|material)") ) intent = SkillNames.ReadMaterial;
             else if (Regex.IsMatch(s, @"(?:khối\s*lượng|khoi\s*luong|trọng\s*lượng|trong\s*luong|mass|weight|thể\s*tích|the\s*tich|volume)") ) intent = SkillNames.ReadMassProperties;
             else if (Regex.IsMatch(s, @"(?:custom\s*propert|thuộc\s*tính\s*tùy\s*chỉnh|thuoc\s*tinh\s*tuy\s*chinh)") ) intent = SkillNames.ReadCustomProperties;

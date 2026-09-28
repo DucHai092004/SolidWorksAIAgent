@@ -17,6 +17,7 @@ namespace SwMateAI.Core.Skills
         public const string CreatePlateWithHole = "CreatePlateWithHole";
         public const string ReadFeatureTree = "ReadFeatureTree";
         public const string ReadFeatures = "ReadFeatures";
+        public const string ReadFeatureDependencies = "ReadFeatureDependencies";
         public const string ReadSketches = "ReadSketches";
         public const string ReadDimensions = "ReadDimensions";
         public const string ReadMaterial = "ReadMaterial";

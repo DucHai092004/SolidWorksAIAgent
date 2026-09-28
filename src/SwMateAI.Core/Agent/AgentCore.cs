@@ -100,6 +100,7 @@ namespace SwMateAI.Core.Agent
             // Phase 2 Model Understanding skills
             Register(new ReadFeatureTreeTool(_swApp));
             Register(new ReadFeaturesTool(_swApp));
+            Register(new ReadFeatureDependenciesTool(_swApp));
             Register(new ReadSketchesTool(_swApp));
             Register(new ReadDimensionsTool(_swApp));
             Register(new ReadMaterialTool(_swApp));

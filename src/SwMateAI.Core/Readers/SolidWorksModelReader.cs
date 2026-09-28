@@ -63,6 +63,55 @@ namespace SwMateAI.Core.Readers
             return ReadFeatureTree().Where(x => x.IsSketch).ToList();
         }
 
+        /// <summary>
+        /// Reads direct parent/child relationships reported by SOLIDWORKS.
+        /// No dependency is inferred: the graph only contains relationships
+        /// returned by IFeature.GetParents/GetChildren.
+        /// </summary>
+        public List<FeatureDependencyInfo> ReadFeatureDependencies()
+        {
+            var model = ActiveModel();
+            var result = new List<FeatureDependencyInfo>();
+            if (model == null) return result;
+
+            var feature = model.FirstFeature() as IFeature;
+            while (feature != null)
+            {
+                bool isSketch = false;
+                try { isSketch = feature.GetSpecificFeature2() is ISketch; } catch { }
+                var item = new FeatureDependencyInfo
+                {
+                    Name = feature.Name ?? string.Empty,
+                    TypeName = feature.GetTypeName2() ?? string.Empty,
+                    IsSketch = isSketch
+                };
+                try { AddFeatureNames(item.Parents, feature.GetParents()); } catch { }
+                try { AddFeatureNames(item.Children, feature.GetChildren()); } catch { }
+                result.Add(item);
+                feature = feature.GetNextFeature() as IFeature;
+            }
+            return result;
+        }
+
+        private static void AddFeatureNames(List<string> target, object raw)
+        {
+            if (target == null || raw == null) return;
+            if (raw is Array array)
+            {
+                foreach (var value in array) AddFeatureName(target, value as IFeature);
+                return;
+            }
+            AddFeatureName(target, raw as IFeature);
+        }
+
+        private static void AddFeatureName(List<string> target, IFeature feature)
+        {
+            string name = feature?.Name ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(name)) return;
+            if (!target.Any(x => string.Equals(x, name, StringComparison.OrdinalIgnoreCase)))
+                target.Add(name);
+        }
+
         public List<DimensionInfo> ReadDimensions()
         {
             var model = ActiveModel();

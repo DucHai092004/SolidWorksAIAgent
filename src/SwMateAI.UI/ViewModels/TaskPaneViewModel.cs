@@ -540,16 +540,17 @@ namespace SwMateAI.UI.ViewModels
                 var mass = _agentCore.ExecuteTool("ReadMassProperties").Data as MassPropertiesInfo;
                 var box = _agentCore.ExecuteTool("ReadBoundingBox").Data as BoundingBoxInfo;
                 var selected = _agentCore.ExecuteTool("ReadSelectedObject").Data as List<SelectedObjectInfo> ?? new List<SelectedObjectInfo>();
+                var dependencies = _agentCore.ExecuteTool("ReadFeatureDependencies").Data as List<FeatureDependencyInfo> ?? new List<FeatureDependencyInfo>();
 
                 ModelSummary = Tr(
                     $"Feature: {features.Count}   Sketch: {sketches.Count}   Kích thước: {dimensions.Count}\n" +
                     $"Vật liệu: {(string.IsNullOrWhiteSpace(material) ? "<chưa chỉ định>" : material)}\n" +
                     $"Khối lượng: {(mass == null ? "?" : mass.MassKg.ToString("0.###") + " kg")}   Kích thước tổng thể: {(box == null ? "?" : box.ToString())}\n" +
-                    $"Đang chọn: {selected.Count} đối tượng",
+                    $"Đang chọn: {selected.Count} đối tượng   Quan hệ feature: {dependencies.Sum(x => x.Children.Count)}",
                     $"Features: {features.Count}   Sketches: {sketches.Count}   Dimensions: {dimensions.Count}\n" +
                     $"Material: {(string.IsNullOrWhiteSpace(material) ? "<not specified>" : material)}\n" +
                     $"Mass: {(mass == null ? "?" : mass.MassKg.ToString("0.###") + " kg")}   Size: {(box == null ? "?" : box.ToString())}\n" +
-                    $"Selection: {selected.Count} object(s)");
+                    $"Selection: {selected.Count} object(s)   Feature relations: {dependencies.Sum(x => x.Children.Count)}");
                 StatusText = Tr("Đã đọc model thành công.", "Model inspection completed.");
                 AddLog($"  [MODEL] {features.Count} features, {dimensions.Count} dimensions, size={(box == null ? "?" : box.ToString())}");
             }
@@ -626,7 +627,7 @@ namespace SwMateAI.UI.ViewModels
 
         private static bool IsReadIntent(string intent)
         {
-            return intent == "ReadFeatureTree" || intent == "ReadFeatures" || intent == "ReadSketches" ||
+            return intent == "ReadFeatureTree" || intent == "ReadFeatures" || intent == "ReadFeatureDependencies" || intent == "ReadSketches" ||
                    intent == "ReadDimensions" || intent == "ReadMaterial" || intent == "ReadMassProperties" ||
                    intent == "ReadCustomProperties" || intent == "ReadSelectedObject" || intent == "ReadBoundingBox";
         }
@@ -649,6 +650,15 @@ namespace SwMateAI.UI.ViewModels
                 string list = string.Join(", ", features.Take(12).Select(f => f.Name + " [" + f.TypeName + "]"));
                 if (features.Count > 12) list += Tr($" … và {features.Count - 12} mục khác", $" … and {features.Count - 12} more");
                 return Tr($"Tìm thấy {features.Count} mục: {list}", $"Found {features.Count} item(s): {list}");
+            }
+            if (intent == "ReadFeatureDependencies" && data is List<FeatureDependencyInfo> dependencies)
+            {
+                var linked = dependencies.Where(x => x.Parents.Count > 0 || x.Children.Count > 0).Take(16).ToList();
+                string list = string.Join("\n", linked.Select(x =>
+                    $"• {x.Name} [{x.TypeName}]  ← {(x.Parents.Count == 0 ? "—" : string.Join(", ", x.Parents))}  → {(x.Children.Count == 0 ? "—" : string.Join(", ", x.Children))}"));
+                int relations = dependencies.Sum(x => x.Children.Count);
+                return Tr($"Đồ thị phụ thuộc: {dependencies.Count} feature, {relations} quan hệ trực tiếp:\n{list}",
+                          $"Dependency graph: {dependencies.Count} features, {relations} direct relation(s):\n{list}");
             }
             if (intent == "ReadDimensions" && data is List<DimensionInfo> dimensions)
             {

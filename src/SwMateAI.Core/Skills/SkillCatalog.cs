@@ -31,6 +31,7 @@ namespace SwMateAI.Core.Skills
                 case SkillNames.CreatePlateWithHole: Configure(m, SkillNames.CreatePlateWithHole, "Workflow.Composite", SkillRiskLevel.Medium, composite: true); break;
                 case SkillNames.ReadFeatureTree: Configure(m, SkillNames.ReadFeatureTree, "ModelReader", SkillRiskLevel.ReadOnly, document: true); break;
                 case SkillNames.ReadFeatures: Configure(m, SkillNames.ReadFeatures, "ModelReader", SkillRiskLevel.ReadOnly, document: true); break;
+                case SkillNames.ReadFeatureDependencies: Configure(m, SkillNames.ReadFeatureDependencies, "ModelReader.DesignIntent", SkillRiskLevel.ReadOnly, document: true); break;
                 case SkillNames.ReadSketches: Configure(m, SkillNames.ReadSketches, "ModelReader", SkillRiskLevel.ReadOnly, document: true); break;
                 case SkillNames.ReadDimensions: Configure(m, SkillNames.ReadDimensions, "ModelReader", SkillRiskLevel.ReadOnly, document: true); break;
                 case SkillNames.ReadMaterial: Configure(m, SkillNames.ReadMaterial, "ModelReader", SkillRiskLevel.ReadOnly, part: true); break;

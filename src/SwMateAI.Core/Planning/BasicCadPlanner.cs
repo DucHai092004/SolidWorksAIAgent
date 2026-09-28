@@ -59,6 +59,7 @@ namespace SwMateAI.Core.Planning
         private static bool IsReadIntent(string intent)
         {
             return intent == SkillNames.ReadFeatureTree || intent == SkillNames.ReadFeatures ||
+                   intent == SkillNames.ReadFeatureDependencies ||
                    intent == SkillNames.ReadSketches || intent == SkillNames.ReadDimensions ||
                    intent == SkillNames.ReadMaterial || intent == SkillNames.ReadMassProperties ||
                    intent == SkillNames.ReadCustomProperties || intent == SkillNames.ReadSelectedObject ||
