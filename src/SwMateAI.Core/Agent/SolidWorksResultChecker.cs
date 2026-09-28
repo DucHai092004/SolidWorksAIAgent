@@ -55,6 +55,22 @@ namespace SwMateAI.Core.Agent
             if (skillName == "CreatePart")
                 return RequirePart(model, out reason);
 
+            if (skillName == "CreateDrawing")
+            {
+                if (model.GetType() != (int)swDocumentTypes_e.swDocDRAWING)
+                {
+                    reason = "Expected an active Drawing after CreateDrawing.";
+                    return false;
+                }
+                var drawing = model as IDrawingDoc;
+                if (drawing == null || drawing.GetCurrentSheet() == null)
+                {
+                    reason = "Drawing exists but no active sheet was created.";
+                    return false;
+                }
+                return true;
+            }
+
             if (skillName == "CreateSketch")
             {
                 if (!RequirePart(model, out reason)) return false;
