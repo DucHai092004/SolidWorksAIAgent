@@ -58,6 +58,9 @@ namespace SwMateAI.Core.Agent
             if (TryFeatureImpactQuery(input, out command))
                 return true;
 
+            if (TryDrawingQuery(input, out command))
+                return true;
+
             if (TryNativeBomQuery(input, out command))
                 return true;
 
@@ -157,6 +160,18 @@ namespace SwMateAI.Core.Agent
                 return true;
             }
             return false;
+        }
+
+        private static bool TryDrawingQuery(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            string s = input.Trim().ToLowerInvariant();
+            bool create = Regex.IsMatch(s, @"(?:tạo|tao|create|new|lập|lap)\s*(?:một\s*)?(?:drawing|bản\s*vẽ|ban\s*ve)");
+            bool explicitTarget = Regex.IsMatch(s, @"(?:cho|from|for)\s*(?:part|assembly|chi\s*tiết|chi\s*tiet|cụm|cum|model|này|nay|this)");
+            bool simpleCreate = Regex.IsMatch(s, @"^(?:tạo|tao|create)\s*(?:drawing|bản\s*vẽ|ban\s*ve)\s*$");
+            if (!create || (!explicitTarget && !simpleCreate)) return false;
+            command = new NaturalLanguageCadCommand { Intent = SkillNames.CreateDrawing };
+            return true;
         }
 
         private static bool TryNativeBomQuery(string input, out NaturalLanguageCadCommand command)

@@ -7,6 +7,18 @@ namespace SwMateAI.Core.Planning
     {
         public static TaskPlan Build(NaturalLanguageCadCommand command)
         {
+            if (command.Intent == SkillNames.CreateDrawing)
+            {
+                var drawingPlan = new TaskPlan { Goal = "Create Drawing from active model" };
+                drawingPlan.Steps.Add(new PlanStep
+                {
+                    Index = 1,
+                    SkillName = SkillNames.CreateDrawing,
+                    Description = "Create a new Drawing using the default SOLIDWORKS Drawing template"
+                });
+                return drawingPlan;
+            }
+
             if (command.Intent == SkillNames.DeleteMate)
             {
                 var actionPlan = new TaskPlan { Goal = "Modify Assembly" };
