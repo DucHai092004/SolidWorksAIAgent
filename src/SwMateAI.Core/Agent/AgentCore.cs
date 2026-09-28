@@ -141,6 +141,7 @@ namespace SwMateAI.Core.Agent
             Register(new CreateSheetTool(_swApp));
             Register(new InsertStandardViewsTool(_swApp, _drawingSession));
             Register(new InsertIsometricViewTool(_swApp, _drawingSession));
+            Register(new CreateSectionTool(_swApp));
         }
 
         private void Register(ISwTool tool)

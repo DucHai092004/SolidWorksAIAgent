@@ -121,6 +121,19 @@ namespace SwMateAI.Core.Agent
                 return true;
             }
 
+            if (skillName == "CreateSection")
+            {
+                if (!RequireDrawing(model, out reason)) return false;
+                var after = Capture();
+                if (before != null && before.HasDocument &&
+                    after.DrawingModelViewCount <= before.DrawingModelViewCount)
+                {
+                    reason = "Drawing model view count did not increase after CreateSection.";
+                    return false;
+                }
+                return true;
+            }
+
             if (skillName == "CreateSketch")
             {
                 if (!RequirePart(model, out reason)) return false;

@@ -43,5 +43,6 @@ namespace SwMateAI.Core.Skills
         public const string CreateSheet = "CreateSheet";
         public const string InsertStandardViews = "InsertStandardViews";
         public const string InsertIsometricView = "InsertIsometricView";
+        public const string CreateSection = "CreateSection";
     }
 }
