@@ -36,7 +36,7 @@
  <sys:String x:Key="ActivityHistoryDescription">Lệnh gần đây và chẩn đoán Agent</sys:String>
  <sys:String x:Key="RecentCommands">LỆNH GẦN ĐÂY</sys:String>
  <sys:String x:Key="AgentConsole">BẢNG ĐIỀU KHIỂN AGENT</sys:String>
- <sys:String x:Key="FooterText">SW-MATE AI  ·  Giai đoạn 3 · Assembly  ·  v1.0.0</sys:String>
+ <sys:String x:Key="FooterText">SW-MATE AI  ·  Giai đoạn 3 · Assembly  ·  v1.0.1</sys:String>
  <sys:String x:Key="LanguageLabel">Ngôn ngữ</sys:String>
  <sys:String x:Key="RefreshTooltip">Làm mới ngữ cảnh SolidWorks</sys:String>
  <sys:String x:Key="StatusIdle">Sẵn sàng</sys:String>
@@ -65,5 +65,6 @@
  <sys:String x:Key="GuideExample7">• Assembly này có thông tin gì?</sys:String>
  <sys:String x:Key="GuideExample8">• Assembly này có những component nào?</sys:String>
  <sys:String x:Key="GuideExample9">• Assembly này có những Mate nào?</sys:String>
+ <sys:String x:Key="GuideExample10">• Kiểm tra va chạm trong Assembly.</sys:String>
  <sys:String x:Key="GuideTip">Mẹo: câu lệnh càng rõ kích thước, vị trí và đối tượng thì Agent càng dễ lập kế hoạch chính xác.</sys:String>
 </ResourceDictionary>

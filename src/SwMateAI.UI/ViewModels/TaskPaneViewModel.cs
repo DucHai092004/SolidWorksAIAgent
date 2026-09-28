@@ -646,7 +646,7 @@ namespace SwMateAI.UI.ViewModels
             return intent == "ReadFeatureTree" || intent == "ReadFeatures" || intent == "ReadFeatureDependencies" || intent == "AnalyzeFeatureImpact" || intent == "ReadSketches" ||
                    intent == "ReadDimensions" || intent == "ReadMaterial" || intent == "ReadMassProperties" ||
                    intent == "ReadCustomProperties" || intent == "ReadSelectedObject" || intent == "ReadBoundingBox" ||
-                   intent == "ReadAssembly" || intent == "ReadComponents" || intent == "ReadMates";
+                   intent == "ReadAssembly" || intent == "ReadComponents" || intent == "ReadMates" || intent == "CheckInterference";
         }
 
         private string FormatModelQueryResult(string intent, object data)
@@ -663,6 +663,12 @@ namespace SwMateAI.UI.ViewModels
             {
                 string list = string.Join("\n", mates.Take(18).Select(m => $"• {m.Name} [{m.TypeName}] → {string.Join(", ", m.Components)}"));
                 return Tr($"Assembly có {mates.Count} Mate:\n{list}", $"Assembly has {mates.Count} mate(s):\n{list}");
+            }
+            if (intent == "CheckInterference" && data is AssemblyInterferenceResult interference)
+            {
+                if (interference.Count == 0) return Tr("Không phát hiện va chạm vật lý trong Assembly.", "No physical interference detected in the Assembly.");
+                string list = string.Join("\n", interference.Items.Take(12).Select(i => $"• #{i.Index}: {string.Join(" ↔ ", i.Components)} | {i.VolumeMm3:0.###} mm³"));
+                return Tr($"Phát hiện {interference.Count} vùng va chạm:\n{list}", $"Detected {interference.Count} interference(s):\n{list}");
             }
             if (intent == "ReadMaterial")
             {

@@ -161,5 +161,47 @@ namespace SwMateAI.Core.Readers
             }
             return info;
         }
+
+        public AssemblyInterferenceResult CheckInterference()
+        {
+            var assembly = ActiveAssembly();
+            var result = new AssemblyInterferenceResult();
+            if (assembly == null) return result;
+
+            var manager = assembly.InterferenceDetectionManager;
+            if (manager == null) return result;
+            try
+            {
+                manager.IgnoreHiddenBodies = true;
+                manager.ShowIgnoredInterferences = false;
+                manager.TreatCoincidenceAsInterference = false;
+                var raw = manager.GetInterferences() as object[];
+                if (raw == null) return result;
+                int index = 1;
+                foreach (var value in raw)
+                {
+                    var interference = value as IInterference;
+                    if (interference == null) continue;
+                    var item = new AssemblyInterferenceInfo
+                    {
+                        Index = index++,
+                        VolumeMm3 = interference.Volume * 1e9,
+                        IsPossibleInterference = interference.IsPossibleInterference,
+                        IsFastener = interference.IsFastener
+                    };
+                    var components = interference.Components as object[];
+                    if (components != null)
+                        foreach (var c in components)
+                        {
+                            string name = (c as IComponent2)?.Name2 ?? string.Empty;
+                            if (!string.IsNullOrWhiteSpace(name)) item.Components.Add(name);
+                        }
+                    result.Items.Add(item);
+                }
+                result.Count = result.Items.Count;
+                return result;
+            }
+            finally { manager.Done(); }
+        }
     }
 }

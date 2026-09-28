@@ -115,6 +115,7 @@ namespace SwMateAI.Core.Agent
             Register(new ReadAssemblyTool(_swApp));
             Register(new ReadComponentsTool(_swApp));
             Register(new ReadMatesTool(_swApp));
+            Register(new CheckInterferenceTool(_swApp));
         }
 
         private void Register(ISwTool tool)
