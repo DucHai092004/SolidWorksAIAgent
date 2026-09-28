@@ -116,6 +116,8 @@ namespace SwMateAI.Core.Agent
             Register(new ReadComponentsTool(_swApp));
             Register(new ReadMatesTool(_swApp));
             Register(new CheckInterferenceTool(_swApp));
+            Register(new InsertComponentTool(_swApp));
+            Register(new MoveComponentTool(_swApp));
         }
 
         private void Register(ISwTool tool)
@@ -130,6 +132,17 @@ namespace SwMateAI.Core.Agent
 
         public ExecutionResult ExecutePlan(TaskPlan plan, bool confirmed = false) =>
             _orchestrator.ExecutePlan(plan, confirmed);
+
+        public bool PlanRequiresConfirmation(TaskPlan plan)
+        {
+            if (plan == null) return false;
+            foreach (var step in plan.Steps)
+                if (_skills.TryGet(step.SkillName, out var skill) && skill.RequiresConfirmation) return true;
+            return false;
+        }
+
+        public bool CanUndoLastAction => _orchestrator.CanUndo;
+        public SkillResult UndoLastAction() => _orchestrator.UndoLast();
 
         // ─── Tool Dispatch ────────────────────────────────────────────────────
 

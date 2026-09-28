@@ -30,5 +30,7 @@ namespace SwMateAI.Core.Skills
         public const string ReadComponents = "ReadComponents";
         public const string ReadMates = "ReadMates";
         public const string CheckInterference = "CheckInterference";
+        public const string InsertComponent = "InsertComponent";
+        public const string MoveComponent = "MoveComponent";
     }
 }

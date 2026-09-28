@@ -11,9 +11,11 @@ namespace SwMateAI.Core.Agent
         private readonly SkillRegistry _registry;
         private readonly IAgentLogger _logger;
         private readonly SolidWorksResultChecker _resultChecker;
+        private readonly System.Collections.Generic.Stack<ISkill> _undoStack = new System.Collections.Generic.Stack<ISkill>();
 
         public AgentState State { get; } = new AgentState();
         public AgentContext LastContext { get; private set; }
+        public bool CanUndo => _undoStack.Count > 0;
 
         public AgentOrchestrator(SolidWorksContextReader contextReader, SkillRegistry registry, IAgentLogger logger, SolidWorksResultChecker resultChecker)
         {
@@ -76,15 +78,16 @@ namespace SwMateAI.Core.Agent
 
                 State.Transition(AgentStage.Checking);
                 if (!skill.Validate(out var validationError))
-                    return Fail(plan, step, $"Validation failed: {validationError}", completed);
+                    return FailWithRollback(plan, step, skill, $"Validation failed: {validationError}", completed);
 
                 if (!_resultChecker.Validate(skill.Name, beforeSnapshot, out var modelValidationError))
-                    return Fail(plan, step, $"Model validation failed: {modelValidationError}", completed);
+                    return FailWithRollback(plan, step, skill, $"Model validation failed: {modelValidationError}", completed);
                 step.IsVerified = true;
                 step.ValidationMessage = "Rebuild, Feature Tree and model checks passed.";
                 _logger.Info($"Verified model result for step {step.Index}: {step.SkillName}.");
 
                 step.Status = PlanStepStatus.Completed;
+                if (skill.Metadata.SupportsUndo) _undoStack.Push(skill);
                 outputs.Add(result.Data);
                 completed++;
 
@@ -98,6 +101,33 @@ namespace SwMateAI.Core.Agent
             var execution = new ExecutionResult { IsSuccess = true, Plan = plan, CompletedSteps = completed };
             foreach (var output in outputs) execution.StepOutputs.Add(output);
             return execution;
+        }
+
+
+        public SkillResult UndoLast()
+        {
+            if (_undoStack.Count == 0) return SkillResult.Failure("There is no Agent action to undo.");
+            var skill = _undoStack.Peek();
+            State.Transition(AgentStage.Executing);
+            var result = skill.Undo();
+            if (!result.IsSuccess) { State.Fail(result.Error); return result; }
+            _undoStack.Pop();
+            LastContext = _contextReader.Read();
+            State.Transition(AgentStage.Completed);
+            _logger.Info($"Undo completed for skill '{skill.Name}'.");
+            return result;
+        }
+
+        private ExecutionResult FailWithRollback(TaskPlan plan, PlanStep step, ISkill skill, string error, int completed)
+        {
+            if (skill?.Metadata?.SupportsUndo == true)
+            {
+                var rollback = skill.Undo();
+                string suffix = rollback.IsSuccess ? " Automatic rollback succeeded." : $" Automatic rollback failed: {rollback.Error}";
+                error += suffix;
+                _logger.Info(suffix.Trim());
+            }
+            return Fail(plan, step, error, completed);
         }
 
         private ExecutionResult Fail(TaskPlan plan, PlanStep step, string error, int completed)

@@ -7,6 +7,32 @@ namespace SwMateAI.Core.Planning
     {
         public static TaskPlan Build(NaturalLanguageCadCommand command)
         {
+            if (command.Intent == SkillNames.InsertComponent)
+            {
+                var actionPlan = new TaskPlan { Goal = "Modify Assembly" };
+                var step = new PlanStep { Index = 1, SkillName = SkillNames.InsertComponent,
+                    Description = $"Insert {command.ComponentPath} at X={command.PositionX:0.###}, Y={command.PositionY:0.###}, Z={command.PositionZ:0.###} mm" };
+                step.Parameters["Path"] = command.ComponentPath;
+                step.Parameters["X"] = command.PositionX;
+                step.Parameters["Y"] = command.PositionY;
+                step.Parameters["Z"] = command.PositionZ;
+                actionPlan.Steps.Add(step);
+                return actionPlan;
+            }
+
+            if (command.Intent == SkillNames.MoveComponent)
+            {
+                var actionPlan = new TaskPlan { Goal = "Modify Assembly" };
+                var step = new PlanStep { Index = 1, SkillName = SkillNames.MoveComponent,
+                    Description = $"Move {command.ComponentName} to X={command.PositionX:0.###}, Y={command.PositionY:0.###}, Z={command.PositionZ:0.###} mm" };
+                step.Parameters["ComponentName"] = command.ComponentName;
+                step.Parameters["X"] = command.PositionX;
+                step.Parameters["Y"] = command.PositionY;
+                step.Parameters["Z"] = command.PositionZ;
+                actionPlan.Steps.Add(step);
+                return actionPlan;
+            }
+
             if (command.Intent == SkillNames.AnalyzeFeatureImpact)
             {
                 var impactPlan = new TaskPlan { Goal = "Analyze feature change impact" };

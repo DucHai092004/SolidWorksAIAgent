@@ -21,6 +21,7 @@ namespace SwMateAI.Core.Skills
         public bool SupportsUndo { get; set; }
         public bool RequiresActiveDocument { get; set; }
         public bool RequiresPartDocument { get; set; }
+        public bool RequiresAssemblyDocument { get; set; }
         public bool RequiresSelection { get; set; }
         public bool IsComposite { get; set; }
         public List<string> Aliases { get; } = new List<string>();

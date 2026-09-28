@@ -40,6 +40,12 @@ namespace SwMateAI.Core.Skills
             return false;
         }
 
-        public SkillResult Undo() => SkillResult.Failure($"Undo is not implemented for skill '{Name}' yet.");
+        public SkillResult Undo()
+        {
+            if (!Metadata.SupportsUndo || !(_tool is IUndoableSwTool undoable))
+                return SkillResult.Failure($"Undo is not implemented for skill '{Name}' yet.");
+            var result = undoable.Undo();
+            return result.IsSuccess ? SkillResult.Success(result.Data) : SkillResult.Failure(result.ErrorMessage);
+        }
     }
 }

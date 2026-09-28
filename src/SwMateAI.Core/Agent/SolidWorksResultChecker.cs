@@ -24,6 +24,11 @@ namespace SwMateAI.Core.Agent
             snapshot.DocumentTitle = model.GetTitle() ?? string.Empty;
             snapshot.DocumentType = model.GetType();
             snapshot.FeatureCount = model.GetFeatureCount();
+            if (model.GetType() == (int)swDocumentTypes_e.swDocASSEMBLY)
+            {
+                var assembly = model as IAssemblyDoc;
+                snapshot.AssemblyComponentCount = assembly?.GetComponentCount(false) ?? 0;
+            }
             if (model.GetType() == (int)swDocumentTypes_e.swDocPART)
             {
                 var part = model as IPartDoc;
@@ -69,6 +74,18 @@ namespace SwMateAI.Core.Agent
                 return true;
             }
 
+            if (skillName == "InsertComponent" || skillName == "MoveComponent")
+            {
+                if (!RequireAssembly(model, out reason)) return false;
+                if (!model.EditRebuild3()) { reason = "SOLIDWORKS rebuild failed after Assembly action."; return false; }
+                var assembly = model as IAssemblyDoc;
+                if (assembly == null || !assembly.IsComponentTreeValid()) { reason = "Assembly component tree is invalid after action."; return false; }
+                var after = Capture();
+                if (skillName == "InsertComponent" && before != null && after.AssemblyComponentCount <= before.AssemblyComponentCount)
+                { reason = "Assembly component count did not increase after InsertComponent."; return false; }
+                return true;
+            }
+
             if (RequiresFeatureValidation(skillName))
             {
                 if (!RequirePart(model, out reason)) return false;
@@ -96,6 +113,14 @@ namespace SwMateAI.Core.Agent
             }
 
             return true;
+        }
+
+        private static bool RequireAssembly(IModelDoc2 model, out string reason)
+        {
+            reason = null;
+            if (model.GetType() == (int)swDocumentTypes_e.swDocASSEMBLY) return true;
+            reason = "The active document is not an Assembly after execution.";
+            return false;
         }
 
         private static bool RequirePart(IModelDoc2 model, out string reason)

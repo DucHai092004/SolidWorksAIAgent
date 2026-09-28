@@ -58,6 +58,10 @@ namespace SwMateAI.UI.ViewModels
         private string _modelSummary = "Chưa đọc model.";
         private string _uiLanguageCode = "vi-VN";
         private TaskPlan _currentPlan;
+        private bool _hasPendingConfirmation;
+        private string _confirmationSummary = string.Empty;
+        private string _pendingIntent = string.Empty;
+        private string _pendingCommandText = string.Empty;
 
         // ─── Public properties (bound to XAML) ───────────────────────────────
 
@@ -150,6 +154,8 @@ namespace SwMateAI.UI.ViewModels
         public string SelectionSummary { get => _selectionSummary; private set { _selectionSummary = value; OnPropertyChanged(); } }
         public bool HasPlan { get => _hasPlan; private set { _hasPlan = value; OnPropertyChanged(); } }
         public bool LastRunSucceeded { get => _lastRunSucceeded; private set { _lastRunSucceeded = value; OnPropertyChanged(); OnPropertyChanged(nameof(ResultColor)); } }
+        public bool HasPendingConfirmation { get => _hasPendingConfirmation; private set { _hasPendingConfirmation = value; OnPropertyChanged(); RelayCommand.RaiseCanExecuteChanged(); } }
+        public string ConfirmationSummary { get => _confirmationSummary; private set { _confirmationSummary = value; OnPropertyChanged(); } }
         public string AgentStageDisplay => TranslateAgentStage(AgentStageText);
         public string AgentStageColor => AgentStageText == "Failed" ? "#EF4444" : AgentStageText == "Completed" ? "#22C55E" : "#38BDF8";
         public string ResultColor => LastRunSucceeded ? "#22C55E" : "#94A3B8";
@@ -179,6 +185,9 @@ namespace SwMateAI.UI.ViewModels
         public ICommand AddDimensionCommand { get; }
         public ICommand ModifyDimensionCommand { get; }
         public ICommand InspectModelCommand { get; }
+        public ICommand ConfirmPlanCommand { get; }
+        public ICommand CancelPlanCommand { get; }
+        public ICommand UndoLastActionCommand { get; }
 
         // ─── Constructor ──────────────────────────────────────────────────────
 
@@ -233,6 +242,10 @@ namespace SwMateAI.UI.ViewModels
             InspectModelCommand = new RelayCommand(
                 execute:    InspectModel,
                 canExecute: () => !IsRefreshing);
+
+            ConfirmPlanCommand = new RelayCommand(ConfirmPendingPlan, () => HasPendingConfirmation && !IsRefreshing);
+            CancelPlanCommand = new RelayCommand(CancelPendingPlan, () => HasPendingConfirmation && !IsRefreshing);
+            UndoLastActionCommand = new RelayCommand(UndoLastAction, () => _agentCore.CanUndoLastAction && !IsRefreshing);
         }
 
         public void SetUiLanguage(string languageCode)
@@ -260,6 +273,7 @@ namespace SwMateAI.UI.ViewModels
                 case "Executing": return Tr("Đang thực hiện", "Executing");
                 case "Completed": return Tr("Hoàn thành", "Completed");
                 case "Failed": return Tr("Thất bại", "Failed");
+                case "AwaitingConfirmation": return Tr("Chờ xác nhận", "Awaiting confirmation");
                 default: return Tr("Sẵn sàng", "Idle");
             }
         }
@@ -270,6 +284,7 @@ namespace SwMateAI.UI.ViewModels
             if (goal == "Modify requested CAD dimension") return Tr("Chỉnh sửa kích thước CAD theo yêu cầu", goal);
             if (goal == "Read requested CAD model data") return Tr("Đọc dữ liệu model theo yêu cầu", goal);
             if (goal == "Analyze feature change impact") return Tr("Phân tích ảnh hưởng khi thay đổi Feature", goal);
+            if (goal == "Modify Assembly") return Tr("Thay đổi Assembly", goal);
             return goal;
         }
 
@@ -595,6 +610,10 @@ namespace SwMateAI.UI.ViewModels
             {
                 AddLog($"  [PARSED] Modify dimension {command.DimensionName} -> {command.DimensionValue:0.###} mm");
             }
+            else if (command.Intent == "InsertComponent" || command.Intent == "MoveComponent")
+            {
+                AddLog($"  [PARSED] Assembly action: {command.Intent}");
+            }
             else
             {
                 string holesInfo = command.Holes.Count > 0 ? $"{command.Holes.Count} hole(s)" : "no holes";
@@ -613,6 +632,21 @@ namespace SwMateAI.UI.ViewModels
             AddLog($"  [PLAN] {plan.Goal}");
             foreach (var step in plan.Steps) AddLog($"    {step.Index}. {step.SkillName} - {step.Description}");
 
+            if (_agentCore.PlanRequiresConfirmation(plan))
+            {
+                _pendingIntent = command.Intent;
+                _pendingCommandText = NaturalLanguageCommand;
+                HasPendingConfirmation = true;
+                ConfirmationSummary = string.Join("\n", plan.Steps.Select(x => $"{x.Index}. {TranslateStepDescription(x)}"));
+                AgentStageText = "AwaitingConfirmation";
+                LastResultText = Tr("Kế hoạch sẽ thay đổi Assembly. Hãy kiểm tra Preview và xác nhận trước khi thực hiện.",
+                                    "This plan will modify the Assembly. Review the preview and confirm before execution.");
+                StatusText = Tr("Đang chờ xác nhận kế hoạch.", "Waiting for plan confirmation.");
+                AddLog("  [CONFIRM] Plan requires user confirmation before execution.");
+                return;
+            }
+
+            HasPendingConfirmation = false;
             _agentCore.State.CurrentRequest = NaturalLanguageCommand;
             AgentStageText = "Executing";
             var execution = _agentCore.ExecutePlan(plan);
@@ -639,6 +673,47 @@ namespace SwMateAI.UI.ViewModels
 
             StatusText = Tr("Lệnh CAD đã hoàn thành.", "CAD command completed.");
             RefreshInfo();
+        }
+
+        private void ConfirmPendingPlan()
+        {
+            if (_currentPlan == null || !HasPendingConfirmation) return;
+            HasPendingConfirmation = false;
+            AgentStageText = "Executing";
+            AddLog("  [CONFIRM] User confirmed plan. Executing...");
+            _agentCore.State.CurrentRequest = _pendingCommandText;
+            var execution = _agentCore.ExecutePlan(_currentPlan, confirmed: true);
+            if (!execution.IsSuccess)
+            {
+                RefreshPlanDisplay(); AgentStageText = "Failed"; LastResultText = execution.Error; LastRunSucceeded = false;
+                CommandHistory.Insert(0, $"FAIL • {_pendingCommandText}"); AddLog($"  [AGENT ERR] {execution.Error}");
+                StatusText = Tr("Kế hoạch Agent thất bại.", "Agent plan failed."); RelayCommand.RaiseCanExecuteChanged(); return;
+            }
+            RefreshPlanDisplay(); AgentStageText = "Completed"; LastRunSucceeded = true;
+            if (execution.LastData is AssemblyActionResult action)
+                LastResultText = Tr($"Đã thực hiện và kiểm tra: {action}", $"Completed and verified: {action}");
+            else
+                LastResultText = Tr($"Hoàn thành và đã kiểm tra {execution.CompletedSteps}/{_currentPlan.Steps.Count} skill.", $"Completed and verified {execution.CompletedSteps}/{_currentPlan.Steps.Count} skill(s).");
+            CommandHistory.Insert(0, $"OK • {_pendingCommandText}");
+            AddLog($"  [CHECK] Completed {execution.CompletedSteps}/{_currentPlan.Steps.Count} step(s). Model verification passed.");
+            StatusText = Tr("Hành động Assembly đã hoàn thành.", "Assembly action completed.");
+            RefreshInfo(); RelayCommand.RaiseCanExecuteChanged();
+        }
+
+        private void CancelPendingPlan()
+        {
+            HasPendingConfirmation = false; AgentStageText = "Idle";
+            LastResultText = Tr("Đã hủy kế hoạch trước khi thay đổi Assembly.", "Plan cancelled before modifying the Assembly.");
+            StatusText = Tr("Đã hủy kế hoạch.", "Plan cancelled."); AddLog("  [CONFIRM] Plan cancelled by user.");
+        }
+
+        private void UndoLastAction()
+        {
+            var result = _agentCore.UndoLastAction();
+            LastRunSucceeded = result.IsSuccess;
+            LastResultText = result.IsSuccess ? Tr("Đã hoàn tác hành động Assembly cuối cùng.", "Last Assembly action was undone.") : result.Error;
+            StatusText = LastResultText; AddLog(result.IsSuccess ? "  [UNDO] Success." : $"  [UNDO ERR] {result.Error}");
+            RefreshInfo(); RelayCommand.RaiseCanExecuteChanged();
         }
 
         private static bool IsReadIntent(string intent)

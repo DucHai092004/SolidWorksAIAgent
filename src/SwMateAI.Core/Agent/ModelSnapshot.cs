@@ -7,5 +7,6 @@ namespace SwMateAI.Core.Agent
         public int DocumentType { get; set; }
         public int FeatureCount { get; set; }
         public int SolidBodyCount { get; set; }
+        public int AssemblyComponentCount { get; set; }
     }
 }

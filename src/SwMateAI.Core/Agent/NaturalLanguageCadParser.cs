@@ -29,6 +29,11 @@ namespace SwMateAI.Core.Agent
         public string DimensionName { get; set; } = string.Empty;
         public double DimensionValue { get; set; }
         public string TargetFeatureName { get; set; } = string.Empty;
+        public string ComponentPath { get; set; } = string.Empty;
+        public string ComponentName { get; set; } = string.Empty;
+        public double PositionX { get; set; }
+        public double PositionY { get; set; }
+        public double PositionZ { get; set; }
     }
 
     public static class NaturalLanguageCadParser
@@ -42,6 +47,9 @@ namespace SwMateAI.Core.Agent
                 return true;
 
             if (TryFeatureImpactQuery(input, out command))
+                return true;
+
+            if (TryAssemblyActionQuery(input, out command))
                 return true;
 
             if (TryAssemblyReadQuery(input, out command))
@@ -128,6 +136,35 @@ namespace SwMateAI.Core.Agent
                 if (!match.Success) continue;
                 string name = match.Groups["name"].Value.Trim().Trim('\"');
                 command = new NaturalLanguageCadCommand { Intent = SkillNames.AnalyzeFeatureImpact, TargetFeatureName = name };
+                return true;
+            }
+            return false;
+        }
+
+        private static bool TryAssemblyActionQuery(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            var insert = Regex.Match(input,
+                @"(?:chèn|chen|thêm|them|insert|add)\s+(?:component|chi\s*tiết|chi\s*tiet)?\s*(?:""(?<path>[A-Za-z]:\\[^""]+\.(?:sldprt|sldasm))""|(?<path>[A-Za-z]:\\.+?\.(?:sldprt|sldasm)))",
+                RegexOptions.IgnoreCase);
+            if (insert.Success)
+            {
+                string lower = input.ToLowerInvariant();
+                command = new NaturalLanguageCadCommand {
+                    Intent = SkillNames.InsertComponent, ComponentPath = insert.Groups["path"].Value,
+                    PositionX = Coordinate(lower, "x"), PositionY = Coordinate(lower, "y"), PositionZ = Coordinate(lower, "z") };
+                return true;
+            }
+
+            var move = Regex.Match(input,
+                @"(?:di\s*chuyển|di\s*chuyen|move)\s+(?:component\s+)?(?:""(?<name>[^""]+)""|(?<name>[A-Za-z0-9_.\-]+))",
+                RegexOptions.IgnoreCase);
+            if (move.Success)
+            {
+                string lower = input.ToLowerInvariant();
+                command = new NaturalLanguageCadCommand {
+                    Intent = SkillNames.MoveComponent, ComponentName = move.Groups["name"].Value,
+                    PositionX = Coordinate(lower, "x"), PositionY = Coordinate(lower, "y"), PositionZ = Coordinate(lower, "z") };
                 return true;
             }
             return false;

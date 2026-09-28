@@ -43,7 +43,9 @@ namespace SwMateAI.Core.Skills
                 case SkillNames.ReadAssembly: Configure(m, SkillNames.ReadAssembly, "Assembly.Reader", SkillRiskLevel.ReadOnly, document: true); break;
                 case SkillNames.ReadComponents: Configure(m, SkillNames.ReadComponents, "Assembly.Reader", SkillRiskLevel.ReadOnly, document: true); break;
                 case SkillNames.ReadMates: Configure(m, SkillNames.ReadMates, "Assembly.Reader", SkillRiskLevel.ReadOnly, document: true); break;
-                case SkillNames.CheckInterference: Configure(m, SkillNames.CheckInterference, "Assembly.Validation", SkillRiskLevel.ReadOnly, document: true); break;
+                case SkillNames.CheckInterference: Configure(m, SkillNames.CheckInterference, "Assembly.Validation", SkillRiskLevel.ReadOnly, assembly: true); break;
+                case SkillNames.InsertComponent: Configure(m, SkillNames.InsertComponent, "Assembly.Action", SkillRiskLevel.Medium, assembly: true, confirm: true, undo: true); break;
+                case SkillNames.MoveComponent: Configure(m, SkillNames.MoveComponent, "Assembly.Action", SkillRiskLevel.Medium, assembly: true, confirm: true, undo: true); break;
                 default: m.Name = tool.Name; break;
             }
 
@@ -59,17 +61,21 @@ namespace SwMateAI.Core.Skills
             bool part = false,
             bool document = false,
             bool selection = false,
-            bool composite = false)
+            bool composite = false,
+            bool assembly = false,
+            bool confirm = false,
+            bool undo = false)
         {
             m.Name = name;
             m.Category = category;
             m.RiskLevel = risk;
             m.RequiresPartDocument = part;
-            m.RequiresActiveDocument = part || document;
+            m.RequiresActiveDocument = part || assembly || document;
+            m.RequiresAssemblyDocument = assembly;
             m.RequiresSelection = selection;
             m.IsComposite = composite;
-            m.RequiresConfirmation = false;
-            m.SupportsUndo = false;
+            m.RequiresConfirmation = confirm;
+            m.SupportsUndo = undo;
         }
     }
 }
