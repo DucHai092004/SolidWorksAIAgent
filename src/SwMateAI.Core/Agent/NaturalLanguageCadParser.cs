@@ -43,6 +43,10 @@ namespace SwMateAI.Core.Agent
         public bool BomExportExcel { get; set; }
         public bool BomExportCsv { get; set; }
         public string BomOutputFolder { get; set; } = string.Empty;
+        public string SheetName { get; set; } = string.Empty;
+        public string SheetPaperSize { get; set; } = "A3";
+        public double SheetScaleNumerator { get; set; } = 1.0;
+        public double SheetScaleDenominator { get; set; } = 1.0;
     }
 
     public static class NaturalLanguageCadParser
@@ -56,6 +60,9 @@ namespace SwMateAI.Core.Agent
                 return true;
 
             if (TryFeatureImpactQuery(input, out command))
+                return true;
+
+            if (TrySheetQuery(input, out command))
                 return true;
 
             if (TryDrawingQuery(input, out command))
@@ -160,6 +167,42 @@ namespace SwMateAI.Core.Agent
                 return true;
             }
             return false;
+        }
+
+        private static bool TrySheetQuery(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            string s = input.Trim().ToLowerInvariant();
+            bool create = Regex.IsMatch(s, @"(?:thêm|them|tạo|tao|add|create|new)\s*(?:(?:một|mot|a|an)\s*)?(?:a[0-4]\s*)?sheet\b|\bsheet\s*(?:mới|moi|new)\b");
+            if (!create) return false;
+
+            string paper = "A3";
+            var paperMatch = Regex.Match(input, @"\b(?<paper>A[0-4])\b", RegexOptions.IgnoreCase);
+            if (paperMatch.Success) paper = paperMatch.Groups["paper"].Value.ToUpperInvariant();
+
+            string name = string.Empty;
+            var nameMatch = Regex.Match(input, @"(?:tên|ten|name)\s*[:=]?\s*(?:""(?<name>[^""]+)""|(?<name>[A-Za-z0-9_.\-]+))", RegexOptions.IgnoreCase);
+            if (nameMatch.Success) name = nameMatch.Groups["name"].Value.Trim();
+
+            double scaleNum = 1.0;
+            double scaleDen = 1.0;
+            var scaleMatch = Regex.Match(input, @"(?:tỷ\s*lệ|ty\s*le|scale)\s*[:=]?\s*(?<n>\d+(?:[\.,]\d+)?)\s*[:/]\s*(?<d>\d+(?:[\.,]\d+)?)", RegexOptions.IgnoreCase);
+            if (scaleMatch.Success)
+            {
+                scaleNum = Number(scaleMatch.Groups["n"].Value);
+                scaleDen = Number(scaleMatch.Groups["d"].Value);
+                if (scaleNum <= 0 || scaleDen <= 0) return false;
+            }
+
+            command = new NaturalLanguageCadCommand
+            {
+                Intent = SkillNames.CreateSheet,
+                SheetName = name,
+                SheetPaperSize = paper,
+                SheetScaleNumerator = scaleNum,
+                SheetScaleDenominator = scaleDen
+            };
+            return true;
         }
 
         private static bool TryDrawingQuery(string input, out NaturalLanguageCadCommand command)

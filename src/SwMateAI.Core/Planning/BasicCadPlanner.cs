@@ -7,6 +7,25 @@ namespace SwMateAI.Core.Planning
     {
         public static TaskPlan Build(NaturalLanguageCadCommand command)
         {
+            if (command.Intent == SkillNames.CreateSheet)
+            {
+                var sheetPlan = new TaskPlan { Goal = "Create Drawing sheet" };
+                var step = new PlanStep
+                {
+                    Index = 1,
+                    SkillName = SkillNames.CreateSheet,
+                    Description = "Create " + command.SheetPaperSize + " Drawing sheet at scale " +
+                                  command.SheetScaleNumerator.ToString("0.###") + ":" +
+                                  command.SheetScaleDenominator.ToString("0.###")
+                };
+                if (!string.IsNullOrWhiteSpace(command.SheetName)) step.Parameters["Name"] = command.SheetName;
+                step.Parameters["PaperSize"] = command.SheetPaperSize;
+                step.Parameters["ScaleNumerator"] = command.SheetScaleNumerator;
+                step.Parameters["ScaleDenominator"] = command.SheetScaleDenominator;
+                sheetPlan.Steps.Add(step);
+                return sheetPlan;
+            }
+
             if (command.Intent == SkillNames.CreateDrawing)
             {
                 var drawingPlan = new TaskPlan { Goal = "Create Drawing from active model" };
