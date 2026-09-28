@@ -58,6 +58,7 @@ namespace SwMateAI.Core.Skills
                 case SkillNames.InsertStandardViews: Configure(m, SkillNames.InsertStandardViews, "Drawing.View", SkillRiskLevel.Low, document: true); break;
                 case SkillNames.InsertIsometricView: Configure(m, SkillNames.InsertIsometricView, "Drawing.View", SkillRiskLevel.Low, document: true); break;
                 case SkillNames.CreateSection: Configure(m, SkillNames.CreateSection, "Drawing.Section", SkillRiskLevel.Medium, document: true); break;
+                case SkillNames.CreateDetail: Configure(m, SkillNames.CreateDetail, "Drawing.Detail", SkillRiskLevel.Medium, document: true); break;
                 default: m.Name = tool.Name; break;
             }
 
