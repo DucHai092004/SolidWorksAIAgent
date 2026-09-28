@@ -7,6 +7,16 @@ namespace SwMateAI.Core.Planning
     {
         public static TaskPlan Build(NaturalLanguageCadCommand command)
         {
+            if (command.Intent == SkillNames.DeleteMate)
+            {
+                var actionPlan = new TaskPlan { Goal = "Modify Assembly" };
+                var step = new PlanStep { Index = 1, SkillName = SkillNames.DeleteMate,
+                    Description = $"Delete Mate {command.MateName}" };
+                step.Parameters["MateName"] = command.MateName;
+                actionPlan.Steps.Add(step);
+                return actionPlan;
+            }
+
             if (command.Intent == SkillNames.AddMate)
             {
                 var actionPlan = new TaskPlan { Goal = "Modify Assembly" };

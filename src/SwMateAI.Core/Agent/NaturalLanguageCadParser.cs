@@ -35,6 +35,7 @@ namespace SwMateAI.Core.Agent
         public double PositionY { get; set; }
         public double PositionZ { get; set; }
         public string MateType { get; set; } = string.Empty;
+        public string MateName { get; set; } = string.Empty;
         public double MateDistance { get; set; }
         public string ReplacementPath { get; set; } = string.Empty;
     }
@@ -147,6 +148,15 @@ namespace SwMateAI.Core.Agent
         private static bool TryAssemblyActionQuery(string input, out NaturalLanguageCadCommand command)
         {
             command = null;
+            var deleteMate = Regex.Match(input,
+                @"(?:xóa|xoá|xoa|delete|remove)\s+(?:(?:mate|ràng\s*buộc|rang\s*buoc)\s+)?(?:""(?<name>[^""]+)""|(?<name>[A-Za-z0-9_.\-]+))",
+                RegexOptions.IgnoreCase);
+            if (deleteMate.Success)
+            {
+                command = new NaturalLanguageCadCommand { Intent = SkillNames.DeleteMate, MateName = deleteMate.Groups["name"].Value };
+                return true;
+            }
+
             var replace = Regex.Match(input,
                 @"(?:thay|replace)\s+(?:component\s+)?(?:""(?<name>[^""]+)""|(?<name>[A-Za-z0-9_.\-]+))\s+(?:bằng|bang|with)\s*(?:""(?<path>[A-Za-z]:\\[^""]+\.(?:sldprt|sldasm))""|(?<path>[A-Za-z]:\\.+?\.(?:sldprt|sldasm)))",
                 RegexOptions.IgnoreCase);

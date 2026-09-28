@@ -14,7 +14,7 @@
  <sys:String x:Key="TaskPlanTitle">KẾ HOẠCH THỰC HIỆN</sys:String>
  <sys:String x:Key="LastResultTitle">KẾT QUẢ GẦN NHẤT</sys:String>
  <sys:String x:Key="ConfirmationTitle">XÁC NHẬN HÀNH ĐỘNG ASSEMBLY</sys:String>
- <sys:String x:Key="ConfirmationDescription">Preview đã sẵn sàng. Chỉ xác nhận khi đường dẫn, component và tọa độ đúng.</sys:String>
+ <sys:String x:Key="ConfirmationDescription">Preview đã sẵn sàng. Hãy kiểm tra kỹ đối tượng, tham số và hành động trước khi xác nhận.</sys:String>
  <sys:String x:Key="ConfirmExecute">✓ XÁC NHẬN &amp; THỰC HIỆN</sys:String>
  <sys:String x:Key="CancelPlan">HỦY KẾ HOẠCH</sys:String>
  <sys:String x:Key="UndoLastAction">↶ HOÀN TÁC HÀNH ĐỘNG CUỐI</sys:String>
@@ -41,7 +41,7 @@
  <sys:String x:Key="ActivityHistoryDescription">Lệnh gần đây và chẩn đoán Agent</sys:String>
  <sys:String x:Key="RecentCommands">LỆNH GẦN ĐÂY</sys:String>
  <sys:String x:Key="AgentConsole">BẢNG ĐIỀU KHIỂN AGENT</sys:String>
- <sys:String x:Key="FooterText">SW-MATE AI  ·  Giai đoạn 3C · Mate &amp; Replace  ·  v1.2.0</sys:String>
+ <sys:String x:Key="FooterText">SW-MATE AI  ·  Giai đoạn 3 · Assembly hoàn chỉnh  ·  v1.3.0</sys:String>
  <sys:String x:Key="LanguageLabel">Ngôn ngữ</sys:String>
  <sys:String x:Key="RefreshTooltip">Làm mới ngữ cảnh SolidWorks</sys:String>
  <sys:String x:Key="StatusIdle">Sẵn sàng</sys:String>
@@ -62,6 +62,7 @@
  <sys:String x:Key="GuideStep7">7. Khi làm việc với Assembly, hãy đọc tổng quan, Component và Mate trước khi yêu cầu Agent thay đổi cụm.</sys:String>
  <sys:String x:Key="GuideStep8">8. Insert/Move luôn yêu cầu Preview → Xác nhận; sau khi chạy có thể Hoàn tác hành động cuối.</sys:String>
  <sys:String x:Key="GuideStep9">9. AddMate dùng 2 đối tượng đang chọn; ReplaceComponent cũng yêu cầu Preview/Xác nhận và hỗ trợ Hoàn tác.</sys:String>
+ <sys:String x:Key="GuideStep10">10. DeleteMate chỉ chạy sau Preview/Xác nhận và chỉ cho phép Undo an toàn với các loại Mate được hỗ trợ.</sys:String>
  <sys:String x:Key="GuideExamples">Ví dụ lệnh:</sys:String>
  <sys:String x:Key="GuideExample1">• Tạo tấm 160 x 100 x 12 mm, 2 lỗ phi 12, bo góc R8</sys:String>
  <sys:String x:Key="GuideExample2">• Đổi kích thước D1@Sketch1 thành 70 mm</sys:String>
@@ -77,5 +78,6 @@
  <sys:String x:Key="GuideExample12">• Di chuyển component Bracket-1 tới X=150, Y=20, Z=0 mm</sys:String>
  <sys:String x:Key="GuideExample13">• Chọn 2 đối tượng rồi: Thêm mate coincident cho hai đối tượng đang chọn</sys:String>
  <sys:String x:Key="GuideExample14">• Thay component Bracket-1 bằng &quot;E:\Models\BracketV2.SLDPRT&quot;</sys:String>
+ <sys:String x:Key="GuideExample15">• Xóa mate Coincident1</sys:String>
  <sys:String x:Key="GuideTip">Mẹo: câu lệnh càng rõ kích thước, vị trí và đối tượng thì Agent càng dễ lập kế hoạch chính xác.</sys:String>
 </ResourceDictionary>

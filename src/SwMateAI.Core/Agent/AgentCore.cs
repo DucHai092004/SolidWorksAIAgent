@@ -119,6 +119,7 @@ namespace SwMateAI.Core.Agent
             Register(new InsertComponentTool(_swApp));
             Register(new MoveComponentTool(_swApp));
             Register(new AddMateTool(_swApp));
+            Register(new DeleteMateTool(_swApp));
             Register(new ReplaceComponentTool(_swApp));
         }
 

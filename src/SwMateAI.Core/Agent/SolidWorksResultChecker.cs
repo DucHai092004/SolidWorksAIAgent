@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
+using SwMateAI.Core.Readers;
 
 namespace SwMateAI.Core.Agent
 {
@@ -28,6 +29,7 @@ namespace SwMateAI.Core.Agent
             {
                 var assembly = model as IAssemblyDoc;
                 snapshot.AssemblyComponentCount = assembly?.GetComponentCount(false) ?? 0;
+                try { snapshot.AssemblyMateCount = new SolidWorksAssemblyReader(_swApp).ReadMates().Count; } catch { snapshot.AssemblyMateCount = 0; }
             }
             if (model.GetType() == (int)swDocumentTypes_e.swDocPART)
             {
@@ -74,7 +76,7 @@ namespace SwMateAI.Core.Agent
                 return true;
             }
 
-            if (skillName == "InsertComponent" || skillName == "MoveComponent" || skillName == "AddMate" || skillName == "ReplaceComponent")
+            if (skillName == "InsertComponent" || skillName == "MoveComponent" || skillName == "AddMate" || skillName == "DeleteMate" || skillName == "ReplaceComponent")
             {
                 if (!RequireAssembly(model, out reason)) return false;
                 if (!model.EditRebuild3()) { reason = "SOLIDWORKS rebuild failed after Assembly action."; return false; }
@@ -83,6 +85,10 @@ namespace SwMateAI.Core.Agent
                 var after = Capture();
                 if (skillName == "InsertComponent" && before != null && after.AssemblyComponentCount <= before.AssemblyComponentCount)
                 { reason = "Assembly component count did not increase after InsertComponent."; return false; }
+                if (skillName == "AddMate" && before != null && after.AssemblyMateCount <= before.AssemblyMateCount)
+                { reason = "Assembly Mate count did not increase after AddMate."; return false; }
+                if (skillName == "DeleteMate" && before != null && after.AssemblyMateCount >= before.AssemblyMateCount)
+                { reason = "Assembly Mate count did not decrease after DeleteMate."; return false; }
                 return true;
             }
 

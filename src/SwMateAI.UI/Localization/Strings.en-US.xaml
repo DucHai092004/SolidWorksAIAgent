@@ -14,7 +14,7 @@
  <sys:String x:Key="TaskPlanTitle">TASK PLAN</sys:String>
  <sys:String x:Key="LastResultTitle">LAST RESULT</sys:String>
  <sys:String x:Key="ConfirmationTitle">CONFIRM ASSEMBLY ACTION</sys:String>
- <sys:String x:Key="ConfirmationDescription">Preview is ready. Confirm only when the path, component and coordinates are correct.</sys:String>
+ <sys:String x:Key="ConfirmationDescription">Preview is ready. Review the target, parameters and action carefully before confirming.</sys:String>
  <sys:String x:Key="ConfirmExecute">✓ CONFIRM &amp; EXECUTE</sys:String>
  <sys:String x:Key="CancelPlan">CANCEL PLAN</sys:String>
  <sys:String x:Key="UndoLastAction">↶ UNDO LAST ACTION</sys:String>
@@ -41,7 +41,7 @@
  <sys:String x:Key="ActivityHistoryDescription">Recent commands and agent diagnostics</sys:String>
  <sys:String x:Key="RecentCommands">RECENT COMMANDS</sys:String>
  <sys:String x:Key="AgentConsole">AGENT CONSOLE</sys:String>
- <sys:String x:Key="FooterText">SW-MATE AI  ·  Phase 3C · Mate &amp; Replace  ·  v1.2.0</sys:String>
+ <sys:String x:Key="FooterText">SW-MATE AI  ·  Phase 3 · Assembly Complete  ·  v1.3.0</sys:String>
  <sys:String x:Key="LanguageLabel">Language</sys:String>
  <sys:String x:Key="RefreshTooltip">Refresh SolidWorks context</sys:String>
  <sys:String x:Key="StatusIdle">Idle</sys:String>
@@ -62,6 +62,7 @@
  <sys:String x:Key="GuideStep7">7. For Assemblies, read the summary, components and mates before asking the Agent to modify the assembly.</sys:String>
  <sys:String x:Key="GuideStep8">8. Insert/Move always uses Preview → Confirm; after execution you can Undo the last Agent action.</sys:String>
  <sys:String x:Key="GuideStep9">9. AddMate uses two selected entities; ReplaceComponent also requires Preview/Confirm and supports Undo.</sys:String>
+ <sys:String x:Key="GuideStep10">10. DeleteMate runs only after Preview/Confirm and allows safe Undo only for supported Mate types.</sys:String>
  <sys:String x:Key="GuideExamples">Example commands:</sys:String>
  <sys:String x:Key="GuideExample1">• Create a 160 x 100 x 12 mm plate, two Ø12 holes, fillet R8</sys:String>
  <sys:String x:Key="GuideExample2">• Change D1@Sketch1 to 70 mm</sys:String>
@@ -77,5 +78,6 @@
  <sys:String x:Key="GuideExample12">• Move component Bracket-1 to X=150, Y=20, Z=0 mm</sys:String>
  <sys:String x:Key="GuideExample13">• Select two entities, then: Add coincident mate to selected entities</sys:String>
  <sys:String x:Key="GuideExample14">• Replace component Bracket-1 with &quot;E:\Models\BracketV2.SLDPRT&quot;</sys:String>
+ <sys:String x:Key="GuideExample15">• Delete mate Coincident1</sys:String>
  <sys:String x:Key="GuideTip">Tip: clearer dimensions, positions, and target objects help the Agent build a more accurate plan.</sys:String>
 </ResourceDictionary>

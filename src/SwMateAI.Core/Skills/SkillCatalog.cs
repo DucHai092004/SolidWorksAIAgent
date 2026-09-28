@@ -47,6 +47,7 @@ namespace SwMateAI.Core.Skills
                 case SkillNames.InsertComponent: Configure(m, SkillNames.InsertComponent, "Assembly.Action", SkillRiskLevel.Medium, assembly: true, confirm: true, undo: true); break;
                 case SkillNames.MoveComponent: Configure(m, SkillNames.MoveComponent, "Assembly.Action", SkillRiskLevel.Medium, assembly: true, confirm: true, undo: true); break;
                 case SkillNames.AddMate: Configure(m, SkillNames.AddMate, "Assembly.Mate", SkillRiskLevel.Medium, assembly: true, selection: true, confirm: true, undo: true); break;
+                case SkillNames.DeleteMate: Configure(m, SkillNames.DeleteMate, "Assembly.Mate", SkillRiskLevel.High, assembly: true, confirm: true, undo: true); break;
                 case SkillNames.ReplaceComponent: Configure(m, SkillNames.ReplaceComponent, "Assembly.Action", SkillRiskLevel.High, assembly: true, confirm: true, undo: true); break;
                 default: m.Name = tool.Name; break;
             }

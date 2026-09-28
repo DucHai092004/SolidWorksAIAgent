@@ -300,6 +300,8 @@ namespace SwMateAI.UI.ViewModels
             }
             if (step.Description.StartsWith("Find downstream dependencies of ", StringComparison.OrdinalIgnoreCase))
                 return "Tìm các Feature phía sau phụ thuộc vào " + step.Description.Substring("Find downstream dependencies of ".Length);
+            if (step.Description.StartsWith("Delete Mate ", StringComparison.OrdinalIgnoreCase))
+                return "Xóa Mate " + step.Description.Substring("Delete Mate ".Length);
             if (step.Description.StartsWith("Set ", StringComparison.OrdinalIgnoreCase))
                 return "Đặt " + step.Description.Substring(4).Replace(" to ", " thành ");
             return step.Description;
@@ -610,7 +612,7 @@ namespace SwMateAI.UI.ViewModels
             {
                 AddLog($"  [PARSED] Modify dimension {command.DimensionName} -> {command.DimensionValue:0.###} mm");
             }
-            else if (command.Intent == "InsertComponent" || command.Intent == "MoveComponent" || command.Intent == "AddMate" || command.Intent == "ReplaceComponent")
+            else if (command.Intent == "InsertComponent" || command.Intent == "MoveComponent" || command.Intent == "AddMate" || command.Intent == "DeleteMate" || command.Intent == "ReplaceComponent")
             {
                 AddLog($"  [PARSED] Assembly action: {command.Intent}");
             }
