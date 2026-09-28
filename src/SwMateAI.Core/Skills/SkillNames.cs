@@ -35,5 +35,6 @@ namespace SwMateAI.Core.Skills
         public const string AddMate = "AddMate";
         public const string DeleteMate = "DeleteMate";
         public const string ReplaceComponent = "ReplaceComponent";
+        public const string BuildManufacturingBreakdown = "BuildManufacturingBreakdown";
     }
 }

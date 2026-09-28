@@ -137,7 +137,7 @@ namespace SwMateAI.Core.Planning
                    intent == SkillNames.ReadCustomProperties || intent == SkillNames.ReadSelectedObject ||
                    intent == SkillNames.ReadBoundingBox || intent == SkillNames.ReadAssembly ||
                    intent == SkillNames.ReadComponents || intent == SkillNames.ReadMates ||
-                   intent == SkillNames.CheckInterference;
+                   intent == SkillNames.CheckInterference || intent == SkillNames.BuildManufacturingBreakdown;
         }
     }
 }

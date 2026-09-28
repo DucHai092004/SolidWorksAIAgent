@@ -41,7 +41,7 @@
  <sys:String x:Key="ActivityHistoryDescription">Lệnh gần đây và chẩn đoán Agent</sys:String>
  <sys:String x:Key="RecentCommands">LỆNH GẦN ĐÂY</sys:String>
  <sys:String x:Key="AgentConsole">BẢNG ĐIỀU KHIỂN AGENT</sys:String>
- <sys:String x:Key="FooterText">SW-MATE AI  ·  Giai đoạn 3 · Assembly hoàn chỉnh  ·  v1.3.0</sys:String>
+ <sys:String x:Key="FooterText">SW-MATE AI  ·  Giai đoạn 4A · Bóc tách cơ bản  ·  v1.4.0</sys:String>
  <sys:String x:Key="LanguageLabel">Ngôn ngữ</sys:String>
  <sys:String x:Key="RefreshTooltip">Làm mới ngữ cảnh SolidWorks</sys:String>
  <sys:String x:Key="StatusIdle">Sẵn sàng</sys:String>
@@ -63,6 +63,7 @@
  <sys:String x:Key="GuideStep8">8. Insert/Move luôn yêu cầu Preview → Xác nhận; sau khi chạy có thể Hoàn tác hành động cuối.</sys:String>
  <sys:String x:Key="GuideStep9">9. AddMate dùng 2 đối tượng đang chọn; ReplaceComponent cũng yêu cầu Preview/Xác nhận và hỗ trợ Hoàn tác.</sys:String>
  <sys:String x:Key="GuideStep10">10. DeleteMate chỉ chạy sau Preview/Xác nhận và chỉ cho phép Undo an toàn với các loại Mate được hỗ trợ.</sys:String>
+ <sys:String x:Key="GuideStep11">11. Bóc tách Assembly sẽ gom Part duy nhất, đếm số lượng và đọc Part Number, Description, Material, kích thước thành phẩm.</sys:String>
  <sys:String x:Key="GuideExamples">Ví dụ lệnh:</sys:String>
  <sys:String x:Key="GuideExample1">• Tạo tấm 160 x 100 x 12 mm, 2 lỗ phi 12, bo góc R8</sys:String>
  <sys:String x:Key="GuideExample2">• Đổi kích thước D1@Sketch1 thành 70 mm</sys:String>
@@ -79,5 +80,6 @@
  <sys:String x:Key="GuideExample13">• Chọn 2 đối tượng rồi: Thêm mate coincident cho hai đối tượng đang chọn</sys:String>
  <sys:String x:Key="GuideExample14">• Thay component Bracket-1 bằng &quot;E:\Models\BracketV2.SLDPRT&quot;</sys:String>
  <sys:String x:Key="GuideExample15">• Xóa mate Coincident1</sys:String>
+ <sys:String x:Key="GuideExample16">• Bóc tách chi tiết gia công của Assembly hiện tại</sys:String>
  <sys:String x:Key="GuideTip">Mẹo: câu lệnh càng rõ kích thước, vị trí và đối tượng thì Agent càng dễ lập kế hoạch chính xác.</sys:String>
 </ResourceDictionary>

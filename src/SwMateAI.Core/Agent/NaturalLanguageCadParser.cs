@@ -53,6 +53,9 @@ namespace SwMateAI.Core.Agent
             if (TryFeatureImpactQuery(input, out command))
                 return true;
 
+            if (TryManufacturingBreakdownQuery(input, out command))
+                return true;
+
             if (TryAssemblyActionQuery(input, out command))
                 return true;
 
@@ -143,6 +146,15 @@ namespace SwMateAI.Core.Agent
                 return true;
             }
             return false;
+        }
+
+        private static bool TryManufacturingBreakdownQuery(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            string s = input.Trim().ToLowerInvariant();
+            if (!Regex.IsMatch(s, @"(?:bóc\s*tách|boc\s*tach|manufacturing\s*breakdown|breakdown\s*(?:parts|assembly)?|chi\s*tiết\s*gia\s*công|chi\s*tiet\s*gia\s*cong)")) return false;
+            command = new NaturalLanguageCadCommand { Intent = SkillNames.BuildManufacturingBreakdown };
+            return true;
         }
 
         private static bool TryAssemblyActionQuery(string input, out NaturalLanguageCadCommand command)

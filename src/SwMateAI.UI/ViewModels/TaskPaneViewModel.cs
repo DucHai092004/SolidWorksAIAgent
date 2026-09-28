@@ -9,6 +9,7 @@ using SwMateAI.Core.Agent;
 using SwMateAI.Core.Models;
 using SwMateAI.Core.Models.Understanding;
 using SwMateAI.Core.Models.Assembly;
+using SwMateAI.Core.Manufacturing;
 using SwMateAI.Core.Planning;
 
 namespace SwMateAI.UI.ViewModels
@@ -725,11 +726,19 @@ namespace SwMateAI.UI.ViewModels
             return intent == "ReadFeatureTree" || intent == "ReadFeatures" || intent == "ReadFeatureDependencies" || intent == "AnalyzeFeatureImpact" || intent == "ReadSketches" ||
                    intent == "ReadDimensions" || intent == "ReadMaterial" || intent == "ReadMassProperties" ||
                    intent == "ReadCustomProperties" || intent == "ReadSelectedObject" || intent == "ReadBoundingBox" ||
-                   intent == "ReadAssembly" || intent == "ReadComponents" || intent == "ReadMates" || intent == "CheckInterference";
+                   intent == "ReadAssembly" || intent == "ReadComponents" || intent == "ReadMates" || intent == "CheckInterference" ||
+                   intent == "BuildManufacturingBreakdown";
         }
 
         private string FormatModelQueryResult(string intent, object data)
         {
+            if (intent == "BuildManufacturingBreakdown" && data is BreakdownResult breakdown)
+            {
+                string rows = string.Join("\n", breakdown.Items.Take(14).Select(x => $"• {x.PartNumber} | SL {x.Quantity} | {x.Material} | {x.FinishedSize}"));
+                return Tr(
+                    $"Bóc tách sơ bộ: {breakdown.TotalPartOccurrences} occurrence, {breakdown.UniquePartCount} Part duy nhất. Suppressed bỏ qua: {breakdown.SuppressedSkipped}. Chưa loaded: {breakdown.UnloadedPartCount}.\n{rows}",
+                    $"Preliminary breakdown: {breakdown.TotalPartOccurrences} occurrence(s), {breakdown.UniquePartCount} unique Part(s). Suppressed skipped: {breakdown.SuppressedSkipped}. Unloaded: {breakdown.UnloadedPartCount}.\n{rows}");
+            }
             if (intent == "ReadAssembly" && data is AssemblyInfo assembly)
                 return Tr($"Assembly: {assembly.Name}\nComponent: {assembly.TotalComponentCount} (top-level {assembly.TopLevelComponentCount})\nMate: {assembly.MateCount}\nConfiguration: {assembly.Configuration}\nSuppressed: {assembly.SuppressedComponentCount}   Lightweight: {assembly.LightweightComponentCount}",
                           $"Assembly: {assembly.Name}\nComponents: {assembly.TotalComponentCount} (top-level {assembly.TopLevelComponentCount})\nMates: {assembly.MateCount}\nConfiguration: {assembly.Configuration}\nSuppressed: {assembly.SuppressedComponentCount}   Lightweight: {assembly.LightweightComponentCount}");
