@@ -41,7 +41,7 @@
  <sys:String x:Key="ActivityHistoryDescription">Recent commands and agent diagnostics</sys:String>
  <sys:String x:Key="RecentCommands">RECENT COMMANDS</sys:String>
  <sys:String x:Key="AgentConsole">AGENT CONSOLE</sys:String>
- <sys:String x:Key="FooterText">SW-MATE AI  ·  Phase 4C · Part Images &amp; Excel  ·  v1.6.0</sys:String>
+ <sys:String x:Key="FooterText">SW-MATE AI  ·  Phase 5A · BOM  ·  v1.7.0</sys:String>
  <sys:String x:Key="LanguageLabel">Language</sys:String>
  <sys:String x:Key="RefreshTooltip">Refresh SolidWorks context</sys:String>
  <sys:String x:Key="StatusIdle">Idle</sys:String>
@@ -66,6 +66,7 @@
  <sys:String x:Key="GuideStep11">11. Assembly breakdown groups unique Parts, counts quantity and reads Part Number, Description, Material and finished size.</sys:String>
  <sys:String x:Key="GuideStep12">12. Stock calculation uses configured allowance; Round Bar prefers real CAD cylindrical surfaces, while other types use documented bounding-box rules.</sys:String>
  <sys:String x:Key="GuideStep13">13. Export captures an isometric image for each loaded Part, builds the 11-column table and inserts images into Excel without overwriting old files.</sys:String>
+ <sys:String x:Key="GuideStep14">14. BOM groups both Parts and Sub-Assemblies by file + configuration and can be viewed directly or exported to Excel/CSV.</sys:String>
  <sys:String x:Key="GuideExamples">Example commands:</sys:String>
  <sys:String x:Key="GuideExample1">• Create a 160 x 100 x 12 mm plate, two Ø12 holes, fillet R8</sys:String>
  <sys:String x:Key="GuideExample2">• Change D1@Sketch1 to 70 mm</sys:String>
@@ -85,5 +86,7 @@
  <sys:String x:Key="GuideExample16">• Create a manufacturing breakdown for the current Assembly</sys:String>
  <sys:String x:Key="GuideExample17">• Create Assembly breakdown with 3 mm allowance</sys:String>
  <sys:String x:Key="GuideExample18">• Create Assembly breakdown and export Excel with 3 mm allowance</sys:String>
+ <sys:String x:Key="GuideExample19">• Create BOM for the current Assembly and export Excel</sys:String>
+ <sys:String x:Key="GuideExample20">• Create BOM and export CSV</sys:String>
  <sys:String x:Key="GuideTip">Tip: clearer dimensions, positions, and target objects help the Agent build a more accurate plan.</sys:String>
 </ResourceDictionary>

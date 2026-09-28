@@ -65,6 +65,17 @@ namespace SwMateAI.Core.Planning
                 return actionPlan;
             }
 
+            if (command.Intent == SkillNames.CreateBOM)
+            {
+                var bomPlan = new TaskPlan { Goal = "Create Assembly BOM" };
+                var step = new PlanStep { Index = 1, SkillName = SkillNames.CreateBOM, Description = "Build BOM from active Assembly components" };
+                step.Parameters["ExportExcel"] = command.BomExportExcel;
+                step.Parameters["ExportCsv"] = command.BomExportCsv;
+                if (!string.IsNullOrWhiteSpace(command.BomOutputFolder)) step.Parameters["OutputFolder"] = command.BomOutputFolder;
+                bomPlan.Steps.Add(step);
+                return bomPlan;
+            }
+
             if (command.Intent == SkillNames.ExportManufacturingBreakdown)
             {
                 var exportPlan = new TaskPlan { Goal = "Export manufacturing breakdown" };
@@ -159,7 +170,7 @@ namespace SwMateAI.Core.Planning
                    intent == SkillNames.ReadBoundingBox || intent == SkillNames.ReadAssembly ||
                    intent == SkillNames.ReadComponents || intent == SkillNames.ReadMates ||
                    intent == SkillNames.CheckInterference || intent == SkillNames.BuildManufacturingBreakdown ||
-                   intent == SkillNames.ExportManufacturingBreakdown;
+                   intent == SkillNames.ExportManufacturingBreakdown || intent == SkillNames.CreateBOM;
         }
     }
 }

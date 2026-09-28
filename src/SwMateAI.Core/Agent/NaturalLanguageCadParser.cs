@@ -40,6 +40,9 @@ namespace SwMateAI.Core.Agent
         public string ReplacementPath { get; set; } = string.Empty;
         public double StockAllowanceMm { get; set; } = 3.0;
         public string ExportPath { get; set; } = string.Empty;
+        public bool BomExportExcel { get; set; }
+        public bool BomExportCsv { get; set; }
+        public string BomOutputFolder { get; set; } = string.Empty;
     }
 
     public static class NaturalLanguageCadParser
@@ -53,6 +56,9 @@ namespace SwMateAI.Core.Agent
                 return true;
 
             if (TryFeatureImpactQuery(input, out command))
+                return true;
+
+            if (TryBomQuery(input, out command))
                 return true;
 
             if (TryManufacturingBreakdownQuery(input, out command))
@@ -148,6 +154,17 @@ namespace SwMateAI.Core.Agent
                 return true;
             }
             return false;
+        }
+
+        private static bool TryBomQuery(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            string s = input.Trim().ToLowerInvariant();
+            if (!Regex.IsMatch(s, @"\bbom\b|bill\s*of\s*materials|danh\s*sách\s*vật\s*tư|danh\s*sach\s*vat\s*tu")) return false;
+            bool excel = Regex.IsMatch(s, @"excel|xlsx");
+            bool csv = Regex.IsMatch(s, @"\bcsv\b");
+            command = new NaturalLanguageCadCommand { Intent = SkillNames.CreateBOM, BomExportExcel = excel, BomExportCsv = csv };
+            return true;
         }
 
         private static bool TryManufacturingBreakdownQuery(string input, out NaturalLanguageCadCommand command)

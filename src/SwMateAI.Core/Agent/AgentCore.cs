@@ -7,6 +7,7 @@ using SwMateAI.Core.Tools.CAD;
 using SwMateAI.Core.Tools.ModelReader;
 using SwMateAI.Core.Tools.Assembly;
 using SwMateAI.Core.Tools.Manufacturing;
+using SwMateAI.Core.Tools.BOM;
 using SwMateAI.Core.Common;
 using SwMateAI.Core.Planning;
 using SwMateAI.Core.Skills;
@@ -126,6 +127,9 @@ namespace SwMateAI.Core.Agent
             // Phase 4 Manufacturing Breakdown
             Register(new BuildManufacturingBreakdownTool(_swApp));
             Register(new ExportManufacturingBreakdownTool(_swApp));
+
+            // Phase 5 BOM
+            Register(new CreateBomTool(_swApp));
         }
 
         private void Register(ISwTool tool)

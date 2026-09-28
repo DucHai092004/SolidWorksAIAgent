@@ -10,6 +10,7 @@ using SwMateAI.Core.Models;
 using SwMateAI.Core.Models.Understanding;
 using SwMateAI.Core.Models.Assembly;
 using SwMateAI.Core.Manufacturing;
+using SwMateAI.Core.BOM;
 using SwMateAI.Core.Planning;
 
 namespace SwMateAI.UI.ViewModels
@@ -288,6 +289,7 @@ namespace SwMateAI.UI.ViewModels
             if (goal == "Modify Assembly") return Tr("Thay đổi Assembly", goal);
             if (goal == "Build manufacturing breakdown") return Tr("Bóc tách chi tiết gia công và tính phôi", goal);
             if (goal == "Export manufacturing breakdown") return Tr("Bóc tách, chụp ảnh và xuất Excel", goal);
+            if (goal == "Create Assembly BOM") return Tr("Tạo BOM cho Assembly", goal);
             return goal;
         }
 
@@ -303,6 +305,7 @@ namespace SwMateAI.UI.ViewModels
             }
             if (step.Description.StartsWith("Find downstream dependencies of ", StringComparison.OrdinalIgnoreCase))
                 return "Tìm các Feature phía sau phụ thuộc vào " + step.Description.Substring("Find downstream dependencies of ".Length);
+            if (step.Description == "Build BOM from active Assembly components") return "Tạo BOM từ các component của Assembly đang mở";
             if (step.Description.StartsWith("Capture Part images and export Excel with ", StringComparison.OrdinalIgnoreCase))
                 return "Chụp ảnh Part và xuất Excel với " + step.Description.Substring("Capture Part images and export Excel with ".Length).Replace(" allowance per side", " lượng dư mỗi mặt");
             if (step.Description.StartsWith("Scan Assembly and calculate stock with ", StringComparison.OrdinalIgnoreCase))
@@ -737,11 +740,20 @@ namespace SwMateAI.UI.ViewModels
                    intent == "ReadDimensions" || intent == "ReadMaterial" || intent == "ReadMassProperties" ||
                    intent == "ReadCustomProperties" || intent == "ReadSelectedObject" || intent == "ReadBoundingBox" ||
                    intent == "ReadAssembly" || intent == "ReadComponents" || intent == "ReadMates" || intent == "CheckInterference" ||
-                   intent == "BuildManufacturingBreakdown" || intent == "ExportManufacturingBreakdown";
+                   intent == "BuildManufacturingBreakdown" || intent == "ExportManufacturingBreakdown" || intent == "CreateBOM";
         }
 
         private string FormatModelQueryResult(string intent, object data)
         {
+            if (intent == "CreateBOM" && data is BomResult bom)
+            {
+                string rows = string.Join("\n", bom.Items.Take(16).Select(x => $"• {x.ItemNumber}. {x.PartNumber} | {x.Description} | SL {x.Quantity} | {x.Material} | {x.ComponentType}"));
+                string paths = string.Empty;
+                if (!string.IsNullOrWhiteSpace(bom.ExcelPath)) paths += $"\nExcel: {bom.ExcelPath}";
+                if (!string.IsNullOrWhiteSpace(bom.CsvPath)) paths += $"\nCSV: {bom.CsvPath}";
+                return Tr($"BOM: {bom.Items.Count} loại component, {bom.TotalOccurrences} occurrence. Suppressed bỏ qua: {bom.SuppressedSkipped}. Chưa loaded: {bom.UnloadedCount}.\n{rows}{paths}",
+                          $"BOM: {bom.Items.Count} unique component(s), {bom.TotalOccurrences} occurrence(s). Suppressed skipped: {bom.SuppressedSkipped}. Unloaded: {bom.UnloadedCount}.\n{rows}{paths}");
+            }
             if (intent == "ExportManufacturingBreakdown" && data is BreakdownExportResult exported)
             {
                 int count = exported.Breakdown?.UniquePartCount ?? 0;
