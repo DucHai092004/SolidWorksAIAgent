@@ -15,6 +15,7 @@ namespace SwMateAI.Core.DrawingUnderstanding
         public List<DrawingSheetInfo> Sheets { get; } = new List<DrawingSheetInfo>();
         public List<DrawingViewInfo> Views { get; } = new List<DrawingViewInfo>();
         public List<DrawingDimensionInfo> Dimensions { get; } = new List<DrawingDimensionInfo>();
+        public List<DrawingNoteInfo> Notes { get; } = new List<DrawingNoteInfo>();
     }
 
     public class DrawingSheetInfo
@@ -46,5 +47,11 @@ namespace SwMateAI.Core.DrawingUnderstanding
         public string ToleranceType { get; set; } = string.Empty;
         public double ToleranceMinSystem { get; set; }
         public double ToleranceMaxSystem { get; set; }
+    }
+
+    public class DrawingNoteInfo
+    {
+        public string ViewName { get; set; } = string.Empty;
+        public string Text { get; set; } = string.Empty;
     }
 }
