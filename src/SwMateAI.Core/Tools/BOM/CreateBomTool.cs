@@ -11,7 +11,8 @@ namespace SwMateAI.Core.Tools.BOM
     {
         public CreateBomTool(ISldWorks swApp) : base(swApp) { }
         public override string Name => "CreateBOM";
-        public override string Description => "Builds an Assembly BOM and optionally exports Excel and CSV files.";
+        public override string Description =>
+            "Builds an Assembly BOM in LegacyFlat, TopLevel, PartsOnly or Indented mode and optionally exports Excel/CSV.";
 
         public override bool CanExecute(out string reason)
         {
@@ -25,7 +26,13 @@ namespace SwMateAI.Core.Tools.BOM
 
         public override ToolResult Execute(Dictionary<string, object> parameters)
         {
-            var result = new BomBuilder(SwApp).Build();
+            var options = new BomBuildOptions
+            {
+                Mode = ParseMode(Text(parameters, "Mode")),
+                RespectChildDisplay = Bool(parameters, "RespectChildDisplay", true)
+            };
+            var result = new HierarchicalBomBuilder(SwApp).Build(options);
+
             bool excel = Bool(parameters, "ExportExcel");
             bool csv = Bool(parameters, "ExportCsv");
             string folder = Text(parameters, "OutputFolder");
@@ -73,11 +80,32 @@ namespace SwMateAI.Core.Tools.BOM
             }
         }
 
-        private static bool Bool(Dictionary<string, object> input, string key)
+        private static BomMode ParseMode(string raw)
         {
-            if (input == null || !input.TryGetValue(key, out var raw) || raw == null) return false;
+            string value = (raw ?? string.Empty).Trim()
+                .Replace("-", string.Empty)
+                .Replace("_", string.Empty)
+                .Replace(" ", string.Empty)
+                .ToLowerInvariant();
+
+            switch (value)
+            {
+                case "toplevel": return BomMode.TopLevel;
+                case "partsonly": return BomMode.PartsOnly;
+                case "indented": return BomMode.Indented;
+                case "legacyflat":
+                case "flat":
+                case "":
+                default:
+                    return BomMode.LegacyFlat;
+            }
+        }
+
+        private static bool Bool(Dictionary<string, object> input, string key, bool defaultValue = false)
+        {
+            if (input == null || !input.TryGetValue(key, out var raw) || raw == null) return defaultValue;
             if (raw is bool value) return value;
-            return bool.TryParse(Convert.ToString(raw), out var parsed) && parsed;
+            return bool.TryParse(Convert.ToString(raw), out var parsed) ? parsed : defaultValue;
         }
 
         private static string Text(Dictionary<string, object> input, string key)
@@ -92,7 +120,7 @@ namespace SwMateAI.Core.Tools.BOM
             string path = model?.GetPathName() ?? string.Empty;
             string root = !string.IsNullOrWhiteSpace(path)
                 ? Path.GetDirectoryName(path)
-                : System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+                : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             string folder = Path.Combine(root ?? string.Empty, "SW-MATE_AI_Output");
             Directory.CreateDirectory(folder);
             return folder;
