@@ -362,7 +362,7 @@ namespace SwMateAI.UI
                 case "DeleteMate": return "MateName=Coincident1";
                 case "ReplaceComponent": return "ComponentName=;NewPath=";
                 case "ExportManufacturingBreakdown": return "OutputPath=";
-                case "CreateBOM": return "ExportExcel=true;ExportCsv=true;OutputFolder=";
+                case "CreateBOM": return "Mode=LegacyFlat;RespectChildDisplay=true;ExportExcel=true;ExportCsv=true;OutputFolder=";
                 case "CreateSheet": return "Name=Sheet2;PaperSize=A3;ScaleNumerator=1;ScaleDenominator=1";
                 case "InsertStandardViews": return "Projection=Third";
                 case "CreateSection": return "Label=A;Direction=Vertical;SourceViewName=Drawing View1";
