@@ -59,6 +59,38 @@ public class DrawingVisionPdfReadinessTests
         finally { File.Delete(path); }
     }
 
+    [TestMethod]
+    public void PdfTextProvider_ReturnsRawEvidenceWithConfidence()
+    {
+        string path = TempPdf("DRAWING NUMBER A-003 MATERIAL SCM440 DIMENSION 25 MM");
+        try
+        {
+            var result = new PdfTextDrawingEvidenceProvider().Analyze(path);
+            Assert.AreEqual(1, result.Evidence.Count);
+            Assert.AreEqual("PDF_TEXT", result.Evidence[0].ExtractionMethod);
+            Assert.AreEqual(0.95d, result.Evidence[0].Confidence, 0.0001d);
+            Assert.IsFalse(result.Evidence[0].RequiresReview);
+            StringAssert.Contains(result.Evidence[0].RawText, "A-003");
+            Assert.IsFalse(result.Readiness.RequiresVision);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public void PdfTextProvider_DoesNotInventEvidenceForTextlessPage()
+    {
+        string path = TempPdf(string.Empty);
+        try
+        {
+            var result = new PdfTextDrawingEvidenceProvider().Analyze(path);
+            Assert.AreEqual(0, result.Evidence.Count);
+            Assert.IsTrue(result.Readiness.RequiresVision);
+            Assert.IsTrue(result.Readiness.RequiresReview);
+            Assert.AreEqual(DrawingVisionSourceKind.RasterPdf, result.Readiness.SourceKind);
+        }
+        finally { File.Delete(path); }
+    }
+
     private static string TempPdf(params string[] pageTexts)
     {
         string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".pdf");
