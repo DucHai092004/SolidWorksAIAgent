@@ -19,7 +19,7 @@ namespace SwMateAI.Core.DrawingUnderstanding
         public List<string> Errors { get; } = new List<string>();
     }
 
-    public interface IDrawingVisionEvidenceProvider
+    public interface IDrawingSourceEvidenceProvider
     {
         bool CanAnalyze(string path);
         DrawingSourceEvidenceResult Analyze(string path);
