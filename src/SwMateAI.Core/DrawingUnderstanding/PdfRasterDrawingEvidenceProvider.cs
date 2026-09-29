@@ -198,30 +198,14 @@ namespace SwMateAI.Core.DrawingUnderstanding
                         continue;
                     }
 
-                    byte[] raw = image.RawMemory.ToArray();
-                    if (LooksLikeJpeg(raw))
-                    {
-                        result.Add(new PdfRasterPage
-                        {
-                            PageNumber = pageNumber,
-                            ImageBytes = raw,
-                            ImageExtension = ".jpg"
-                        });
-                        continue;
-                    }
-
                     result.Add(new PdfRasterPage
                     {
                         PageNumber = pageNumber,
-                        Error = "Embedded image could not be converted to PNG and is not a directly usable JPEG stream. Full page rendering is required."
+                        Error = "Embedded image could not be converted to PNG by the installed PdfPig version. Full page rendering or a JPEG-capable extraction path is required."
                     });
                 }
             }
             return result;
         }
-
-        private static bool LooksLikeJpeg(byte[] bytes) =>
-            bytes != null && bytes.Length >= 3 &&
-            bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF;
     }
 }
