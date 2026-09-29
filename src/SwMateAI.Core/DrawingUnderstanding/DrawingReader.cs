@@ -61,6 +61,7 @@ namespace SwMateAI.Core.DrawingUnderstanding
             while (view != null)
             {
                 int dimensionCount = ReadDimensions(view, result);
+                int noteCount = ReadNotes(view, result);
                 var info = new DrawingViewInfo
                 {
                     Name = SafeViewName(view),
@@ -69,7 +70,7 @@ namespace SwMateAI.Core.DrawingUnderstanding
                     ReferencedConfiguration = isSheetView ? string.Empty : SafeReferencedConfiguration(view),
                     DimensionCount = dimensionCount,
                     TableCount = CountTables(view),
-                    NoteCount = CountNotes(view)
+                    NoteCount = noteCount
                 };
 
                 result.ViewCount++;
@@ -167,6 +168,29 @@ namespace SwMateAI.Core.DrawingUnderstanding
             catch { }
         }
 
+        private static int ReadNotes(IView view, DrawingUnderstandingResult result)
+        {
+            try
+            {
+                var raw = view.GetNotes();
+                if (!(raw is Array notes)) return 0;
+                string viewName = SafeViewName(view);
+                foreach (var item in notes)
+                {
+                    var note = item as INote;
+                    string text = string.Empty;
+                    try { text = note?.GetText() ?? string.Empty; } catch { }
+                    result.Notes.Add(new DrawingNoteInfo
+                    {
+                        ViewName = viewName,
+                        Text = text
+                    });
+                }
+                return notes.Length;
+            }
+            catch { return 0; }
+        }
+
         private static string SafeDimensionType(IDisplayDimension display)
         {
             try { return ((swDimensionType_e)display.Type2).ToString(); }
@@ -191,12 +215,6 @@ namespace SwMateAI.Core.DrawingUnderstanding
                 var raw = view.GetTableAnnotations();
                 return raw is Array tables ? tables.Length : 0;
             }
-            catch { return 0; }
-        }
-
-        private static int CountNotes(IView view)
-        {
-            try { return view.GetNoteCount(); }
             catch { return 0; }
         }
 
