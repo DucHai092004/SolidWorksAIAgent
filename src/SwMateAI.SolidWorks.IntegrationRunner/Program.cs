@@ -7,6 +7,7 @@ using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SwMateAI.Core.Agent;
 using SwMateAI.Core.Drawing;
+using SwMateAI.Core.DrawingUnderstanding;
 using SwMateAI.Core.Tools;
 
 namespace SwMateAI.SolidWorks.IntegrationRunner
@@ -77,7 +78,6 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
                 Check("PDF file exists", File.Exists(pdfPath) && new FileInfo(pdfPath).Length > 0, pdfPath);
                 Check("DXF file exists", File.Exists(dxfPath) && new FileInfo(dxfPath).Length > 0, dxfPath);
 
-                // Assembly + BOM + manufacturing regression on disposable files.
                 CloseActive(sw);
                 string assemblyTemplate = sw.GetUserPreferenceStringValue((int)swUserPreferenceStringValue_e.swDefaultTemplateAssembly);
                 var assemblyModel = sw.NewDocument(assemblyTemplate, 0, 0, 0) as IModelDoc2;
@@ -126,6 +126,42 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
                 if (File.Exists(bomTemplate)) bomParameters["TemplatePath"] = bomTemplate;
                 Run(agent, "InsertDrawingBOM", bomParameters);
                 Run(agent, "InsertBalloon");
+
+                ToolResult assemblyDrawingRead = agent.ExecuteTool("ReadDrawing");
+                Check("Read assembly Drawing", assemblyDrawingRead.IsSuccess,
+                    assemblyDrawingRead.ErrorMessage ?? string.Empty);
+                var assemblyDrawingData = assemblyDrawingRead.Data as DrawingUnderstandingResult;
+                Check("Drawing reader sees BOM table",
+                    assemblyDrawingData != null && assemblyDrawingData.TableCount > 0,
+                    "TableCount=" + (assemblyDrawingData?.TableCount ?? 0));
+                Check("Semantic tables match table count",
+                    assemblyDrawingData != null && assemblyDrawingData.Tables.Count == assemblyDrawingData.TableCount,
+                    $"Semantic={assemblyDrawingData?.Tables.Count ?? 0}, Count={assemblyDrawingData?.TableCount ?? 0}");
+
+                bool semanticTableFound = false;
+                if (assemblyDrawingData != null)
+                {
+                    foreach (var table in assemblyDrawingData.Tables)
+                    {
+                        if (table.RowCount <= 0 || table.ColumnCount <= 0 || table.Rows.Count != table.RowCount)
+                            continue;
+                        bool hasText = false;
+                        foreach (var row in table.Rows)
+                        {
+                            if (row.Count != table.ColumnCount) continue;
+                            if (row.Any(cell => !string.IsNullOrWhiteSpace(cell))) hasText = true;
+                        }
+                        if (hasText)
+                        {
+                            semanticTableFound = true;
+                            break;
+                        }
+                    }
+                }
+                Check("Reader returns semantic table contents",
+                    semanticTableFound,
+                    "No table had valid dimensions and displayed cell text");
+
                 string assemblyPdf = Path.Combine(root, "Integration_Assembly_Drawing.pdf");
                 TryDelete(assemblyPdf);
                 Run(agent, "ExportPDF", new Dictionary<string, object> { ["OutputPath"] = assemblyPdf });
