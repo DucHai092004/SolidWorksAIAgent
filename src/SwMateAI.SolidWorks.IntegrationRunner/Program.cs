@@ -8,7 +8,10 @@ using SolidWorks.Interop.swconst;
 using SwMateAI.Core.Agent;
 using SwMateAI.Core.Drawing;
 using SwMateAI.Core.DrawingUnderstanding;
+using SwMateAI.Core.Manufacturing;
+using SwMateAI.Core.Models.Understanding;
 using SwMateAI.Core.Tools;
+using SwMateAI.Core.Tools.Manufacturing;
 
 namespace SwMateAI.SolidWorks.IntegrationRunner
 {
@@ -51,7 +54,61 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
                 Track(sw);
                 Check("Part saved", File.Exists(partPath), partPath);
 
+                Run(agent, "GetModelInfo");
                 Run(agent, "ReadFeatureTree");
+
+                ToolResult readFeatures = agent.ExecuteTool("ReadFeatures");
+                Check("ReadFeatures", readFeatures.IsSuccess, readFeatures.ErrorMessage ?? string.Empty);
+                var features = readFeatures.Data as List<FeatureInfo> ?? new List<FeatureInfo>();
+                Check("Reader sees model features", features.Count > 0, "Feature count=0");
+
+                ToolResult readSketches = agent.ExecuteTool("ReadSketches");
+                Check("ReadSketches", readSketches.IsSuccess, readSketches.ErrorMessage ?? string.Empty);
+                var sketches = readSketches.Data as List<FeatureInfo> ?? new List<FeatureInfo>();
+                Check("Reader sees sketches", sketches.Count > 0, "Sketch count=0");
+
+                ToolResult readDimensions = agent.ExecuteTool("ReadDimensions");
+                Check("ReadDimensions", readDimensions.IsSuccess, readDimensions.ErrorMessage ?? string.Empty);
+                var dimensions = readDimensions.Data as List<DimensionInfo> ?? new List<DimensionInfo>();
+                Check("Reader sees dimensions", dimensions.Count > 0, "Dimension count=0");
+
+                ToolResult readDependencies = agent.ExecuteTool("ReadFeatureDependencies");
+                Check("ReadFeatureDependencies", readDependencies.IsSuccess, readDependencies.ErrorMessage ?? string.Empty);
+                var dependencies = readDependencies.Data as List<FeatureDependencyInfo> ?? new List<FeatureDependencyInfo>();
+                Check("Reader sees feature dependency graph", dependencies.Count > 0, "Dependency count=0");
+
+                var impactTarget = features.FirstOrDefault(f =>
+                    f.Name.IndexOf("Extrude", StringComparison.OrdinalIgnoreCase) >= 0) ??
+                    features.FirstOrDefault(f => !f.IsSketch);
+                if (impactTarget != null)
+                {
+                    ToolResult impactResult = agent.ExecuteTool("AnalyzeFeatureImpact", new Dictionary<string, object>
+                    {
+                        ["FeatureName"] = impactTarget.Name
+                    });
+                    Check("AnalyzeFeatureImpact", impactResult.IsSuccess, impactResult.ErrorMessage ?? string.Empty);
+                    var impact = impactResult.Data as FeatureImpactInfo;
+                    Check("Feature impact target matches", impact != null && impact.TargetFeature == impactTarget.Name,
+                        impact?.TargetFeature ?? "No impact result");
+
+                    var selectedFeature = FindFeature(part, impactTarget.Name);
+                    if (selectedFeature != null && selectedFeature.Select2(false, 0))
+                    {
+                        Run(agent, "ReadSelectedObject");
+                        part.ClearSelection2(true);
+                    }
+                    else
+                    {
+                        Check("Select feature for ReadSelectedObject", false, impactTarget.Name);
+                    }
+                }
+                else
+                {
+                    Check("Find feature for AnalyzeFeatureImpact", false, "No suitable feature found");
+                }
+
+                Run(agent, "ReadMaterial");
+                Run(agent, "ReadCustomProperties");
                 Run(agent, "ReadBoundingBox");
                 Run(agent, "ReadMassProperties");
 
@@ -118,7 +175,11 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
                     "Part Number,Stock Material",
                     "Integration_Block,C45"
                 });
-                Run(agent, "BuildManufacturingBreakdown");
+                ToolResult breakdownResult = agent.ExecuteTool("BuildManufacturingBreakdown");
+                Check("BuildManufacturingBreakdown", breakdownResult.IsSuccess, breakdownResult.ErrorMessage ?? string.Empty);
+                var breakdownData = breakdownResult.Data as BreakdownResult;
+                Check("Breakdown contains manufactured Part", breakdownData != null && breakdownData.Items.Count > 0,
+                    "Breakdown item count=" + (breakdownData?.Items.Count ?? 0));
                 string breakdownPath = Path.Combine(root, "Integration_Breakdown.xlsx");
                 TryDelete(breakdownPath);
                 Run(agent, "ExportManufacturingBreakdown", new Dictionary<string, object> { ["OutputPath"] = breakdownPath });
@@ -127,13 +188,27 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
                 // Stock material write-back is exercised only on the disposable Part above.
                 ToolResult stockApply = agent.ExecuteTool("ApplyStockMaterials", new Dictionary<string, object> { ["DocumentRoot"] = materialFolder });
                 Check("ApplyStockMaterials", stockApply.IsSuccess, stockApply.ErrorMessage ?? string.Empty);
-                var stockProperties = part.Extension.get_CustomPropertyManager(part.ConfigurationManager.ActiveConfiguration.Name);
+                var stockApplyData = stockApply.Data as ApplyStockMaterialsResult;
+                Check("Stock material applied count", stockApplyData != null && stockApplyData.Applied > 0,
+                    "Applied=" + (stockApplyData?.Applied ?? 0));
+
+                var stockItem = breakdownData?.Items.FirstOrDefault(i =>
+                    string.Equals(i.SourcePath, partPath, StringComparison.OrdinalIgnoreCase))
+                    ?? breakdownData?.Items.FirstOrDefault();
+                var stockComponent = stockItem == null ? null : assembly?.GetComponentByName(stockItem.RepresentativeComponentName);
+                string referencedConfiguration = stockItem?.Configuration ?? string.Empty;
+                var stockModel = stockComponent?.GetModelDoc2() as IModelDoc2;
+                Check("Stock component model available", stockModel != null,
+                    stockItem?.RepresentativeComponentName ?? partPath);
+                var stockProperties = stockModel?.Extension.get_CustomPropertyManager(referencedConfiguration);
                 string stockRaw, stockResolved;
                 bool stockWasResolved, stockLinked;
                 int stockMaterialStatus = stockProperties.Get6("Stock Material", false, out stockRaw, out stockResolved, out stockWasResolved, out stockLinked);
-                Check("Stock Material read-back", stockMaterialStatus != 0 && stockResolved == "C45", stockResolved ?? string.Empty);
+                Check("Stock Material read-back", stockMaterialStatus != 0 && stockResolved == "C45",
+                    $"Config={referencedConfiguration}, Value={stockResolved}");
                 int stockSizeStatus = stockProperties.Get6("StockSize", false, out stockRaw, out stockResolved, out stockWasResolved, out stockLinked);
-                Check("StockSize read-back", stockSizeStatus != 0 && !string.IsNullOrWhiteSpace(stockResolved), stockResolved ?? string.Empty);
+                Check("StockSize read-back", stockSizeStatus != 0 && !string.IsNullOrWhiteSpace(stockResolved),
+                    $"Config={referencedConfiguration}, Value={stockResolved}");
 
                 Run(agent, "CreateBOM", new Dictionary<string, object>
                 {
@@ -202,6 +277,18 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
                 feature = feature.GetNextFeature() as IFeature;
             }
             return count;
+        }
+
+        private static IFeature FindFeature(IModelDoc2 model, string name)
+        {
+            var feature = model?.FirstFeature() as IFeature;
+            while (feature != null)
+            {
+                if (string.Equals(feature.Name, name, StringComparison.OrdinalIgnoreCase))
+                    return feature;
+                feature = feature.GetNextFeature() as IFeature;
+            }
+            return null;
         }
 
         private static void CloseActive(ISldWorks sw)
