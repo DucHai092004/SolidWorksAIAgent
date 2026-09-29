@@ -7,6 +7,7 @@ using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SwMateAI.Core.Agent;
 using SwMateAI.Core.Drawing;
+using SwMateAI.Core.DrawingUnderstanding;
 using SwMateAI.Core.Tools;
 
 namespace SwMateAI.SolidWorks.IntegrationRunner
@@ -65,6 +66,14 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
                 var dimensionData = dimensionResult.Data as DrawingAnnotationResult;
                 Check("Drawing dimensions inserted", dimensionData != null && dimensionData.InsertedCount > 0,
                     "InsertedCount=" + (dimensionData?.InsertedCount ?? 0));
+
+                ToolResult readDrawing = agent.ExecuteTool("ReadDrawing");
+                Check("ReadDrawing", readDrawing.IsSuccess, readDrawing.ErrorMessage ?? string.Empty);
+                var drawingData = readDrawing.Data as DrawingUnderstandingResult;
+                Check("Drawing reader sees sheets", drawingData != null && drawingData.SheetCount >= 1, "No sheets");
+                Check("Drawing reader sees model views", drawingData != null && drawingData.ModelViewCount >= 4, "ModelViewCount=" + (drawingData?.ModelViewCount ?? 0));
+                Check("Drawing reader sees dimensions", drawingData != null && drawingData.DimensionCount > 0, "DimensionCount=" + (drawingData?.DimensionCount ?? 0));
+
                 Run(agent, "FillTitleBlock", new Dictionary<string, object>
                 {
                     ["Title"] = "SW-MATE AI Integration Test",
@@ -101,7 +110,9 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
                 Run(agent, "ReadMates");
                 Run(agent, "CheckInterference");
 
-                string materialCsv = Path.Combine(root, "materials.csv");
+                string materialFolder = Path.Combine(root, "material_inputs");
+                Directory.CreateDirectory(materialFolder);
+                string materialCsv = Path.Combine(materialFolder, "materials.csv");
                 File.WriteAllLines(materialCsv, new[]
                 {
                     "Part Number,Stock Material",
@@ -112,6 +123,17 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
                 TryDelete(breakdownPath);
                 Run(agent, "ExportManufacturingBreakdown", new Dictionary<string, object> { ["OutputPath"] = breakdownPath });
                 Check("Breakdown Excel exists", File.Exists(breakdownPath) && new FileInfo(breakdownPath).Length > 0, breakdownPath);
+
+                // Stock material write-back is exercised only on the disposable Part above.
+                ToolResult stockApply = agent.ExecuteTool("ApplyStockMaterials", new Dictionary<string, object> { ["DocumentRoot"] = materialFolder });
+                Check("ApplyStockMaterials", stockApply.IsSuccess, stockApply.ErrorMessage ?? string.Empty);
+                var stockProperties = part.Extension.get_CustomPropertyManager(part.ConfigurationManager.ActiveConfiguration.Name);
+                string stockRaw, stockResolved;
+                bool stockWasResolved, stockLinked;
+                int stockMaterialStatus = stockProperties.Get6("Stock Material", false, out stockRaw, out stockResolved, out stockWasResolved, out stockLinked);
+                Check("Stock Material read-back", stockMaterialStatus != 0 && stockResolved == "C45", stockResolved ?? string.Empty);
+                int stockSizeStatus = stockProperties.Get6("StockSize", false, out stockRaw, out stockResolved, out stockWasResolved, out stockLinked);
+                Check("StockSize read-back", stockSizeStatus != 0 && !string.IsNullOrWhiteSpace(stockResolved), stockResolved ?? string.Empty);
 
                 Run(agent, "CreateBOM", new Dictionary<string, object>
                 {
@@ -126,6 +148,13 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
                 if (File.Exists(bomTemplate)) bomParameters["TemplatePath"] = bomTemplate;
                 Run(agent, "InsertDrawingBOM", bomParameters);
                 Run(agent, "InsertBalloon");
+                ToolResult assemblyDrawingRead = agent.ExecuteTool("ReadDrawing");
+                Check("Read assembly Drawing", assemblyDrawingRead.IsSuccess, assemblyDrawingRead.ErrorMessage ?? string.Empty);
+                var assemblyDrawingData = assemblyDrawingRead.Data as DrawingUnderstandingResult;
+                Check("Drawing reader sees BOM table", assemblyDrawingData != null && assemblyDrawingData.TableCount > 0,
+                    "TableCount=" + (assemblyDrawingData?.TableCount ?? 0));
+                Check("Drawing reader sees annotations", assemblyDrawingData != null && assemblyDrawingData.NoteCount > 0,
+                    "NoteCount=" + (assemblyDrawingData?.NoteCount ?? 0));
                 string assemblyPdf = Path.Combine(root, "Integration_Assembly_Drawing.pdf");
                 TryDelete(assemblyPdf);
                 Run(agent, "ExportPDF", new Dictionary<string, object> { ["OutputPath"] = assemblyPdf });
