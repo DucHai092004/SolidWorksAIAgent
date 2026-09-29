@@ -67,6 +67,7 @@ namespace SwMateAI.Core.Skills
                 case SkillNames.ExportPDF: Configure(m, SkillNames.ExportPDF, "Drawing.Export", SkillRiskLevel.Low, document: true); break;
                 case SkillNames.ExportDXF: Configure(m, SkillNames.ExportDXF, "Drawing.Export", SkillRiskLevel.Low, document: true); break;
                 case SkillNames.ReadDrawing: Configure(m, SkillNames.ReadDrawing, "Drawing.Reader", SkillRiskLevel.ReadOnly, document: true); break;
+                case SkillNames.ReadDrawingDocument: Configure(m, SkillNames.ReadDrawingDocument, "Drawing.Vision", SkillRiskLevel.ReadOnly); break;
                 default: m.Name = tool.Name; break;
             }
 
