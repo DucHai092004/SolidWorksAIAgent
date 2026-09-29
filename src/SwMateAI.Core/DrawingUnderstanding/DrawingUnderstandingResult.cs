@@ -14,6 +14,7 @@ namespace SwMateAI.Core.DrawingUnderstanding
         public int NoteCount { get; set; }
         public List<DrawingSheetInfo> Sheets { get; } = new List<DrawingSheetInfo>();
         public List<DrawingViewInfo> Views { get; } = new List<DrawingViewInfo>();
+        public List<DrawingDimensionInfo> Dimensions { get; } = new List<DrawingDimensionInfo>();
     }
 
     public class DrawingSheetInfo
@@ -31,5 +32,18 @@ namespace SwMateAI.Core.DrawingUnderstanding
         public int DimensionCount { get; set; }
         public int TableCount { get; set; }
         public int NoteCount { get; set; }
+    }
+
+    public class DrawingDimensionInfo
+    {
+        public string Name { get; set; } = string.Empty;
+        public string ViewName { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public double Value { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+        public string ToleranceType { get; set; } = string.Empty;
+        public double ToleranceMin { get; set; }
+        public double ToleranceMax { get; set; }
     }
 }
