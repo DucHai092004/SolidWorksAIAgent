@@ -3,6 +3,7 @@ namespace SwMateAI.Core.BOM
     public class BomItem
     {
         public int ItemNumber { get; set; }
+        public int Level { get; set; }
         public string ImagePath { get; set; } = string.Empty;
         public string PartNumber { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
