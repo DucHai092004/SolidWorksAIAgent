@@ -153,6 +153,7 @@ namespace SwMateAI.Core.Agent
 
             // Phase 7 Drawing Understanding
             Register(new ReadDrawingTool(_swApp));
+            Register(new ReadDrawingDocumentTool());
         }
 
         private void Register(ISwTool tool)
@@ -215,7 +216,7 @@ namespace SwMateAI.Core.Agent
             return tool.Execute(parameters ?? new Dictionary<string, object>());
         }
 
-        // ─── Future extension point ───────────────────────────────────────────
+        // ─── Future extension point ────────────────────────────────────────────
         // public async Task<string> ProcessNaturalLanguage(string userMessage) { ... }
     }
 }
