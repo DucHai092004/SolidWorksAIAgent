@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 
@@ -62,6 +63,7 @@ namespace SwMateAI.Core.DrawingUnderstanding
             {
                 int dimensionCount = ReadDimensions(view, result);
                 int noteCount = ReadNotes(view, result);
+                int tableCount = ReadTables(view, result);
                 var info = new DrawingViewInfo
                 {
                     Name = SafeViewName(view),
@@ -69,7 +71,7 @@ namespace SwMateAI.Core.DrawingUnderstanding
                     ReferencedDocument = isSheetView ? string.Empty : SafeReferencedModel(view),
                     ReferencedConfiguration = isSheetView ? string.Empty : SafeReferencedConfiguration(view),
                     DimensionCount = dimensionCount,
-                    TableCount = CountTables(view),
+                    TableCount = tableCount,
                     NoteCount = noteCount
                 };
 
@@ -191,6 +193,46 @@ namespace SwMateAI.Core.DrawingUnderstanding
             catch { return 0; }
         }
 
+        private static int ReadTables(IView view, DrawingUnderstandingResult result)
+        {
+            try
+            {
+                var raw = view.GetTableAnnotations();
+                if (!(raw is Array tables)) return 0;
+                string viewName = SafeViewName(view);
+                foreach (var item in tables)
+                {
+                    var table = item as ITableAnnotation;
+                    if (table == null) continue;
+                    result.Tables.Add(ReadTable(table, viewName));
+                }
+                return tables.Length;
+            }
+            catch { return 0; }
+        }
+
+        private static DrawingTableInfo ReadTable(ITableAnnotation table, string viewName)
+        {
+            var info = new DrawingTableInfo { ViewName = viewName };
+            try { info.Title = table.Title ?? string.Empty; } catch { }
+            try { info.Type = ((swTableAnnotationType_e)table.Type).ToString(); } catch { }
+            try { info.RowCount = table.RowCount; } catch { }
+            try { info.ColumnCount = table.ColumnCount; } catch { }
+
+            for (int row = 0; row < info.RowCount; row++)
+            {
+                var cells = new List<string>();
+                for (int column = 0; column < info.ColumnCount; column++)
+                {
+                    string text = string.Empty;
+                    try { text = table.get_DisplayedText2(row, column, false) ?? string.Empty; } catch { }
+                    cells.Add(text);
+                }
+                info.Rows.Add(cells);
+            }
+            return info;
+        }
+
         private static string SafeDimensionType(IDisplayDimension display)
         {
             try { return ((swDimensionType_e)display.Type2).ToString(); }
@@ -206,16 +248,6 @@ namespace SwMateAI.Core.DrawingUnderstanding
                     : "LengthM";
             }
             catch { return string.Empty; }
-        }
-
-        private static int CountTables(IView view)
-        {
-            try
-            {
-                var raw = view.GetTableAnnotations();
-                return raw is Array tables ? tables.Length : 0;
-            }
-            catch { return 0; }
         }
 
         private static string SafeSheetName(ISheet sheet)
