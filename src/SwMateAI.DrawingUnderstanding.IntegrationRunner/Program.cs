@@ -118,6 +118,25 @@ namespace SwMateAI.DrawingUnderstanding.IntegrationRunner
                 Check("Reader returns semantic dimension details",
                     semanticDimensionFound,
                     "No dimension had Name/View/Type/UnitKind metadata");
+
+                Check("Reader semantic notes match count",
+                    data != null && data.Notes.Count == data.NoteCount,
+                    $"Semantic={data?.Notes.Count ?? 0}, Count={data?.NoteCount ?? 0}");
+                bool noteOwnersValid = true;
+                if (data != null)
+                {
+                    foreach (var note in data.Notes)
+                    {
+                        if (string.IsNullOrWhiteSpace(note.ViewName))
+                        {
+                            noteOwnersValid = false;
+                            break;
+                        }
+                    }
+                }
+                Check("Reader note ownership metadata is populated",
+                    data != null && noteOwnersValid,
+                    "At least one semantic note did not have a ViewName");
             }
             catch (Exception ex)
             {
