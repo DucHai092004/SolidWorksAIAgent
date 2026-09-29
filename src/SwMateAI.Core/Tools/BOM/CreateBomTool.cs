@@ -120,7 +120,7 @@ namespace SwMateAI.Core.Tools.BOM
             string path = model?.GetPathName() ?? string.Empty;
             string root = !string.IsNullOrWhiteSpace(path)
                 ? Path.GetDirectoryName(path)
-                : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                : System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
             string folder = Path.Combine(root ?? string.Empty, "SW-MATE_AI_Output");
             Directory.CreateDirectory(folder);
             return folder;
