@@ -1,19 +1,16 @@
 using System;
 using System.Collections.Generic;
-using SolidWorks.Interop.sldworks;
 using SwMateAI.Core.DrawingUnderstanding;
 
 namespace SwMateAI.Core.Tools.Drawing
 {
-    public sealed class AnalyzeDrawingSourceTool : SwToolBase
+    public sealed class AnalyzeDrawingSourceTool : ISwTool
     {
-        public AnalyzeDrawingSourceTool(ISldWorks swApp) : base(swApp) { }
-
-        public override string Name => "AnalyzeDrawingSource";
-        public override string Description =>
+        public string Name => "AnalyzeDrawingSource";
+        public string Description =>
             "Analyzes an external Drawing/PDF/image source for native/text/raster readiness and returns available evidence without guessing raster semantics.";
 
-        public override ToolResult Execute(Dictionary<string, object> parameters)
+        public ToolResult Execute(Dictionary<string, object> parameters)
         {
             try
             {
