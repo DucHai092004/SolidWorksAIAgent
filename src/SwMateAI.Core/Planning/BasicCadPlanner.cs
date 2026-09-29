@@ -279,7 +279,8 @@ namespace SwMateAI.Core.Planning
                    intent == SkillNames.ReadBoundingBox || intent == SkillNames.ReadAssembly ||
                    intent == SkillNames.ReadComponents || intent == SkillNames.ReadMates ||
                    intent == SkillNames.CheckInterference || intent == SkillNames.BuildManufacturingBreakdown ||
-                   intent == SkillNames.ExportManufacturingBreakdown || intent == SkillNames.CreateBOM;
+                   intent == SkillNames.ExportManufacturingBreakdown || intent == SkillNames.CreateBOM ||
+                   intent == SkillNames.ReadDrawing;
         }
     }
 }
