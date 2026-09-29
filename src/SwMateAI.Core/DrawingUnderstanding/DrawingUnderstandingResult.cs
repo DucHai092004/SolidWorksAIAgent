@@ -39,11 +39,12 @@ namespace SwMateAI.Core.DrawingUnderstanding
         public string Name { get; set; } = string.Empty;
         public string ViewName { get; set; } = string.Empty;
         public string Type { get; set; } = string.Empty;
-        public double Value { get; set; }
-        public double X { get; set; }
-        public double Y { get; set; }
+        public string UnitKind { get; set; } = string.Empty;
+        public double ValueSystem { get; set; }
+        public double XSystem { get; set; }
+        public double YSystem { get; set; }
         public string ToleranceType { get; set; } = string.Empty;
-        public double ToleranceMin { get; set; }
-        public double ToleranceMax { get; set; }
+        public double ToleranceMinSystem { get; set; }
+        public double ToleranceMaxSystem { get; set; }
     }
 }
