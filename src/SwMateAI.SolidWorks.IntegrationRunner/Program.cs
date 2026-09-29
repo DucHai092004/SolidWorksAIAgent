@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SwMateAI.Core.Agent;
+using SwMateAI.Core.BOM;
 using SwMateAI.Core.Drawing;
 using SwMateAI.Core.DrawingUnderstanding;
 using SwMateAI.Core.Manufacturing;
@@ -210,10 +211,41 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
                 Check("StockSize read-back", stockSizeStatus != 0 && !string.IsNullOrWhiteSpace(stockResolved),
                     $"Config={referencedConfiguration}, Value={stockResolved}");
 
-                Run(agent, "CreateBOM", new Dictionary<string, object>
+                string detachedPartPath = Path.Combine(root, "Detached_Capture.SLDPRT");
+                File.Copy(partPath, detachedPartPath, true);
+                string detachedImageFolder = Path.Combine(root, "detached_capture_images");
+                var detachedItem = new BomItem
+                {
+                    PartNumber = "Detached_Capture",
+                    SourcePath = detachedPartPath,
+                    RepresentativeComponentName = "__DETACHED_CAPTURE_ONLY__",
+                    Configuration = "Default",
+                    IsLoaded = false
+                };
+                string detachedImage = new BomImageCapture(sw).Capture(detachedItem, detachedImageFolder);
+                Check("BOM fallback captures unloaded source file",
+                    !string.IsNullOrWhiteSpace(detachedImage) && File.Exists(detachedImage), detachedImage ?? string.Empty);
+                var detachedStillOpen = sw.GetOpenDocumentByName(detachedPartPath) as IModelDoc2;
+                Check("Temporary BOM capture document closed", detachedStillOpen == null,
+                    detachedStillOpen?.GetTitle() ?? string.Empty);
+                var activeAfterDetachedCapture = sw.ActiveDoc as IModelDoc2;
+                Check("Temporary BOM capture returns to Assembly",
+                    activeAfterDetachedCapture != null && activeAfterDetachedCapture.GetType() == (int)swDocumentTypes_e.swDocASSEMBLY,
+                    activeAfterDetachedCapture?.GetTitle() ?? "No active document");
+
+                ToolResult bomResult = agent.ExecuteTool("CreateBOM", new Dictionary<string, object>
                 {
                     ["ExportExcel"] = true, ["ExportCsv"] = true, ["OutputFolder"] = root
                 });
+                Check("CreateBOM", bomResult.IsSuccess, bomResult.ErrorMessage ?? string.Empty);
+                var bomData = bomResult.Data as BomResult;
+                Check("BOM images captured for every row",
+                    bomData != null && bomData.Items.Count > 0 && bomData.CapturedImageCount == bomData.Items.Count,
+                    $"Captured={bomData?.CapturedImageCount ?? 0}, Items={bomData?.Items.Count ?? 0}");
+                var activeAfterBom = sw.ActiveDoc as IModelDoc2;
+                Check("BOM capture returns to Assembly",
+                    activeAfterBom != null && activeAfterBom.GetType() == (int)swDocumentTypes_e.swDocASSEMBLY,
+                    activeAfterBom?.GetTitle() ?? "No active document");
 
                 Run(agent, "CreateDrawing");
                 Track(sw);

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
+using SwMateAI.Core.Common;
 
 namespace SwMateAI.Core.BOM
 {
@@ -20,32 +21,36 @@ namespace SwMateAI.Core.BOM
 
         public string Capture(BomItem item, string folder)
         {
-            if (item == null || !item.IsLoaded || string.IsNullOrWhiteSpace(item.RepresentativeComponentName))
+            if (item == null || string.IsNullOrWhiteSpace(item.RepresentativeComponentName))
                 return string.Empty;
 
             var assemblyModel = _swApp.ActiveDoc as IModelDoc2;
             var assembly = assemblyModel as IAssemblyDoc;
             var component = assembly?.GetComponentByName(item.RepresentativeComponentName);
             var componentModel = component?.GetModelDoc2() as IModelDoc2;
-            if (assemblyModel == null || componentModel == null) return string.Empty;
+            if (assemblyModel == null) return string.Empty;
 
             Directory.CreateDirectory(folder);
             string imageId = (string.IsNullOrWhiteSpace(item.PartNumber)
                 ? item.RepresentativeComponentName
-                : item.PartNumber) + "_" + item.Configuration;
+                : item.PartNumber) + "_" + item.Configuration + "_" + item.RepresentativeComponentName;
             string output = Path.Combine(folder, SafeFileName(imageId) + ".png");
             string assemblyTitle = assemblyModel.GetTitle() ?? string.Empty;
-            int activateErrors = 0;
-
-            try
+            using (var session = TemporaryModelCaptureSession.Acquire(
+                _swApp, componentModel, item.SourcePath, assemblyTitle))
             {
-                _swApp.ActivateDoc3(componentModel.GetTitle(), false, 0, ref activateErrors);
-                componentModel.ShowNamedView2("*Isometric", (int)swStandardViews_e.swIsometricView);
-                componentModel.ViewZoomtofit2();
+                var modelToCapture = session.Model;
+                if (modelToCapture == null) return string.Empty;
+
+                session.ActivateConfiguration(item.Configuration);
+                int activateErrors = 0;
+                _swApp.ActivateDoc3(modelToCapture.GetTitle(), false, 0, ref activateErrors);
+                modelToCapture.ShowNamedView2("*Isometric", (int)swStandardViews_e.swIsometricView);
+                modelToCapture.ViewZoomtofit2();
 
                 int errors = 0;
                 int warnings = 0;
-                bool ok = componentModel.Extension.SaveAs(
+                bool ok = modelToCapture.Extension.SaveAs(
                     output,
                     (int)swSaveAsVersion_e.swSaveAsCurrentVersion,
                     (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
@@ -56,11 +61,6 @@ namespace SwMateAI.Core.BOM
                 if (!ok || errors != 0 || !File.Exists(output)) return string.Empty;
                 item.ImagePath = output;
                 return output;
-            }
-            finally
-            {
-                if (!string.IsNullOrWhiteSpace(assemblyTitle))
-                    _swApp.ActivateDoc3(assemblyTitle, false, 0, ref activateErrors);
             }
         }
 
