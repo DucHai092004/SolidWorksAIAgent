@@ -11,7 +11,7 @@ public class AnalyzeDrawingSourceToolTests
     [TestMethod]
     public void MissingPath_ReturnsToolError()
     {
-        var tool = new AnalyzeDrawingSourceTool(null);
+        var tool = new AnalyzeDrawingSourceTool();
         var result = tool.Execute(new Dictionary<string, object>());
 
         Assert.IsFalse(result.IsSuccess);
@@ -20,7 +20,7 @@ public class AnalyzeDrawingSourceToolTests
     [TestMethod]
     public void RasterImage_ReturnsReviewGatedReadiness()
     {
-        var tool = new AnalyzeDrawingSourceTool(null);
+        var tool = new AnalyzeDrawingSourceTool();
         var result = tool.Execute(new Dictionary<string, object>
         {
             ["Path"] = @"C:\Temp\drawing.png"
@@ -37,7 +37,7 @@ public class AnalyzeDrawingSourceToolTests
     [TestMethod]
     public void SkillMetadata_IsReadOnlyAndDoesNotRequireActiveDocument()
     {
-        var metadata = SkillCatalog.ForTool(new AnalyzeDrawingSourceTool(null));
+        var metadata = SkillCatalog.ForTool(new AnalyzeDrawingSourceTool());
 
         Assert.AreEqual(SkillNames.AnalyzeDrawingSource, metadata.Name);
         Assert.AreEqual("Drawing.ExternalReader", metadata.Category);
