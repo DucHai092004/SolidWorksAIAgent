@@ -29,7 +29,8 @@ public class PdfRasterDrawingEvidenceProviderTests
                         Text = "DIM 125",
                         Confidence = 0.91
                     }
-                });
+                },
+                pageRenderer: new FakeRenderer());
 
             var result = provider.Analyze(path);
             Assert.AreEqual(1, result.Evidence.Count);
@@ -49,23 +50,70 @@ public class PdfRasterDrawingEvidenceProviderTests
         try
         {
             var runner = new FakeRunner();
+            var renderer = new FakeRenderer();
             var provider = new PdfRasterDrawingEvidenceProvider(
                 new FakeExtractor(new PdfRasterPage
                 {
                     PageNumber = 1,
                     HasNativeText = true
                 }),
-                runner);
+                runner,
+                pageRenderer: renderer);
 
             var result = provider.Analyze(path);
             Assert.AreEqual(0, result.Evidence.Count);
             Assert.AreEqual(0, runner.CallCount);
+            Assert.AreEqual(0, renderer.CallCount);
         }
         finally { File.Delete(path); }
     }
 
     [TestMethod]
-    public void PageWithoutExtractableImage_ReturnsErrorWithoutEvidence()
+    public void PageWithoutExtractableImage_UsesFullPageRendererBeforeOcr()
+    {
+        string path = TempPdf();
+        try
+        {
+            var renderer = new FakeRenderer
+            {
+                Result = new PdfPageRenderResult
+                {
+                    IsSuccess = true,
+                    ImageBytes = new byte[] { 9, 8, 7 },
+                    ImageExtension = ".png"
+                }
+            };
+            var runner = new FakeRunner
+            {
+                Result = new TesseractOcrResult
+                {
+                    IsSuccess = true,
+                    Text = "RENDERED PAGE DIM 80",
+                    Confidence = 0.9
+                }
+            };
+            var provider = new PdfRasterDrawingEvidenceProvider(
+                new FakeExtractor(new PdfRasterPage
+                {
+                    PageNumber = 3,
+                    Error = "Full page rendering is required."
+                }),
+                runner,
+                pageRenderer: renderer);
+
+            var result = provider.Analyze(path);
+            Assert.AreEqual(1, renderer.CallCount);
+            Assert.AreEqual(1, runner.CallCount);
+            Assert.AreEqual(1, result.Evidence.Count);
+            Assert.AreEqual(3, result.Evidence[0].PageNumber);
+            Assert.AreEqual("RENDERED PAGE DIM 80", result.Evidence[0].RawText);
+            Assert.AreEqual(0, result.Errors.Count);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public void RendererFailure_ReturnsErrorWithoutEvidence()
     {
         string path = TempPdf();
         try
@@ -76,12 +124,17 @@ public class PdfRasterDrawingEvidenceProviderTests
                     PageNumber = 3,
                     Error = "Full page rendering is required."
                 }),
-                new FakeRunner());
+                new FakeRunner(),
+                pageRenderer: new FakeRenderer
+                {
+                    Result = new PdfPageRenderResult { Error = "pdftoppm unavailable" }
+                });
 
             var result = provider.Analyze(path);
             Assert.AreEqual(0, result.Evidence.Count);
             Assert.AreEqual(1, result.Errors.Count);
             StringAssert.Contains(result.Errors[0], "rendering");
+            StringAssert.Contains(result.Errors[0], "pdftoppm unavailable");
         }
         finally { File.Delete(path); }
     }
@@ -107,7 +160,8 @@ public class PdfRasterDrawingEvidenceProviderTests
                         Text = "50",
                         Confidence = 0.7
                     }
-                });
+                },
+                pageRenderer: new FakeRenderer());
 
             var result = provider.Analyze(path);
             Assert.AreEqual(1, result.Evidence.Count);
@@ -141,6 +195,23 @@ public class PdfRasterDrawingEvidenceProviderTests
         };
 
         public TesseractOcrResult Run(string imagePath, string language)
+        {
+            CallCount++;
+            return Result;
+        }
+    }
+
+    private sealed class FakeRenderer : IPdfPageRenderer
+    {
+        public int CallCount { get; private set; }
+        public PdfPageRenderResult Result { get; set; } = new PdfPageRenderResult
+        {
+            IsSuccess = true,
+            ImageBytes = new byte[] { 1, 2 },
+            ImageExtension = ".png"
+        };
+
+        public PdfPageRenderResult Render(string pdfPath, int pageNumber)
         {
             CallCount++;
             return Result;
