@@ -78,7 +78,14 @@ namespace SwMateAI.Core.BOM
                 : "VIRTUAL::" + title.ToUpperInvariant() + "|" + config.ToUpperInvariant();
 
             string fallback = CleanCadName(!string.IsNullOrWhiteSpace(path) ? Path.GetFileName(path) : title);
-            string partNumber = CleanCadName(model == null ? fallback : FirstNonEmpty(ReadProperty(model, config, "Part Number"), ReadProperty(model, config, "PartNumber"), fallback));
+            string partNumber = model == null
+                ? fallback
+                : FirstNonEmpty(
+                    ReadProperty(model, config, "Part Number"),
+                    ReadProperty(model, config, "PartNumber"),
+                    ResolveBomPartNumber(model, config, fallback),
+                    fallback);
+            partNumber = CleanCadName(partNumber);
             string description = model == null ? string.Empty : FirstNonEmpty(ReadProperty(model, config, "Description"), ReadProperty(model, config, "DESCRIPTION"));
             string material = string.Empty;
             if (model is IPartDoc part)
@@ -102,6 +109,40 @@ namespace SwMateAI.Core.BOM
             };
         }
 
+        private static string ResolveBomPartNumber(IModelDoc2 model, string configuration, string fallback)
+        {
+            if (model == null) return fallback;
+            IConfiguration config = null;
+            try { config = model.GetConfigurationByName(configuration ?? string.Empty) as IConfiguration; }
+            catch { }
+            return ResolveBomPartNumber(model, config, fallback, 0);
+        }
+
+        private static string ResolveBomPartNumber(IModelDoc2 model, IConfiguration config, string fallback, int depth)
+        {
+            if (model == null || config == null || depth > 16) return fallback;
+            try
+            {
+                switch ((swBOMPartNumberSource_e)config.BOMPartNoSource)
+                {
+                    case swBOMPartNumberSource_e.swBOMPartNumber_ConfigurationName:
+                        return config.Name ?? fallback;
+                    case swBOMPartNumberSource_e.swBOMPartNumber_DocumentName:
+                        return model.GetTitle() ?? fallback;
+                    case swBOMPartNumberSource_e.swBOMPartNumber_UserSpecified:
+                        return string.IsNullOrWhiteSpace(config.AlternateName) ? fallback : config.AlternateName;
+                    case swBOMPartNumberSource_e.swBOMPartNumber_ParentName:
+                        var parent = config.GetParent() as IConfiguration;
+                        if (parent == null) return fallback;
+                        if ((swBOMPartNumberSource_e)parent.BOMPartNoSource == swBOMPartNumberSource_e.swBOMPartNumber_ParentName)
+                            return ResolveBomPartNumber(model, parent, fallback, depth + 1);
+                        return parent.Name ?? fallback;
+                    default:
+                        return fallback;
+                }
+            }
+            catch { return fallback; }
+        }
         private static string ResolveType(IModelDoc2 model, string path)
         {
             int type = model?.GetType() ?? 0;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SwMateAI.Core.Agent;
@@ -38,6 +39,9 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
             {
                 sw = ConnectSolidWorks();
                 sw.Visible = true;
+                bool startupReady = WaitForSolidWorksReady(sw, 30000);
+                Check("SOLIDWORKS startup ready", startupReady, sw.RevisionNumber() ?? string.Empty);
+                if (!startupReady) throw new InvalidOperationException("SOLIDWORKS startup did not become ready within 30 seconds.");
                 var agent = new AgentCore(sw);
                 Check("Agent registry", agent.RegisteredTools.Count() >= 50, "Registered tools < 50");
 
@@ -143,6 +147,25 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
                 Run(agent, "ExportDXF", new Dictionary<string, object> { ["OutputPath"] = dxfPath });
                 Check("PDF file exists", File.Exists(pdfPath) && new FileInfo(pdfPath).Length > 0, pdfPath);
                 Check("DXF file exists", File.Exists(dxfPath) && new FileInfo(dxfPath).Length > 0, dxfPath);
+                // Persist BOM part-number semantics while the source Part is active, before Assembly insertion.
+                int activatePartErrors = 0;
+                if (part != null) sw.ActivateDoc3(part.GetTitle(), false, 0, ref activatePartErrors);
+                var persistedBomConfig = (sw.ActiveDoc as IModelDoc2)?.ConfigurationManager?.ActiveConfiguration;
+                Check("BOM Part Number configuration available", persistedBomConfig != null, "No active Part configuration");
+                if (persistedBomConfig != null)
+                {
+                    persistedBomConfig.BOMPartNoSource = (int)swBOMPartNumberSource_e.swBOMPartNumber_UserSpecified;
+                    persistedBomConfig.AlternateName = "PN-BOM-TEST";
+                    persistedBomConfig.UseAlternateNameInBOM = true;
+                    part.ForceRebuild3(false);
+                    part.SetSaveFlag();
+                    int bomConfigSaveErrors = 0, bomConfigSaveWarnings = 0;
+                    part.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref bomConfigSaveErrors, ref bomConfigSaveWarnings);
+                    Check("BOM Part Number persisted on Part",
+                        persistedBomConfig.BOMPartNoSource == (int)swBOMPartNumberSource_e.swBOMPartNumber_UserSpecified
+                        && string.Equals(persistedBomConfig.AlternateName, "PN-BOM-TEST", StringComparison.Ordinal),
+                        $"Source={persistedBomConfig.BOMPartNoSource}, Alternate={persistedBomConfig.AlternateName}");
+                }
 
                 // Assembly + BOM + manufacturing regression on disposable files.
                 CloseActive(sw);
@@ -193,46 +216,22 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
                 Check("Stock material applied count", stockApplyData != null && stockApplyData.Applied > 0,
                     "Applied=" + (stockApplyData?.Applied ?? 0));
 
-                var stockItem = breakdownData?.Items.FirstOrDefault(i =>
-                    string.Equals(i.SourcePath, partPath, StringComparison.OrdinalIgnoreCase))
-                    ?? breakdownData?.Items.FirstOrDefault();
-                var stockComponent = stockItem == null ? null : assembly?.GetComponentByName(stockItem.RepresentativeComponentName);
-                string referencedConfiguration = stockItem?.Configuration ?? string.Empty;
-                var stockModel = stockComponent?.GetModelDoc2() as IModelDoc2;
-                Check("Stock component model available", stockModel != null,
-                    stockItem?.RepresentativeComponentName ?? partPath);
-                var stockProperties = stockModel?.Extension.get_CustomPropertyManager(referencedConfiguration);
-                string stockRaw, stockResolved;
-                bool stockWasResolved, stockLinked;
-                int stockMaterialStatus = stockProperties.Get6("Stock Material", false, out stockRaw, out stockResolved, out stockWasResolved, out stockLinked);
-                Check("Stock Material read-back", stockMaterialStatus != 0 && stockResolved == "C45",
-                    $"Config={referencedConfiguration}, Value={stockResolved}");
-                int stockSizeStatus = stockProperties.Get6("StockSize", false, out stockRaw, out stockResolved, out stockWasResolved, out stockLinked);
-                Check("StockSize read-back", stockSizeStatus != 0 && !string.IsNullOrWhiteSpace(stockResolved),
-                    $"Config={referencedConfiguration}, Value={stockResolved}");
-
-                var componentObjects = assembly?.GetComponents(false) as object[];
-                var excludeCandidate = componentObjects?.OfType<IComponent2>().LastOrDefault();
-                Check("BOM exclude candidate available", excludeCandidate != null, "No component available for ExcludeFromBOM regression");
-                if (excludeCandidate != null)
-                {
-                    bool previousExclude = excludeCandidate.ExcludeFromBOM;
-                    try
-                    {
-                        excludeCandidate.ExcludeFromBOM = true;
-                        var excludedBom = new BomBuilder(sw).Build();
-                        Check("BOM honors ExcludeFromBOM", excludedBom.ExcludedFromBomSkipped == 1,
-                            $"Excluded={excludedBom.ExcludedFromBomSkipped}");
-                        Check("BOM excluded occurrence is removed from quantity",
-                            excludedBom.Items.Count == 1 && excludedBom.Items[0].Quantity == 1,
-                            $"Items={excludedBom.Items.Count}, Qty={(excludedBom.Items.Count > 0 ? excludedBom.Items[0].Quantity : 0)}");
-                    }
-                    finally
-                    {
-                        excludeCandidate.ExcludeFromBOM = previousExclude;
-                    }
-                }
-
+                Check("Stock material write-back has no verification failures",
+                    stockApplyData != null && stockApplyData.Failed == 0,
+                    "Failed=" + (stockApplyData?.Failed ?? -1));
+                var persistedPartNumberBom = new BomBuilder(sw).Build();
+                Check("BOM honors persisted configuration Part Number source",
+                    persistedPartNumberBom.Items.Any(x => string.Equals(x.PartNumber, "PN-BOM-TEST", StringComparison.Ordinal)),
+                    string.Join(", ", persistedPartNumberBom.Items.Select(x => x.PartNumber)));
+                string mainAssemblyTitle = assemblyModel.GetTitle();
+                RunExcludeFromBomRegression(sw, assemblyTemplate, partPath, root);
+                int reactivateMainErrors = 0;
+                sw.ActivateDoc3(mainAssemblyTitle, false, 0, ref reactivateMainErrors);
+                assemblyModel = sw.ActiveDoc as IModelDoc2;
+                assembly = assemblyModel as IAssemblyDoc;
+                Check("Return to main Assembly after ExcludeFromBOM regression",
+                    assembly != null,
+                    assemblyModel?.GetTitle() ?? "No active document");
                 string detachedPartPath = Path.Combine(root, "Detached_Capture.SLDPRT");
                 File.Copy(partPath, detachedPartPath, true);
                 string detachedImageFolder = Path.Combine(root, "detached_capture_images");
@@ -326,6 +325,71 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
             return _failed == 0 ? 0 : 1;
         }
 
+        private static void RunExcludeFromBomRegression(ISldWorks sw, string assemblyTemplate, string sourcePartPath, string root)
+        {
+            string excludeAssemblyPath = Path.Combine(root, "Exclude_Assembly.SLDASM");
+            TryDelete(excludeAssemblyPath);
+
+            var model = sw.NewDocument(assemblyTemplate, 0, 0, 0) as IModelDoc2;
+            var assy = model as IAssemblyDoc;
+            Check("Create ExcludeFromBOM regression Assembly", assy != null, "Could not create Assembly");
+            if (assy == null || model == null) return;
+
+            var component = assy.AddComponent4(sourcePartPath, string.Empty, 0, 0, 0);
+            Check("Add ExcludeFromBOM regression component", component != null, sourcePartPath);
+            if (component == null) { sw.CloseDoc(model.GetTitle()); return; }
+
+            component.ExcludeFromBOM = true;
+            try { model.FeatureManager.UpdateFeatureTree(); } catch { }
+            Check("ExcludeFromBOM setter read-back", component.ExcludeFromBOM, component.Name2 ?? string.Empty);
+            Save(model, excludeAssemblyPath);
+            string title = model.GetTitle();
+            sw.CloseDoc(title);
+
+            int errors = 0, warnings = 0;
+            var reopened = sw.OpenDoc6(
+                excludeAssemblyPath,
+                (int)swDocumentTypes_e.swDocASSEMBLY,
+                (int)swOpenDocOptions_e.swOpenDocOptions_Silent,
+                string.Empty,
+                ref errors,
+                ref warnings) as IModelDoc2;
+            Check("Reopen ExcludeFromBOM regression Assembly", reopened is IAssemblyDoc,
+                $"Errors={errors}, Warnings={warnings}");
+            if (reopened == null) return;
+
+            var excludedBom = new BomBuilder(sw).Build();
+            Check("BOM honors persisted ExcludeFromBOM", excludedBom.ExcludedFromBomSkipped == 1,
+                $"Excluded={excludedBom.ExcludedFromBomSkipped}");
+            Check("Persisted excluded component is removed from BOM", excludedBom.Items.Count == 0,
+                $"Items={excludedBom.Items.Count}");
+            sw.CloseDoc(reopened.GetTitle());
+        }
+        private static bool WaitForSolidWorksReady(ISldWorks sw, int timeoutMs)
+        {
+            if (sw == null) return false;
+            DateTime deadline = DateTime.UtcNow.AddMilliseconds(Math.Max(1000, timeoutMs));
+            while (DateTime.UtcNow < deadline)
+            {
+                try
+                {
+                    string revision = sw.RevisionNumber();
+                    string partTemplate = sw.GetUserPreferenceStringValue((int)swUserPreferenceStringValue_e.swDefaultTemplatePart);
+                    string assemblyTemplate = sw.GetUserPreferenceStringValue((int)swUserPreferenceStringValue_e.swDefaultTemplateAssembly);
+                    if (sw.StartupProcessCompleted
+                        && !string.IsNullOrWhiteSpace(revision)
+                        && !string.IsNullOrWhiteSpace(partTemplate)
+                        && !string.IsNullOrWhiteSpace(assemblyTemplate))
+                    {
+                        Thread.Sleep(500);
+                        return true;
+                    }
+                }
+                catch { }
+                Thread.Sleep(250);
+            }
+            return false;
+        }
         private static ISldWorks ConnectSolidWorks()
         {
             try { return (ISldWorks)Marshal.GetActiveObject("SldWorks.Application"); }
