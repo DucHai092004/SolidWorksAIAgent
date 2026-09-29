@@ -51,7 +51,6 @@ namespace SwMateAI.BomHierarchy.IntegrationRunner
                     "Active document is not a Part");
                 Save(partModel, partPath);
                 Track(sw);
-                CloseActive(sw);
 
                 string assemblyTemplate = sw.GetUserPreferenceStringValue(
                     (int)swUserPreferenceStringValue_e.swDefaultTemplateAssembly);
@@ -84,7 +83,6 @@ namespace SwMateAI.BomHierarchy.IntegrationRunner
                     subConfiguration != null,
                     "Active Subassembly configuration is null");
 
-                CloseActive(sw);
                 var topModel = sw.NewDocument(assemblyTemplate, 0, 0, 0) as IModelDoc2;
                 var topAssembly = topModel as IAssemblyDoc;
                 Check("Create hierarchy Top assembly", topAssembly != null, "Could not create Top assembly");
@@ -246,13 +244,6 @@ namespace SwMateAI.BomHierarchy.IntegrationRunner
                 ref warnings);
             Check("Save " + Path.GetFileName(path), ok && errors == 0,
                 "Errors=" + errors + ", Warnings=" + warnings);
-        }
-
-        private static void CloseActive(ISldWorks sw)
-        {
-            var model = sw.ActiveDoc as IModelDoc2;
-            if (model == null) return;
-            try { sw.CloseDoc(model.GetTitle()); } catch { }
         }
 
         private static void Track(ISldWorks sw)
