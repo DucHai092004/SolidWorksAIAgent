@@ -5,8 +5,10 @@ namespace SwMateAI.Core.BOM
     public class BomResult
     {
         public List<BomItem> Items { get; } = new List<BomItem>();
+        public BomMode Mode { get; set; } = BomMode.LegacyFlat;
         public int TotalOccurrences { get; set; }
         public int SuppressedSkipped { get; set; }
+        public int ExcludedSkipped { get; set; }
         public int UnloadedCount { get; set; }
         public int CapturedImageCount { get; set; }
         public string ExcelPath { get; set; } = string.Empty;
