@@ -137,7 +137,7 @@ namespace SwMateAI.Core.Agent
             Register(new CreateBomTool(_swApp));
             Register(new InsertSolidWorksBomTool(_swApp));
 
-            // Phase 6A.1 Drawing Automation
+            // Phase 6 Drawing Automation
             Register(new CreateDrawingTool(_swApp, _drawingSession));
             Register(new CreateSheetTool(_swApp));
             Register(new InsertStandardViewsTool(_swApp, _drawingSession));
@@ -150,6 +150,9 @@ namespace SwMateAI.Core.Agent
             Register(new FillTitleBlockTool(_swApp));
             Register(new ExportPdfTool(_swApp));
             Register(new ExportDxfTool(_swApp));
+
+            // Phase 7 Drawing Understanding
+            Register(new ReadDrawingTool(_swApp));
         }
 
         private void Register(ISwTool tool)
