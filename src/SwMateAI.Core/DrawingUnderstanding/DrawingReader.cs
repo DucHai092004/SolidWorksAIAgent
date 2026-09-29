@@ -60,13 +60,14 @@ namespace SwMateAI.Core.DrawingUnderstanding
             bool isSheetView = true;
             while (view != null)
             {
+                int dimensionCount = ReadDimensions(view, result);
                 var info = new DrawingViewInfo
                 {
                     Name = SafeViewName(view),
                     IsSheetView = isSheetView,
                     ReferencedDocument = isSheetView ? string.Empty : SafeReferencedModel(view),
                     ReferencedConfiguration = isSheetView ? string.Empty : SafeReferencedConfiguration(view),
-                    DimensionCount = CountDimensions(view),
+                    DimensionCount = dimensionCount,
                     TableCount = CountTables(view),
                     NoteCount = CountNotes(view)
                 };
@@ -83,20 +84,104 @@ namespace SwMateAI.Core.DrawingUnderstanding
             }
         }
 
-        private static int CountDimensions(IView view)
+        private static int ReadDimensions(IView view, DrawingUnderstandingResult result)
         {
             int count = 0;
             try
             {
-                var dimension = view.GetFirstDisplayDimension5() as IDisplayDimension;
-                while (dimension != null)
+                var display = view.GetFirstDisplayDimension5() as IDisplayDimension;
+                while (display != null)
                 {
                     count++;
-                    dimension = dimension.GetNext5() as IDisplayDimension;
+                    result.Dimensions.Add(ReadDimension(view, display));
+                    display = display.GetNext5() as IDisplayDimension;
                 }
             }
             catch { }
             return count;
+        }
+
+        private static DrawingDimensionInfo ReadDimension(IView view, IDisplayDimension display)
+        {
+            var info = new DrawingDimensionInfo
+            {
+                ViewName = SafeViewName(view),
+                Type = SafeDimensionType(display),
+                UnitKind = SafeDimensionUnitKind(display)
+            };
+
+            try
+            {
+                var dimension = display?.GetDimension2(0) as IDimension;
+                if (dimension != null)
+                {
+                    try { info.Name = dimension.FullName ?? string.Empty; } catch { }
+                    info.ValueSystem = SafeDimensionValue(dimension);
+                    ReadTolerance(dimension, info);
+                }
+            }
+            catch { }
+
+            try
+            {
+                var annotation = display?.GetAnnotation() as IAnnotation;
+                var position = annotation?.GetPosition();
+                if (position is Array values && values.Length >= 2)
+                {
+                    info.XSystem = Convert.ToDouble(values.GetValue(0));
+                    info.YSystem = Convert.ToDouble(values.GetValue(1));
+                }
+            }
+            catch { }
+
+            return info;
+        }
+
+        private static double SafeDimensionValue(IDimension dimension)
+        {
+            try
+            {
+                var raw = dimension.GetValue3((int)swInConfigurationOpts_e.swThisConfiguration, null);
+                if (raw is Array values && values.Length > 0)
+                    return Convert.ToDouble(values.GetValue(0));
+                if (raw != null) return Convert.ToDouble(raw);
+            }
+            catch { }
+            return 0d;
+        }
+
+        private static void ReadTolerance(IDimension dimension, DrawingDimensionInfo info)
+        {
+            try
+            {
+                var tolerance = dimension?.Tolerance as IDimensionTolerance;
+                if (tolerance == null) return;
+                info.ToleranceType = ((swTolType_e)tolerance.Type).ToString();
+                double minValue = 0d;
+                double maxValue = 0d;
+                tolerance.GetMinValue2(out minValue);
+                tolerance.GetMaxValue2(out maxValue);
+                info.ToleranceMinSystem = minValue;
+                info.ToleranceMaxSystem = maxValue;
+            }
+            catch { }
+        }
+
+        private static string SafeDimensionType(IDisplayDimension display)
+        {
+            try { return ((swDimensionType_e)display.Type2).ToString(); }
+            catch { return string.Empty; }
+        }
+
+        private static string SafeDimensionUnitKind(IDisplayDimension display)
+        {
+            try
+            {
+                return display.Type2 == (int)swDimensionType_e.swAngularDimension
+                    ? "AngleRad"
+                    : "LengthM";
+            }
+            catch { return string.Empty; }
         }
 
         private static int CountTables(IView view)
