@@ -35,6 +35,23 @@ namespace SwMateAI.DrawingUnderstanding.IntegrationRunner
                 Check("ReadDrawing registered",
                     Contains(agent.RegisteredTools, "ReadDrawing"),
                     "ReadDrawing is not registered");
+                Check("AnalyzeDrawingSource registered",
+                    Contains(agent.RegisteredTools, "AnalyzeDrawingSource"),
+                    "AnalyzeDrawingSource is not registered");
+
+                ToolResult external = agent.ExecuteTool("AnalyzeDrawingSource", new Dictionary<string, object>
+                {
+                    ["Path"] = Path.Combine(root, "external_scan.png")
+                });
+                Check("AnalyzeDrawingSource dispatch", external.IsSuccess,
+                    external.ErrorMessage ?? string.Empty);
+                var externalData = external.Data as DrawingSourceEvidenceResult;
+                Check("External drawing remains review gated",
+                    externalData != null
+                    && externalData.Readiness.RequiresVision
+                    && externalData.Readiness.RequiresReview
+                    && externalData.Evidence.Count == 0,
+                    "External raster source was not safely review gated");
 
                 Run(agent, "CreatePart");
                 Run(agent, "CreateSketch");
