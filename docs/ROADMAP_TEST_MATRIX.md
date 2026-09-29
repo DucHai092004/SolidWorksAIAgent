@@ -20,7 +20,7 @@ Source of roadmap: `AgnetAiSoliworkVer1.docx`.
 | 4 | Manufacturing breakdown | Extended in current version; unit + runtime regression required |
 | 5 | BOM | Existing; regression required |
 | 6 | Drawing automation | Implemented: create/sheet/views/section/detail/dimensions/Drawing BOM/balloons/title-block properties/PDF/DXF; SOLIDWORKS 2021 integration PASS |
-| 7 | Drawing understanding | Native SLDDRW semantic reader complete for sheets/views, dimensions, notes and tables/BOM. External-source readiness/evidence routing covers native drawings, text PDFs, raster/textless PDFs, mixed PDFs and raster images. `AnalyzeDrawingSource` is a read-only Agent tool. A Tesseract CLI OCR provider is implemented for raster image files with confidence/review gating. Actual OCR runtime validation is still pending because Tesseract is not installed/resolvable on the current test machine; raster pages inside image-only PDFs also still need a PDF-page rendering/extraction step before OCR. |
+| 7 | Drawing understanding | Native SLDDRW semantic reader complete for sheets/views, dimensions, notes and tables/BOM. External-source readiness/evidence routing covers native drawings, text PDFs, raster/textless PDFs, mixed PDFs and raster images. `AnalyzeDrawingSource` is a read-only Agent tool. Tesseract CLI OCR is implemented for raster image files, and PDF pages with insufficient native text can now extract their largest embedded raster image through PdfPig and route PNG-convertible images into the same OCR provider. Confidence/review gating remains mandatory. Actual OCR runtime validation is still pending because Tesseract is not installed/resolvable on the current test machine. PDF pages whose embedded image cannot be converted to PNG by the installed PdfPig version remain review-gated and require a full-page renderer or additional image-decoding path. |
 | 8 | Mechanical design copilot | Future roadmap; implement only with explicit engineering rules/data |
 | 9 | Manufacturing cost | Future roadmap; requires approved price/process data |
 | 10 | Autonomous mechanical agent | Long-term integration phase |
@@ -39,20 +39,22 @@ Source of roadmap: `AgnetAiSoliworkVer1.docx`.
 - Semantic drawing note extraction: owner view and note text.
 - Semantic drawing table extraction: title/type, row/column dimensions and displayed cell text.
 - Drawing Vision readiness: native SLDDRW, raster images, unsupported/missing sources, text PDF, textless/raster-candidate PDF and mixed PDF.
-- PDF drawing evidence: text pages produce `PDF_TEXT` evidence with confidence metadata; textless pages produce no invented evidence and remain gated for Vision/review.
+- PDF drawing evidence: text pages produce `PDF_TEXT` evidence with confidence metadata; textless pages do not invent evidence and remain gated for Vision/review when no raster evidence is available.
 - Evidence pipeline: providers can contribute evidence without clearing the review gate; provider failures are contained as errors.
 - `AnalyzeDrawingSource` tool contract: missing Path fails, raster sources return review-gated readiness, metadata is read-only and does not require an active SOLIDWORKS document.
 - Tesseract raster OCR provider: supported raster extensions, successful evidence extraction, confidence propagation, low-confidence review gating and runner failure without invented evidence.
+- PDF raster OCR provider: skips native-text pages, produces page-scoped `PDF_RASTER_TESSERACT` evidence for extractable raster pages, keeps low-confidence evidence review-gated, and returns explicit errors when an image cannot be extracted/rendered instead of inventing content.
 
 Run pure/CI-safe checks: `scripts\Test-All.cmd`
 
 Run SOLIDWORKS 2021 integration checks: `scripts\Test-SolidWorks.cmd`
 
 Latest Phase 7 checkpoints (2026-09-29):
-- Core/build verification: 44/44 tests PASS using `scripts\Test-All.cmd` on `phase-7-drawing-vision-v2`.
-- Drawing Understanding integration: 30 checks PASS, 0 FAIL on a disposable Part/Drawing fixture. It verifies Agent registration/dispatch for `AnalyzeDrawingSource`, safe review gating for an unavailable raster source, sheets, model views, inserted dimensions, active-sheet preservation, semantic dimensions and semantic note ownership/count consistency.
-- Full SOLIDWORKS integration: 46 checks PASS, 0 FAIL on disposable Part/Assembly/Drawing files. It verifies CAD creation, model readers, Drawing automation, Assembly readers, manufacturing breakdown, BOM generation, native Drawing BOM, balloons, semantic table count and displayed table-cell content, and PDF/DXF export.
+- Core/build verification: 48/48 tests PASS using `scripts\Test-All.cmd` on `phase-7-drawing-vision-v2`.
+- Drawing Understanding integration: 30 checks PASS, 0 FAIL on a disposable Part/Drawing fixture before the latest PDF-raster-only change; rerun required for final checkpoint. It verifies Agent registration/dispatch for `AnalyzeDrawingSource`, safe review gating for an unavailable raster source, sheets, model views, inserted dimensions, active-sheet preservation, semantic dimensions and semantic note ownership/count consistency.
+- Full SOLIDWORKS integration: 46 checks PASS, 0 FAIL on disposable Part/Assembly/Drawing files before the latest PDF-raster-only change; rerun required for final checkpoint. It verifies CAD creation, model readers, Drawing automation, Assembly readers, manufacturing breakdown, BOM generation, native Drawing BOM, balloons, semantic table count and displayed table-cell content, and PDF/DXF export.
 - Tesseract provider unit/runtime-contract tests PASS through an injected fake runner. Production resolution supports an explicit executable path, `SWMATE_TESSERACT_PATH`, `C:\Program Files\Tesseract-OCR\tesseract.exe`, or `tesseract.exe` on PATH.
+- PDF raster provider tests PASS through injected fake extractors/runners. The installed PdfPig API supports `page.GetImages()` and `TryGetPng()` in this project; non-PNG-convertible embedded images are intentionally left review-gated.
 - Runtime dependency check on the current Windows test machine: `tesseract --version` is not resolvable, so no claim is made that real raster OCR has passed on this machine yet.
 
-Runtime PASS applies only to the covered SOLIDWORKS 2021 fixtures. Real raster OCR requires Tesseract to be installed/configured and then validated against known image fixtures. Image-only PDF OCR additionally requires a page-rendering/extraction stage. Arbitrary semantic interpretation of external image-only drawings must remain review-gated until those evidence paths are runtime-validated.
+Runtime PASS applies only to the covered SOLIDWORKS 2021 fixtures. Real raster OCR requires Tesseract to be installed/configured and then validated against known image fixtures. Image-only PDF pages are OCR-ready when PdfPig can extract/convert an embedded raster image; other pages still require a full-page rendering or additional decoding stage. Arbitrary semantic interpretation of external image-only drawings must remain review-gated until those evidence paths are runtime-validated.
