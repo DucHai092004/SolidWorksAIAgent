@@ -66,6 +66,19 @@
   <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
    <Setter Property="Background" Value="#1E293B"/>
   </Style>
+  <Style TargetType="TabItem">
+   <Setter Property="Foreground" Value="#CBD5E1"/>
+   <Setter Property="Background" Value="#17243A"/>
+   <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
+   <Setter Property="FontWeight" Value="SemiBold"/>
+   <Setter Property="Padding" Value="12,8"/>
+   <Style.Triggers>
+    <Trigger Property="IsSelected" Value="True">
+     <Setter Property="Foreground" Value="White"/>
+     <Setter Property="Background" Value="#1D4ED8"/>
+    </Trigger>
+   </Style.Triggers>
+  </Style>
   </ResourceDictionary>
  </UserControl.Resources>
  <Grid>
@@ -78,8 +91,11 @@
      <TextBlock Text="{DynamicResource AppSubtitle}" Foreground="{StaticResource Muted}" FontSize="10" Margin="0,2,0,0"/>
     </StackPanel>
     <StackPanel Grid.Column="1" Margin="0,0,8,0" VerticalAlignment="Center">
-     <TextBlock Text="{DynamicResource LanguageLabel}" Foreground="{StaticResource Muted}" FontSize="8" Margin="2,0,0,2"/>
-     <ComboBox x:Name="LanguageCombo" Width="92" Height="25" SelectionChanged="LanguageCombo_SelectionChanged" Background="#16243A" Foreground="White" BorderBrush="{StaticResource Border}" Padding="4,1">
+     <TextBlock Text="{DynamicResource LanguageLabel}" Foreground="{StaticResource Text}" FontSize="10" Margin="2,0,0,2"/>
+     <ComboBox x:Name="LanguageCombo" Width="96" Height="28" SelectionChanged="LanguageCombo_SelectionChanged" Background="#F8FAFC" Foreground="#111827" BorderBrush="#93C5FD" Padding="4,1">
+      <ComboBox.Resources>
+       <Style TargetType="ComboBoxItem"><Setter Property="Foreground" Value="#111827"/><Setter Property="Background" Value="White"/></Style>
+      </ComboBox.Resources>
       <ComboBoxItem Content="Tiếng Việt" Tag="vi-VN" IsSelected="True"/>
       <ComboBoxItem Content="English" Tag="en-US"/>
      </ComboBox>
@@ -92,7 +108,9 @@
     </Border>
    </Grid>
   </Border>
-  <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+  <TabControl Grid.Row="1" Background="{StaticResource Bg}" BorderThickness="0" Padding="0">
+   <TabItem Header="TRỢ LÝ AI">
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
    <StackPanel Margin="0,5,0,12">
     <Border Style="{StaticResource Card}">
      <StackPanel>
@@ -316,5 +334,65 @@
     <TextBlock Text="{DynamicResource FooterText}" HorizontalAlignment="Center" Foreground="{StaticResource Muted}" FontSize="9" Margin="0,8,0,4"/>
    </StackPanel>
   </ScrollViewer>
+   </TabItem>
+   <TabItem Header="KIỂM THỬ CHỨC NĂNG">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Background="{StaticResource Bg}">
+     <StackPanel Margin="0,7,0,14">
+      <Border Style="{StaticResource Card}">
+       <StackPanel>
+        <TextBlock Text="BẤM CHẠY TỪNG SKILL" Style="{StaticResource SectionTitle}"/>
+        <TextBlock Text="{Binding DocumentTitle}" Foreground="White" FontWeight="SemiBold" FontSize="11" Margin="0,6,0,0"/>
+        <TextBlock Text="{Binding DocumentType}" Foreground="#93C5FD" FontSize="10"/>
+        <Button Content="LÀM MỚI TÀI LIỆU" Command="{Binding RefreshInfoCommand}" Style="{StaticResource SecondaryButton}" Margin="0,7,0,0"/>
+        <TextBlock Text="Mở đúng Part, Assembly hoặc Drawing. Mỗi lần bấm chạy đúng một skill. Tham số: mỗi dòng Tên=Giá trị; số đo dùng mm. Chỉ sửa bản sao khi thử chức năng ghi dữ liệu."
+                   Foreground="{StaticResource Muted}" FontSize="10" TextWrapping="Wrap" Margin="0,5,0,0"/>
+       </StackPanel>
+      </Border>
+      <Border Style="{StaticResource Card}" Visibility="{Binding HasPendingConfirmation, Converter={StaticResource BoolToVis}}" BorderBrush="#F59E0B">
+       <StackPanel>
+        <TextBlock Text="CẦN XÁC NHẬN TRƯỚC KHI CHẠY" Foreground="#FBBF24" FontWeight="Bold" FontSize="11"/>
+        <TextBlock Text="{Binding ConfirmationSummary}" Foreground="{StaticResource Text}" TextWrapping="Wrap" FontSize="10" Margin="0,6,0,9"/>
+        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+         <Button Grid.Column="0" Content="XÁC NHẬN CHẠY" Command="{Binding ConfirmPlanCommand}" Style="{StaticResource PrimaryButton}"/>
+         <Button Grid.Column="2" Content="HỦY" Command="{Binding CancelPlanCommand}" Style="{StaticResource SecondaryButton}"/>
+        </Grid>
+       </StackPanel>
+      </Border>
+      <Border Style="{StaticResource Card}">
+       <StackPanel>
+        <TextBlock Text="KẾT QUẢ GẦN NHẤT" Style="{StaticResource SectionTitle}"/>
+        <TextBlock Text="{Binding LastResultText}" Foreground="{StaticResource Text}" TextWrapping="Wrap" FontSize="10" Margin="0,6,0,0"/>
+        <Button Content="HOÀN TÁC HÀNH ĐỘNG CUỐI" Command="{Binding UndoLastActionCommand}" Style="{StaticResource SecondaryButton}" Margin="0,8,0,0"/>
+       </StackPanel>
+      </Border>
+      <ItemsControl ItemsSource="{Binding TestToolGroups}">
+       <ItemsControl.ItemTemplate><DataTemplate>
+        <Expander Margin="10,5" Foreground="{StaticResource Text}" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="10">
+         <Expander.Header><TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="12"/></Expander.Header>
+         <ItemsControl ItemsSource="{Binding Tools}" Margin="0,8,0,0">
+          <ItemsControl.ItemTemplate><DataTemplate>
+           <Border Background="{StaticResource Surface2}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,7">
+            <StackPanel>
+             <TextBlock Text="{Binding DisplayName}" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+             <TextBlock Text="{Binding SkillName}" Foreground="#93C5FD" FontSize="9"/>
+             <TextBlock Text="{Binding Description}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,3,0,4"/>
+             <TextBlock Text="Chọn đối tượng trong SolidWorks trước khi chạy." Foreground="#FBBF24" FontSize="9" TextWrapping="Wrap" Visibility="{Binding RequiresSelection, Converter={StaticResource BoolToVis}}"/>
+             <StackPanel Visibility="{Binding HasParameters, Converter={StaticResource BoolToVis}}">
+              <TextBlock Text="Tham số gợi ý (sửa trong ô bên dưới nếu cần):" Foreground="{StaticResource Muted}" FontSize="9" Margin="0,3,0,2"/>
+              <TextBlock Text="{Binding ParameterHint}" Foreground="#93C5FD" FontFamily="Consolas" FontSize="9" TextWrapping="Wrap"/>
+              <TextBox Text="{Binding Parameters, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="34" MaxHeight="105" VerticalScrollBarVisibility="Auto" Margin="0,4,0,6"/>
+             </StackPanel>
+             <Button Content="CHẠY SKILL NÀY" Command="{Binding RunCommand}" Style="{StaticResource PrimaryButton}"/>
+            </StackPanel>
+           </Border>
+          </DataTemplate></ItemsControl.ItemTemplate>
+         </ItemsControl>
+        </Expander>
+       </DataTemplate></ItemsControl.ItemTemplate>
+      </ItemsControl>
+     </StackPanel>
+    </ScrollViewer>
+   </TabItem>
+  </TabControl>
  </Grid>
 </UserControl>

@@ -12,6 +12,7 @@ using SwMateAI.Core.Models.Assembly;
 using SwMateAI.Core.Manufacturing;
 using SwMateAI.Core.BOM;
 using SwMateAI.Core.Planning;
+using SwMateAI.Core.Skills;
 
 namespace SwMateAI.UI.ViewModels
 {
@@ -172,6 +173,7 @@ namespace SwMateAI.UI.ViewModels
         public ObservableCollection<string> ConsoleLog { get; } = new ObservableCollection<string>();
         public ObservableCollection<PlanStepUiItem> CurrentPlanSteps { get; } = new ObservableCollection<PlanStepUiItem>();
         public ObservableCollection<string> CommandHistory { get; } = new ObservableCollection<string>();
+        public ObservableCollection<TestToolGroup> TestToolGroups { get; } = new ObservableCollection<TestToolGroup>();
 
         // ─── Commands ─────────────────────────────────────────────────────────
 
@@ -248,6 +250,276 @@ namespace SwMateAI.UI.ViewModels
             ConfirmPlanCommand = new RelayCommand(ConfirmPendingPlan, () => HasPendingConfirmation && !IsRefreshing);
             CancelPlanCommand = new RelayCommand(CancelPendingPlan, () => HasPendingConfirmation && !IsRefreshing);
             UndoLastActionCommand = new RelayCommand(UndoLastAction, () => _agentCore.CanUndoLastAction && !IsRefreshing);
+            BuildTestToolGroups();
+        }
+
+        private void BuildTestToolGroups()
+        {
+            foreach (var group in _agentCore.RegisteredSkillMetadata.GroupBy(x => TestGroupName(x.Category)))
+            {
+                var uiGroup = new TestToolGroup { Title = group.Key };
+                foreach (var metadata in group)
+                {
+                    var item = new TestToolItem
+                    {
+                        SkillName = metadata.Name,
+                        ToolName = metadata.ToolName,
+                        DisplayName = TestDisplayName(metadata.ToolName),
+                        Description = TestPrerequisites(metadata),
+                        ParameterHint = TestParameterHint(metadata.ToolName),
+                        Parameters = DefaultTestParameters(metadata.ToolName),
+                        RequiresConfirmation = metadata.RequiresConfirmation,
+                        RequiresSelection = metadata.RequiresSelection
+                    };
+                    item.RunCommand = new RelayCommand(() => ExecuteTestTool(item), () => !IsRefreshing && !HasPendingConfirmation);
+                    uiGroup.Tools.Add(item);
+                }
+                TestToolGroups.Add(uiGroup);
+            }
+        }
+
+        private static string TestGroupName(string category)
+        {
+            if (category.StartsWith("System.")) return "Hệ thống";
+            if (category.StartsWith("CAD.") || category.StartsWith("Workflow.")) return "Tạo và sửa CAD";
+            if (category.StartsWith("ModelReader")) return "Đọc model";
+            if (category.StartsWith("Assembly.")) return "Assembly";
+            if (category.StartsWith("Manufacturing.")) return "Bóc tách và vật liệu phôi";
+            if (category.StartsWith("BOM")) return "BOM";
+            if (category.StartsWith("Drawing.")) return "Drawing";
+            return category;
+        }
+
+        private static string TestDisplayName(string name)
+        {
+            switch (name)
+            {
+                case "GetModelInfo": return "Đọc ngữ cảnh tài liệu";
+                case "CreatePart": return "Tạo Part mới";
+                case "CreateSketch": return "Tạo Sketch";
+                case "CreateRectangle": return "Vẽ hình chữ nhật";
+                case "CreateCircle": return "Vẽ đường tròn";
+                case "AddDimension": return "Thêm kích thước";
+                case "ModifyDimension": return "Sửa kích thước";
+                case "Extrude": return "Đùn khối";
+                case "CutExtrude": return "Cắt đùn";
+                case "FilletPlateCorners": return "Bo góc tấm";
+                case "ChamferPlateCorners": return "Vát góc tấm";
+                case "CreatePlate": return "Tạo tấm";
+                case "CreatePlateWithHole": return "Tạo tấm có lỗ";
+                case "ReadFeatureTree": return "Đọc cây Feature";
+                case "ReadFeatures": return "Đọc danh sách Feature";
+                case "ReadFeatureDependencies": return "Đọc phụ thuộc Feature";
+                case "AnalyzeFeatureImpact": return "Phân tích ảnh hưởng Feature";
+                case "ReadSketches": return "Đọc Sketch";
+                case "ReadDimensions": return "Đọc kích thước";
+                case "ReadMaterial": return "Đọc vật liệu CAD";
+                case "ReadMassProperties": return "Đọc khối lượng";
+                case "ReadCustomProperties": return "Đọc Custom Properties";
+                case "ReadSelectedObject": return "Đọc đối tượng đang chọn";
+                case "ReadBoundingBox": return "Đọc kích thước bao";
+                case "ReadAssembly": return "Đọc Assembly";
+                case "ReadComponents": return "Đọc Component";
+                case "ReadMates": return "Đọc Mate";
+                case "CheckInterference": return "Kiểm tra va chạm";
+                case "InsertComponent": return "Chèn Component";
+                case "MoveComponent": return "Di chuyển Component";
+                case "AddMate": return "Thêm Mate";
+                case "DeleteMate": return "Xóa Mate";
+                case "ReplaceComponent": return "Thay Component";
+                case "BuildManufacturingBreakdown": return "Bóc tách và tính phôi";
+                case "ExportManufacturingBreakdown": return "Xuất bảng phôi Excel";
+                case "ApplyStockMaterials": return "Ghi vật liệu phôi vào Part";
+                case "CreateBOM": return "Tạo và xuất BOM";
+                case "InsertSolidWorksBOM": return "Chèn BOM native";
+                case "CreateDrawing": return "Tạo bản vẽ";
+                case "CreateSheet": return "Tạo sheet";
+                case "InsertStandardViews": return "Chèn hình chiếu tiêu chuẩn";
+                case "InsertIsometricView": return "Chèn hình chiếu trục đo";
+                case "CreateSection": return "Tạo hình cắt";
+                case "CreateDetail": return "Tạo hình trích";
+                case "InsertDimensions": return "Chèn kích thước bản vẽ";
+                case "InsertDrawingBOM": return "Chèn BOM vào bản vẽ";
+                case "InsertBalloon": return "Chèn balloon";
+                case "FillTitleBlock": return "Điền khung tên";
+                case "ExportPDF": return "Xuất PDF";
+                case "ExportDXF": return "Xuất DXF";
+                case "ReadDrawing": return "Đọc bản vẽ";
+                default: return name;
+            }
+        }
+
+        private static string TestPrerequisites(SkillMetadata metadata)
+        {
+            if (metadata.ToolName == "CreateDrawing") return "Mở Part hoặc Assembly đã lưu và cấu hình template Drawing.";
+            if (metadata.Category.StartsWith("Drawing.")) return "Mở Drawing test; một số thao tác cần view/BOM có sẵn.";
+            if (metadata.RequiresAssemblyDocument || metadata.Category.StartsWith("Assembly.")) return "Mở Assembly test; thao tác ghi cần dùng bản sao.";
+            if (metadata.RequiresPartDocument) return "Mở Part test; chọn Sketch hoặc entity phù hợp nếu cần.";
+            if (metadata.RequiresActiveDocument) return "Mở tài liệu test phù hợp.";
+            return "Kiểm tra tài liệu và dữ liệu đầu vào trước khi chạy.";
+        }
+
+        private static string TestParameterHint(string name)
+        {
+            switch (name)
+            {
+                case "CreateRectangle": return "Width=60\nHeight=40";
+                case "CreateCircle": return "Diameter=10\nX=0\nY=0";
+                case "Extrude": case "CutExtrude": return "Depth=20";
+                case "AddDimension": return "Value=20";
+                case "ModifyDimension": return "Name=D1@Sketch1\nValue=20";
+                case "FilletPlateCorners": return "Radius=5";
+                case "ChamferPlateCorners": return "Distance=3";
+                case "CreatePlate": return "Width=100\nHeight=80\nThickness=10";
+                case "CreatePlateWithHole": return "Width=100\nHeight=80\nThickness=10\nHoleDiameter=10\nHoleDepth=10";
+                case "AnalyzeFeatureImpact": return "FeatureName=Boss-Extrude1";
+                case "InsertComponent": return "Path=C:\\Test\\Part.SLDPRT\nX=0\nY=0\nZ=0";
+                case "MoveComponent": return "ComponentName=Part-1\nX=20\nY=0\nZ=0";
+                case "AddMate": return "MateType=Coincident";
+                case "DeleteMate": return "MateName=Coincident1";
+                case "ReplaceComponent": return "ComponentName=Part-1\nNewPath=C:\\Test\\Replacement.SLDPRT";
+                case "BuildManufacturingBreakdown": case "ExportManufacturingBreakdown": return "DocumentRoot=C:\\Test\\MaterialDocuments\nThicknessCatalogPath=C:\\Test\\thickness.csv";
+                case "ApplyStockMaterials": return "DocumentRoot=C:\\Test\\MaterialDocuments";
+                case "CreateBOM": return "ExportExcel=true\nExportCsv=true";
+                case "InsertSolidWorksBOM": case "InsertDrawingBOM": return "TemplatePath=C:\\Test\\bom-standard.sldbomtbt";
+                case "CreateSheet": return "Name=Sheet2\nPaperSize=A3\nScaleNumerator=1\nScaleDenominator=1";
+                case "InsertStandardViews": return "ModelPath=C:\\Test\\Part.SLDPRT";
+                case "InsertIsometricView": return "ModelPath=C:\\Test\\Part.SLDPRT";
+                case "CreateSection": return "SourceViewName=Drawing View1\nLabel=A\nDirection=Vertical";
+                case "CreateDetail": return "SourceViewName=Drawing View1\nLabel=B\nRadiusMm=15";
+                case "InsertDimensions": return "ViewName=Drawing View1";
+                case "FillTitleBlock": return "Title=Test Part\nDrawing Number=TEST-001\nRevision=A";
+                case "ExportPDF": return "OutputPath=C:\\Test\\output.pdf";
+                case "ExportDXF": return "OutputPath=C:\\Test\\output.dxf";
+                default: return string.Empty;
+            }
+        }
+
+        private static string DefaultTestParameters(string name)
+        {
+            switch (name)
+            {
+                case "CreateRectangle": return "Width=60\nHeight=40";
+                case "CreateCircle": return "Diameter=10\nX=0\nY=0";
+                case "Extrude": case "CutExtrude": return "Depth=20";
+                case "AddDimension": return "Value=20";
+                case "FilletPlateCorners": return "Radius=5";
+                case "ChamferPlateCorners": return "Distance=3";
+                case "CreatePlate": return "Width=100\nHeight=80\nThickness=10";
+                case "CreatePlateWithHole": return "Width=100\nHeight=80\nThickness=10\nHoleDiameter=10\nHoleDepth=10";
+                case "CreateSheet": return "Name=Sheet2\nPaperSize=A3\nScaleNumerator=1\nScaleDenominator=1";
+                default: return string.Empty;
+            }
+        }
+
+        private static Dictionary<string, object> ParseTestParameters(string input)
+        {
+            var values = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            foreach (var rawLine in (input ?? string.Empty).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var line = rawLine.Trim();
+                if (line.Length == 0 || line.StartsWith("#")) continue;
+                int separator = line.IndexOf('=');
+                if (separator <= 0 || separator == line.Length - 1)
+                    throw new FormatException("Mỗi tham số phải có dạng Tên=Giá trị: " + line);
+                values[line.Substring(0, separator).Trim()] = line.Substring(separator + 1).Trim();
+            }
+            return values;
+        }
+
+        private void ExecuteTestTool(TestToolItem item)
+        {
+            if (item == null) return;
+            try
+            {
+                var parameters = ParseTestParameters(item.Parameters);
+                var plan = new TaskPlan { Goal = "Kiểm thử " + item.SkillName };
+                var step = new PlanStep { Index = 1, SkillName = item.SkillName, Description = item.Description };
+                foreach (var pair in parameters) step.Parameters[pair.Key] = pair.Value;
+                plan.Steps.Add(step);
+                _currentPlan = plan;
+                HasPlan = true;
+                RefreshPlanDisplay();
+                LastRunSucceeded = false;
+                LastResultText = "Đang chạy " + item.SkillName + "...";
+                AddLog($"> TEST {item.SkillName}: {string.Join(", ", parameters.Keys)}");
+                if (_agentCore.PlanRequiresConfirmation(plan))
+                {
+                    _pendingIntent = item.SkillName;
+                    _pendingCommandText = "TEST " + item.SkillName;
+                    ConfirmationSummary = item.SkillName + "\n" + item.Description;
+                    HasPendingConfirmation = true;
+                    AgentStageText = "AwaitingConfirmation";
+                    LastResultText = "Kiểm tra tài liệu và tham số, rồi xác nhận để chạy công cụ này.";
+                    return;
+                }
+                RunTestPlan(plan, item.SkillName);
+            }
+            catch (Exception ex)
+            {
+                AgentStageText = "Failed";
+                LastResultText = ex.Message;
+                StatusText = "Lỗi tham số kiểm thử.";
+                AddLog("  [TEST ERR] " + ex.Message);
+            }
+        }
+
+        private void RunTestPlan(TaskPlan plan, string skillName, bool confirmed = false)
+        {
+            IsRefreshing = true;
+            try
+            {
+                AgentStageText = "Executing";
+                _agentCore.State.CurrentRequest = "TEST " + skillName;
+                var result = _agentCore.ExecutePlan(plan, confirmed);
+                RefreshPlanDisplay();
+                LastRunSucceeded = result.IsSuccess;
+                AgentStageText = result.IsSuccess ? "Completed" : "Failed";
+                LastResultText = result.IsSuccess
+                    ? "✅ " + skillName + " đã chạy và kiểm tra kết quả.\n" + FormatTestData(skillName, result.LastData)
+                    : result.Error;
+                StatusText = result.IsSuccess ? "Kiểm thử thành công: " + skillName : "Kiểm thử thất bại: " + skillName;
+                CommandHistory.Insert(0, (result.IsSuccess ? "OK" : "FAIL") + " • TEST " + skillName);
+                while (CommandHistory.Count > 20) CommandHistory.RemoveAt(CommandHistory.Count - 1);
+                AddLog(result.IsSuccess ? "  [TEST OK] " + LastResultText : "  [TEST FAIL] " + result.Error);
+            }
+            catch (Exception ex)
+            {
+                AgentStageText = "Failed";
+                LastRunSucceeded = false;
+                LastResultText = "Lỗi khi chạy " + skillName + ": " + ex.Message;
+                AddLog("  [TEST ERR] " + ex.Message);
+            }
+            finally
+            {
+                IsRefreshing = false;
+                RefreshInfo();
+                RelayCommand.RaiseCanExecuteChanged();
+            }
+        }
+
+        private string FormatTestData(string skillName, object data)
+        {
+            if (data == null) return "Không có dữ liệu trả về.";
+            if (IsReadIntent(skillName)) return FormatModelQueryResult(skillName, data);
+            if (data is string text) return text;
+            var properties = data.GetType().GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+            var lines = new List<string>();
+            foreach (var property in properties.Take(14))
+            {
+                if (property.GetIndexParameters().Length > 0) continue;
+                try
+                {
+                    var value = property.GetValue(data, null);
+                    if (value == null) continue;
+                    if (value is System.Collections.ICollection collection)
+                        lines.Add(property.Name + ": " + collection.Count + " mục");
+                    else if (value.GetType().IsPrimitive || value is string || value is decimal)
+                        lines.Add(property.Name + ": " + value);
+                }
+                catch { /* A COM-backed property may not be readable after the tool returns. */ }
+            }
+            return lines.Count > 0 ? string.Join("\n", lines) : Convert.ToString(data);
         }
 
         public void SetUiLanguage(string languageCode)
@@ -694,6 +966,12 @@ namespace SwMateAI.UI.ViewModels
         private void ConfirmPendingPlan()
         {
             if (_currentPlan == null || !HasPendingConfirmation) return;
+            if (_pendingCommandText.StartsWith("TEST ", StringComparison.Ordinal))
+            {
+                HasPendingConfirmation = false;
+                RunTestPlan(_currentPlan, _pendingIntent, confirmed: true);
+                return;
+            }
             HasPendingConfirmation = false;
             AgentStageText = "Executing";
             AddLog("  [CONFIRM] User confirmed plan. Executing...");
@@ -715,8 +993,10 @@ namespace SwMateAI.UI.ViewModels
 
         private void CancelPendingPlan()
         {
+            bool test = _pendingCommandText.StartsWith("TEST ", StringComparison.Ordinal);
             HasPendingConfirmation = false; AgentStageText = "Idle";
-            LastResultText = Tr("Đã hủy kế hoạch trước khi thay đổi Assembly.", "Plan cancelled before modifying the Assembly.");
+            LastResultText = test ? Tr("Đã hủy kiểm thử trước khi thay đổi tài liệu.", "Test cancelled before modifying the document.")
+                : Tr("Đã hủy kế hoạch trước khi thay đổi Assembly.", "Plan cancelled before modifying the Assembly.");
             StatusText = Tr("Đã hủy kế hoạch.", "Plan cancelled."); AddLog("  [CONFIRM] Plan cancelled by user.");
         }
 
@@ -904,5 +1184,31 @@ namespace SwMateAI.UI.ViewModels
 
         protected void OnPropertyChanged([CallerMemberName] string propertyName = null) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    public class TestToolGroup
+    {
+        public string Title { get; set; }
+        public ObservableCollection<TestToolItem> Tools { get; } = new ObservableCollection<TestToolItem>();
+    }
+
+    public class TestToolItem : INotifyPropertyChanged
+    {
+        private string _parameters = string.Empty;
+        public string SkillName { get; set; }
+        public string DisplayName { get; set; }
+        public string ToolName { get; set; }
+        public string Description { get; set; }
+        public string ParameterHint { get; set; }
+        public bool HasParameters => !string.IsNullOrEmpty(ParameterHint);
+        public bool RequiresConfirmation { get; set; }
+        public bool RequiresSelection { get; set; }
+        public string Parameters
+        {
+            get => _parameters;
+            set { _parameters = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Parameters))); }
+        }
+        public ICommand RunCommand { get; set; }
+        public event PropertyChangedEventHandler PropertyChanged;
     }
 }
