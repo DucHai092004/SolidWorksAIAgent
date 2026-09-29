@@ -96,6 +96,28 @@ namespace SwMateAI.DrawingUnderstanding.IntegrationRunner
                 Check("Reader view details are populated",
                     data != null && data.Views.Count >= data.ModelViewCount,
                     "Views=" + (data?.Views.Count ?? 0));
+                Check("Reader semantic dimensions match count",
+                    data != null && data.Dimensions.Count == data.DimensionCount,
+                    $"Semantic={data?.Dimensions.Count ?? 0}, Count={data?.DimensionCount ?? 0}");
+
+                bool semanticDimensionFound = false;
+                if (data != null)
+                {
+                    foreach (var dimension in data.Dimensions)
+                    {
+                        if (!string.IsNullOrWhiteSpace(dimension.Name)
+                            && !string.IsNullOrWhiteSpace(dimension.ViewName)
+                            && !string.IsNullOrWhiteSpace(dimension.Type)
+                            && !string.IsNullOrWhiteSpace(dimension.UnitKind))
+                        {
+                            semanticDimensionFound = true;
+                            break;
+                        }
+                    }
+                }
+                Check("Reader returns semantic dimension details",
+                    semanticDimensionFound,
+                    "No dimension had Name/View/Type/UnitKind metadata");
             }
             catch (Exception ex)
             {
