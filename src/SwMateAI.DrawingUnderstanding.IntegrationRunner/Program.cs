@@ -96,6 +96,47 @@ namespace SwMateAI.DrawingUnderstanding.IntegrationRunner
                 Check("Reader view details are populated",
                     data != null && data.Views.Count >= data.ModelViewCount,
                     "Views=" + (data?.Views.Count ?? 0));
+                Check("Reader semantic dimensions match count",
+                    data != null && data.Dimensions.Count == data.DimensionCount,
+                    $"Semantic={data?.Dimensions.Count ?? 0}, Count={data?.DimensionCount ?? 0}");
+
+                bool semanticDimensionFound = false;
+                if (data != null)
+                {
+                    foreach (var dimension in data.Dimensions)
+                    {
+                        if (!string.IsNullOrWhiteSpace(dimension.Name)
+                            && !string.IsNullOrWhiteSpace(dimension.ViewName)
+                            && !string.IsNullOrWhiteSpace(dimension.Type)
+                            && !string.IsNullOrWhiteSpace(dimension.UnitKind))
+                        {
+                            semanticDimensionFound = true;
+                            break;
+                        }
+                    }
+                }
+                Check("Reader returns semantic dimension details",
+                    semanticDimensionFound,
+                    "No dimension had Name/View/Type/UnitKind metadata");
+
+                Check("Reader semantic notes match count",
+                    data != null && data.Notes.Count == data.NoteCount,
+                    $"Semantic={data?.Notes.Count ?? 0}, Count={data?.NoteCount ?? 0}");
+                bool noteOwnersValid = true;
+                if (data != null)
+                {
+                    foreach (var note in data.Notes)
+                    {
+                        if (string.IsNullOrWhiteSpace(note.ViewName))
+                        {
+                            noteOwnersValid = false;
+                            break;
+                        }
+                    }
+                }
+                Check("Reader note ownership metadata is populated",
+                    data != null && noteOwnersValid,
+                    "At least one semantic note did not have a ViewName");
             }
             catch (Exception ex)
             {
