@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using SwMateAI.Core.DocumentIntelligence;
+using SwMateAI.Core.Manufacturing;
 
 namespace SwMateAI.Core.Tests;
 
@@ -24,6 +25,71 @@ public class DocumentIntelligenceTests
             Assert.AreEqual("S45C", records[0].StockMaterial);
         }
         finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public void CsvParser_ReadsSemicolonSeparatedMaterial()
+    {
+        string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".csv");
+        try
+        {
+            File.WriteAllText(path, "Part Number;Stock Material\nSHAFT-002.stp;42CrMo4\n");
+            var records = new CsvMaterialSourceParser().Parse(path);
+            Assert.AreEqual(1, records.Count);
+            Assert.AreEqual("SHAFT-002", records[0].NormalizedPartCode);
+            Assert.AreEqual("42CrMo4", records[0].StockMaterial);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public void Enricher_ConflictingExactMaterials_RequiresReview()
+    {
+        var part = new BreakdownItem { PartNumber = "SHAFT-002", Material = "C45" };
+        var import = new MaterialImportResult();
+        import.Records.Add(new MaterialSourceRecord
+        {
+            NormalizedPartCode = "SHAFT-002", StockMaterial = "C45", SourceFile = "first.csv"
+        });
+        import.Records.Add(new MaterialSourceRecord
+        {
+            NormalizedPartCode = "SHAFT-002", StockMaterial = "42CrMo4", SourceFile = "second.csv"
+        });
+        var summary = new StockMaterialEnricher().Enrich(new[] { part }, import);
+        Assert.AreEqual(1, summary.NeedsReview);
+        Assert.IsTrue(part.StockMaterialNeedsReview);
+        Assert.AreEqual("CONFLICT", part.StockMatchMethod);
+        Assert.AreEqual(string.Empty, part.StockMaterial);
+    }
+
+    [TestMethod]
+    public void PdfParser_ExtractsLabeledMaterialInReadingOrder()
+    {
+        string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestData", "materials_text.pdf");
+        var records = new PdfMaterialSourceParser().Parse(path);
+        Assert.AreEqual(1, records.Count);
+        Assert.AreEqual("SHAFT-002", records[0].NormalizedPartCode);
+        Assert.AreEqual("C45", records[0].StockMaterial);
+    }
+
+    [TestMethod]
+    public void PdfParser_ReportsImageOnlyPageForReview()
+    {
+        string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestData", "materials_image_only.pdf");
+        var parser = new PdfMaterialSourceParser();
+        Assert.AreEqual(0, parser.Parse(path).Count);
+        CollectionAssert.AreEqual(new[] { 1 }, new System.Collections.Generic.List<int>(parser.ImageOnlyPages));
+    }
+
+    [TestMethod]
+    public void XlsxParser_ReadsSharedStringsWithHeaderOnRowFiveAndBlankColumn()
+    {
+        string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestData", "materials_shared_header_row5.xlsx");
+        var records = new XlsxMaterialSourceParser().Parse(path);
+        Assert.AreEqual(1, records.Count);
+        Assert.AreEqual("SHAFT-002", records[0].NormalizedPartCode);
+        Assert.AreEqual("42CrMo4", records[0].StockMaterial);
+        Assert.AreEqual(6, records[0].RowNumber);
     }
 
     [TestMethod]

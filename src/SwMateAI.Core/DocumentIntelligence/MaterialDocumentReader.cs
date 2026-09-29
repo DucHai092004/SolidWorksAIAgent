@@ -29,6 +29,9 @@ namespace SwMateAI.Core.DocumentIntelligence
                     IMaterialSourceParser parser = _parsers.Find(p => p.CanRead(file));
                     if (parser == null) continue;
                     result.Records.AddRange(parser.Parse(file));
+                    if (parser is PdfMaterialSourceParser pdf)
+                        foreach (int page in pdf.ImageOnlyPages)
+                            result.Errors.Add($"{Path.GetFileName(file)}, page {page}: REVIEW_PDF_IMAGE_ONLY");
                 }
                 catch (Exception ex)
                 {

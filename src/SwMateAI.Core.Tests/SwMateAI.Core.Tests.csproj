@@ -22,4 +22,9 @@
     <ProjectReference Include="..\SwMateAI.Core\SwMateAI.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="TestData\*.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="TestData\*.xlsx" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -12,6 +12,13 @@ namespace SwMateAI.Core.Manufacturing
                 return "Unclassified";
             }
 
+            if (item.HasCylindricalFace && !item.LargestCylinderAxisAligned)
+            {
+                item.StockGeometryNeedsReview = true;
+                item.StockClassificationBasis = "REVIEW_ORIENTATION: cylinder axis is not aligned with the Part axes";
+                return "Unclassified";
+            }
+
             if (item.HasCylindricalFace && TryGetRoundBarDimensions(item, out var boxDiameter, out _))
             {
                 double tolerance = Math.Max(0.5, boxDiameter * 0.05);

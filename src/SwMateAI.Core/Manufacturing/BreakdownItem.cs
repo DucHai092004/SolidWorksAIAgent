@@ -24,6 +24,8 @@ namespace SwMateAI.Core.Manufacturing
         public double StockVolumeMm3 { get; set; }
         public double DensityKgM3 { get; set; }
         public bool HasCylindricalFace { get; set; }
+        public bool LargestCylinderAxisAligned { get; set; }
+        public bool StockGeometryNeedsReview { get; set; }
         public double LargestCylinderDiameterMm { get; set; }
         public string StockClassificationBasis { get; set; } = string.Empty;
         public string StockSizeRule { get; set; } = string.Empty;

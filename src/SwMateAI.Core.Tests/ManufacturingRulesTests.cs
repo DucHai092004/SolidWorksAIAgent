@@ -24,6 +24,31 @@ public class ManufacturingRulesTests
     }
 
     [TestMethod]
+    public void PlateWithSmallCylindricalHole_IsNotClassifiedAsRoundBar()
+    {
+        var item = new BreakdownItem
+        {
+            FinishedXmm = 100, FinishedYmm = 80, FinishedZmm = 10,
+            HasCylindricalFace = true, LargestCylinderDiameterMm = 10,
+            LargestCylinderAxisAligned = true
+        };
+        Assert.AreEqual("Plate", new StockClassifier().Classify(item));
+    }
+
+    [TestMethod]
+    public void ObliqueCylinder_RequiresOrientationReview()
+    {
+        var item = new BreakdownItem
+        {
+            FinishedXmm = 78, FinishedYmm = 40, FinishedZmm = 78,
+            HasCylindricalFace = true, LargestCylinderDiameterMm = 40,
+            LargestCylinderAxisAligned = false
+        };
+        Assert.AreEqual("Unclassified", new StockClassifier().Classify(item));
+        Assert.IsTrue(item.StockGeometryNeedsReview);
+    }
+
+    [TestMethod]
     public void PrismaticStock_UsesLengthWidthPlus10_ThicknessPlus2Fallback()
     {
         var item = new BreakdownItem { StockType = "Block", FinishedXmm = 100, FinishedYmm = 60, FinishedZmm = 17 };

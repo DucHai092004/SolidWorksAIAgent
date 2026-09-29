@@ -1,14 +1,19 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using SwMateAI.Core.Common;
 using UglyToad.PdfPig;
+using UglyToad.PdfPig.Content;
 
 namespace SwMateAI.Core.DocumentIntelligence
 {
     public class PdfMaterialSourceParser : IMaterialSourceParser
     {
+        private readonly List<int> _imageOnlyPages = new List<int>();
+        public IReadOnlyList<int> ImageOnlyPages => _imageOnlyPages;
         private static readonly Regex Code = new Regex(
             @"(?:Mã\s*(?:chi\s*tiết|CT|SP)|Ma\s*(?:chi\s*tiet|CT|SP)|Part\s*(?:Number|No\.?|Code)|Drawing\s*(?:No\.?|Number))\s*[:=\-]?\s*" +
             @"(?<v>[A-Za-z0-9_.\-]+?)(?=(?:Vật\s*liệu|Vat\s*lieu|VL\s*phôi|VL\s*phoi|Stock\s*Material|Raw\s*Material|Material\s*Grade|Mác\s*vật\s*liệu|Mac\s*vat\s*lieu)|\s|$)",
@@ -22,6 +27,7 @@ namespace SwMateAI.Core.DocumentIntelligence
 
         public IReadOnlyList<MaterialSourceRecord> Parse(string path)
         {
+            _imageOnlyPages.Clear();
             var result = new List<MaterialSourceRecord>();
 
             using (var pdf = PdfDocument.Open(path))
@@ -30,8 +36,12 @@ namespace SwMateAI.Core.DocumentIntelligence
                 foreach (var page in pdf.GetPages())
                 {
                     pageNumber++;
-                    string text = page.Text ?? string.Empty;
-                    if (text.Trim().Length < 10) continue; // image-only page: OCR checkpoint handles this later.
+                    string text = ExtractInReadingOrder(page);
+                    if (text.Trim().Length < 10)
+                    {
+                        _imageOnlyPages.Add(pageNumber);
+                        continue;
+                    }
 
                     var codes = Code.Matches(text);
                     var materials = Material.Matches(text);
@@ -49,6 +59,28 @@ namespace SwMateAI.Core.DocumentIntelligence
                 }
             }
             return result;
+        }
+
+        private static string ExtractInReadingOrder(Page page)
+        {
+            // This PdfPig build predates ContentOrderTextExtractor. Reconstruct rows
+            // from word coordinates instead of relying on the PDF drawing order.
+            var words = page.GetWords().OrderByDescending(w => w.BoundingBox.Top);
+            var lines = new List<List<Word>>();
+            foreach (var word in words)
+            {
+                if (lines.Count == 0 ||
+                    Math.Abs(word.BoundingBox.Top - lines[lines.Count - 1][0].BoundingBox.Top) > 3.0)
+                    lines.Add(new List<Word>());
+                lines[lines.Count - 1].Add(word);
+            }
+            var text = new StringBuilder();
+            foreach (var line in lines)
+            {
+                if (text.Length > 0) text.Append('\n');
+                text.Append(string.Join(" ", line.OrderBy(w => w.BoundingBox.Left).Select(w => w.Text)));
+            }
+            return text.ToString();
         }
 
         private static void TryParseLine(string line, string path, int page, List<MaterialSourceRecord> result)

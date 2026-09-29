@@ -32,7 +32,8 @@ namespace SwMateAI.Core.Manufacturing
                     .Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
                 if (materials.Count == 1)
                 {
-                    Assign(item, exact[0], 1.0, "EXACT");
+                    Assign(item, exact.First(x => string.Equals(
+                        x.StockMaterial?.Trim(), materials[0], StringComparison.OrdinalIgnoreCase)), 1.0, "EXACT");
                     summary.DocumentAssigned++;
                     continue;
                 }

@@ -52,8 +52,9 @@ namespace SwMateAI.Core.Manufacturing
                 string database;
                 item.Material = part.GetMaterialPropertyName2(config, out database) ?? string.Empty;
                 ReadBoundingBox(part, item);
-                item.LargestCylinderDiameterMm = GetLargestCylinderDiameterMm(part);
+                item.LargestCylinderDiameterMm = GetLargestCylinderDiameterMm(part, out bool axisAligned);
                 item.HasCylindricalFace = item.LargestCylinderDiameterMm > 0;
+                item.LargestCylinderAxisAligned = axisAligned;
                 var mass = model.Extension.CreateMassProperty() as IMassProperty;
                 if (mass != null) item.DensityKgM3 = mass.Density;
             }
@@ -89,18 +90,38 @@ namespace SwMateAI.Core.Manufacturing
 
         private static void ReadBoundingBox(IPartDoc part, BreakdownItem item)
         {
-            var box = part?.GetPartBox(true) as Array;
-            if (box == null || box.Length < 6) return;
-            double minX = Convert.ToDouble(box.GetValue(0)), minY = Convert.ToDouble(box.GetValue(1)), minZ = Convert.ToDouble(box.GetValue(2));
-            double maxX = Convert.ToDouble(box.GetValue(3)), maxY = Convert.ToDouble(box.GetValue(4)), maxZ = Convert.ToDouble(box.GetValue(5));
+            // GetPartBox is approximate. Extreme points query the solid geometry.
+            var bodies = part?.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[];
+            if (bodies == null || bodies.Length == 0) return;
+            double minX = double.PositiveInfinity, minY = double.PositiveInfinity, minZ = double.PositiveInfinity;
+            double maxX = double.NegativeInfinity, maxY = double.NegativeInfinity, maxZ = double.NegativeInfinity;
+            foreach (var bodyObj in bodies)
+            {
+                if (!(bodyObj is IBody2 body)) continue;
+                double x, y, z;
+                body.GetExtremePoint(1, 0, 0, out x, out y, out z);
+                maxX = Math.Max(maxX, x);
+                body.GetExtremePoint(-1, 0, 0, out x, out y, out z);
+                minX = Math.Min(minX, x);
+                body.GetExtremePoint(0, 1, 0, out x, out y, out z);
+                maxY = Math.Max(maxY, y);
+                body.GetExtremePoint(0, -1, 0, out x, out y, out z);
+                minY = Math.Min(minY, y);
+                body.GetExtremePoint(0, 0, 1, out x, out y, out z);
+                maxZ = Math.Max(maxZ, z);
+                body.GetExtremePoint(0, 0, -1, out x, out y, out z);
+                minZ = Math.Min(minZ, z);
+            }
+            if (double.IsInfinity(minX) || double.IsInfinity(maxX)) return;
             item.FinishedXmm = Math.Abs(maxX - minX) * 1000.0;
             item.FinishedYmm = Math.Abs(maxY - minY) * 1000.0;
             item.FinishedZmm = Math.Abs(maxZ - minZ) * 1000.0;
         }
 
-        private static double GetLargestCylinderDiameterMm(IPartDoc part)
+        private static double GetLargestCylinderDiameterMm(IPartDoc part, out bool axisAligned)
         {
             double largest = 0;
+            axisAligned = false;
             var bodies = part?.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[];
             if (bodies == null) return largest;
             foreach (var bodyObj in bodies)
@@ -114,7 +135,14 @@ namespace SwMateAI.Core.Manufacturing
                     var parameters = surface.CylinderParams as Array;
                     if (parameters == null || parameters.Length < 7) continue;
                     double radiusM = Math.Abs(Convert.ToDouble(parameters.GetValue(6)));
-                    largest = Math.Max(largest, radiusM * 2000.0);
+                    double diameter = radiusM * 2000.0;
+                    if (diameter <= largest) continue;
+                    largest = diameter;
+                    double dx = Convert.ToDouble(parameters.GetValue(3));
+                    double dy = Convert.ToDouble(parameters.GetValue(4));
+                    double dz = Convert.ToDouble(parameters.GetValue(5));
+                    double norm = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                    axisAligned = norm > 0 && Math.Max(Math.Abs(dx), Math.Max(Math.Abs(dy), Math.Abs(dz))) / norm >= 0.995;
                 }
             }
             return largest;
