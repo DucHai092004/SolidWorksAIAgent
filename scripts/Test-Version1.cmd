@@ -25,6 +25,8 @@ if errorlevel 1 goto :fail
 
 echo.
 echo [3/5] BOM hierarchy integration
+"%MSBUILD%" "%BOM_PROJECT%" /t:Restore /p:Configuration=Debug /p:Platform=x64 /v:minimal
+if errorlevel 1 goto :fail
 "%MSBUILD%" "%BOM_PROJECT%" /t:Rebuild /p:Configuration=Debug /p:Platform=x64 /v:minimal
 if errorlevel 1 goto :fail
 "%BOM_EXE%"
