@@ -13,10 +13,24 @@ scripts\Test-Version1.cmd
 Required acceptance stages:
 1. Full solution build without COM registration + Core automated tests.
 2. Drawing Understanding integration on disposable Part/Drawing fixtures.
-3. Full SOLIDWORKS 2021 integration on disposable Part/Assembly/Drawing fixtures.
-4. Optional external OCR/render dependency report.
+3. BOM hierarchy integration on disposable Part/Subassembly/Top-assembly fixtures.
+4. Full SOLIDWORKS 2021 integration on disposable Part/Assembly/Drawing fixtures.
+5. Optional external OCR/render dependency report.
 
-A Version 1 acceptance run is PASS only when stages 1–3 return exit code 0. Missing Tesseract or `pdftoppm` is reported separately and remains tracked by Issue #8; the software must not invent OCR evidence when those dependencies are unavailable.
+A Version 1 acceptance run is PASS only when stages 1–4 return exit code 0. Missing Tesseract or `pdftoppm` is reported separately and remains tracked by Issue #8; the software must not invent OCR evidence when those dependencies are unavailable.
+
+## Final automated Version 1 checkpoint
+Verified on `release-v1-rc1`:
+- Core/build: **59/59 PASS**.
+- Drawing Understanding integration: **30/30 PASS**.
+- BOM hierarchy integration: **25/25 PASS**.
+- Full SOLIDWORKS 2021 integration: **46/46 PASS**.
+- `scripts\Test-Version1.cmd`: **VERSION 1 ACCEPTANCE: PASS**.
+
+The BOM hierarchy runtime fixture verifies all nine combinations of:
+- `TopLevel` / `PartsOnly` / `Indented`.
+- Subassembly child display `Show` / `Hide` / `Promote`.
+- Legacy flat BOM remains available for backward compatibility.
 
 ## Version 1 feature matrix
 | Phase | Acceptance scope |
@@ -26,7 +40,7 @@ A Version 1 acceptance run is PASS only when stages 1–3 return exit code 0. Mi
 | 2 | Model understanding: feature tree, features/dependencies/impact, sketches, dimensions, material, mass, properties, selection, bounding box |
 | 3 | Assembly: read components/mates/interference; insert/move/replace components; add/delete mates |
 | 4 | Manufacturing breakdown: unique parts, quantities, stock classification/sizing/weight, source-document material enrichment, image capture, Excel export |
-| 5 | BOM: generated BOM, Excel/CSV export, component images, native SOLIDWORKS BOM |
+| 5 | BOM: legacy flat + Top-level + Parts-only + Indented modes, Show/Hide/Promote child rules, Excel/CSV export, component images, native SOLIDWORKS BOM |
 | 6 | Drawing automation: create drawing/sheet/views, isometric, section/detail, dimensions, Drawing BOM, balloons, title block, PDF/DXF export |
 | 7 | Drawing understanding: native SLDDRW semantic reader, dimensions/notes/tables/BOM content, external PDF/image readiness, OCR/render evidence pipeline |
 
@@ -36,11 +50,14 @@ Use disposable CAD files, not production files.
 ### A. Startup and UI
 - SOLIDWORKS loads the add-in without an exception.
 - Task pane opens and connection indicator is green.
-- Vietnamese/English language selector remains readable on the dark UI.
+- Vietnamese/English language selector remains clearly readable on the dark UI.
+- Two main tabs are visible: `Agent` and `Kiểm thử`.
+- `Kiểm thử` dynamically lists the registered skills by category.
 - Refresh works with no document, Part, Assembly and Drawing.
 - Agent command box accepts Vietnamese commands and shows a plan before mutating actions.
 
 ### B. Part and Model Reader
+- In `Kiểm thử`, use only disposable files.
 - Create Part -> Sketch -> Rectangle -> Extrude.
 - Create Circle -> Cut Extrude.
 - Create a plate / plate with hole; test fillet or chamfer.
@@ -63,9 +80,15 @@ Use disposable CAD files, not production files.
 - Confirm `Công nghệ gia công` and `Nhà gia công` remain available for manual entry where required.
 
 ### E. BOM
-- Create BOM from Assembly.
+- Create a normal/legacy BOM first.
 - Export Excel and verify every expected row has its image when capture succeeds.
 - Export CSV.
+- Test hierarchy modes with `CreateBOM` parameters:
+  - `Mode=TopLevel;RespectChildDisplay=true`
+  - `Mode=PartsOnly;RespectChildDisplay=true`
+  - `Mode=Indented;RespectChildDisplay=true`
+- For a Subassembly, change SOLIDWORKS BOM child setting between Show / Hide / Promote and compare output.
+- In Indented Excel output, child Part Number cells should be visually indented by hierarchy level.
 - Insert native SOLIDWORKS BOM where applicable.
 - Reopen/close test documents and ensure no capture-only Part remains open.
 
@@ -81,25 +104,19 @@ Use disposable CAD files, not production files.
 - Run `AnalyzeDrawingSource` on a text PDF and verify `PDF_TEXT` evidence.
 - Run on raster/image-only input. Missing OCR/render dependencies must return review/error information, not fabricated semantic data.
 
-## Automated checkpoint before RC
-The latest verified Phase 7 checkpoint before creation of this RC was:
-- Core/build: 49/49 PASS.
-- Drawing Understanding integration: 30/30 PASS.
-- Full SOLIDWORKS 2021 integration: 46/46 PASS.
-
-The release candidate must be re-tested with `scripts\Test-Version1.cmd`; do not rely only on the historical counts above.
-
 ## Known external runtime dependency
 Issue #8 tracks real raster OCR/render validation.
 - Tesseract: configure `SWMATE_TESSERACT_PATH` or add `tesseract.exe` to PATH.
 - Poppler: configure `SWMATE_PDFTOPPM_PATH` or add `pdftoppm.exe` to PATH.
 
-Until those dependencies are installed and validated against known fixtures, raster semantics remain review-gated by design.
+On the current Windows test machine both executables are still unresolved. Until they are installed and validated against known fixtures, raster semantics remain review-gated by design.
 
 ## Release acceptance rule
-Version 1 can be treated as a code-complete release candidate when:
-- `scripts\Test-Version1.cmd` passes required stages 1–3.
+Version 1 is a code-complete release candidate when:
+- `scripts\Test-Version1.cmd` passes stages 1–4.
 - No production CAD file is modified by automated testing.
 - BOM/Manufacturing exports are manually spot-checked for images and document cleanup.
-- UI startup/language readability is manually checked.
+- UI startup, `Agent`/`Kiểm thử` tabs and language readability are manually checked.
 - Issue #8 remains explicitly documented if external OCR/runtime validation has not yet been performed.
+
+Current `release-v1-rc1` satisfies the automated acceptance rule. Tomorrow's remaining work is the user-facing/manual smoke test described above plus Issue #8 runtime dependency validation when those external tools are installed.
