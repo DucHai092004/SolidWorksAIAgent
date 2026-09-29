@@ -211,6 +211,28 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
                 Check("StockSize read-back", stockSizeStatus != 0 && !string.IsNullOrWhiteSpace(stockResolved),
                     $"Config={referencedConfiguration}, Value={stockResolved}");
 
+                var componentObjects = assembly?.GetComponents(false) as object[];
+                var excludeCandidate = componentObjects?.OfType<IComponent2>().LastOrDefault();
+                Check("BOM exclude candidate available", excludeCandidate != null, "No component available for ExcludeFromBOM regression");
+                if (excludeCandidate != null)
+                {
+                    bool previousExclude = excludeCandidate.ExcludeFromBOM;
+                    try
+                    {
+                        excludeCandidate.ExcludeFromBOM = true;
+                        var excludedBom = new BomBuilder(sw).Build();
+                        Check("BOM honors ExcludeFromBOM", excludedBom.ExcludedFromBomSkipped == 1,
+                            $"Excluded={excludedBom.ExcludedFromBomSkipped}");
+                        Check("BOM excluded occurrence is removed from quantity",
+                            excludedBom.Items.Count == 1 && excludedBom.Items[0].Quantity == 1,
+                            $"Items={excludedBom.Items.Count}, Qty={(excludedBom.Items.Count > 0 ? excludedBom.Items[0].Quantity : 0)}");
+                    }
+                    finally
+                    {
+                        excludeCandidate.ExcludeFromBOM = previousExclude;
+                    }
+                }
+
                 string detachedPartPath = Path.Combine(root, "Detached_Capture.SLDPRT");
                 File.Copy(partPath, detachedPartPath, true);
                 string detachedImageFolder = Path.Combine(root, "detached_capture_images");
@@ -232,6 +254,27 @@ namespace SwMateAI.SolidWorks.IntegrationRunner
                 Check("Temporary BOM capture returns to Assembly",
                     activeAfterDetachedCapture != null && activeAfterDetachedCapture.GetType() == (int)swDocumentTypes_e.swDocASSEMBLY,
                     activeAfterDetachedCapture?.GetTitle() ?? "No active document");
+
+                var detachedBreakdownItem = new BreakdownItem
+                {
+                    PartNumber = "Detached_Capture",
+                    SourcePath = detachedPartPath,
+                    RepresentativeComponentName = "__DETACHED_MANUFACTURING_CAPTURE__",
+                    Configuration = "Default",
+                    IsLoaded = false
+                };
+                string detachedManufacturingImage = new PartImageCapture(sw).Capture(
+                    detachedBreakdownItem, Path.Combine(root, "detached_manufacturing_images"));
+                Check("Manufacturing capture loads unloaded source file",
+                    !string.IsNullOrWhiteSpace(detachedManufacturingImage) && File.Exists(detachedManufacturingImage),
+                    detachedManufacturingImage ?? string.Empty);
+                var detachedManufacturingStillOpen = sw.GetOpenDocumentByName(detachedPartPath) as IModelDoc2;
+                Check("Temporary manufacturing capture document closed", detachedManufacturingStillOpen == null,
+                    detachedManufacturingStillOpen?.GetTitle() ?? string.Empty);
+                var activeAfterManufacturingCapture = sw.ActiveDoc as IModelDoc2;
+                Check("Temporary manufacturing capture returns to Assembly",
+                    activeAfterManufacturingCapture != null && activeAfterManufacturingCapture.GetType() == (int)swDocumentTypes_e.swDocASSEMBLY,
+                    activeAfterManufacturingCapture?.GetTitle() ?? "No active document");
 
                 ToolResult bomResult = agent.ExecuteTool("CreateBOM", new Dictionary<string, object>
                 {

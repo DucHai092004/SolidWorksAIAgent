@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Linq;
 using System.Windows.Input;
+using System.Windows.Media;
 using SwMateAI.Core.Agent;
 using SwMateAI.Core.Models;
 using SwMateAI.Core.Models.Understanding;
@@ -174,6 +175,8 @@ namespace SwMateAI.UI.ViewModels
         public ObservableCollection<PlanStepUiItem> CurrentPlanSteps { get; } = new ObservableCollection<PlanStepUiItem>();
         public ObservableCollection<string> CommandHistory { get; } = new ObservableCollection<string>();
         public ObservableCollection<TestToolGroup> TestToolGroups { get; } = new ObservableCollection<TestToolGroup>();
+        public string CapabilitySummary =>
+            $"{_agentCore.RegisteredSkillMetadata.Count(x => x.HasLiveRegression)}/{_agentCore.RegisteredSkillMetadata.Count} skill ?? c? live regression tr?n SOLIDWORKS 2021";
 
         // ─── Commands ─────────────────────────────────────────────────────────
 
@@ -269,7 +272,12 @@ namespace SwMateAI.UI.ViewModels
                         ParameterHint = TestParameterHint(metadata.ToolName),
                         Parameters = DefaultTestParameters(metadata.ToolName),
                         RequiresConfirmation = metadata.RequiresConfirmation,
-                        RequiresSelection = metadata.RequiresSelection
+                        RequiresSelection = metadata.RequiresSelection,
+                        MaturityText = metadata.HasLiveRegression
+                            ? $"? VERIFIED ? {metadata.VerifiedSolidWorksVersion}"
+                            : "PILOT ? ch?a c? live regression ri?ng",
+                        MaturityBrush = metadata.HasLiveRegression ? Brushes.MediumSeaGreen : Brushes.Goldenrod,
+                        VerificationEvidence = metadata.VerificationEvidence
                     };
                     item.RunCommand = new RelayCommand(() => ExecuteTestTool(item), () => !IsRefreshing && !HasPendingConfirmation);
                     uiGroup.Tools.Add(item);
@@ -1203,6 +1211,9 @@ namespace SwMateAI.UI.ViewModels
         public bool HasParameters => !string.IsNullOrEmpty(ParameterHint);
         public bool RequiresConfirmation { get; set; }
         public bool RequiresSelection { get; set; }
+        public string MaturityText { get; set; }
+        public Brush MaturityBrush { get; set; }
+        public string VerificationEvidence { get; set; }
         public string Parameters
         {
             get => _parameters;

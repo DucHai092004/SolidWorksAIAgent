@@ -7,6 +7,7 @@ namespace SwMateAI.Core.BOM
         public List<BomItem> Items { get; } = new List<BomItem>();
         public int TotalOccurrences { get; set; }
         public int SuppressedSkipped { get; set; }
+        public int ExcludedFromBomSkipped { get; set; }
         public int UnloadedCount { get; set; }
         public int CapturedImageCount { get; set; }
         public int EmbeddedImageCount { get; set; }

@@ -29,14 +29,13 @@ namespace SwMateAI.Core.BOM
             var assemblyModel = _swApp.ActiveDoc as IModelDoc2;
             var assembly = assemblyModel as IAssemblyDoc;
             var component = assembly?.GetComponentByName(item.RepresentativeComponentName);
-            var componentModel = component?.GetModelDoc2() as IModelDoc2;
             if (assemblyModel == null) return string.Empty;
 
             Directory.CreateDirectory(folder);
             string output = Path.Combine(folder, BuildShortImageName(item));
             string assemblyTitle = assemblyModel.GetTitle() ?? string.Empty;
-            using (var session = TemporaryModelCaptureSession.Acquire(
-                _swApp, componentModel, item.SourcePath, assemblyTitle))
+            using (var session = ComponentModelSession.Acquire(
+                _swApp, component, item.SourcePath, assemblyTitle, readOnly: true, hideNewDocument: true))
             {
                 var modelToCapture = session.Model;
                 if (modelToCapture == null) return string.Empty;

@@ -20,7 +20,7 @@ Source of roadmap: `AgnetAiSoliworkVer1.docx`.
 | 4 | Manufacturing breakdown | Extended in current version; unit + runtime regression required |
 | 5 | BOM | Existing; regression required |
 | 6 | Drawing automation | Implemented: create/sheet/views/section/detail/dimensions/Drawing BOM/balloons/title-block properties/PDF/DXF; SOLIDWORKS 2021 integration PASS |
-| 7 | Drawing understanding | SLDDRW API reader implemented; 69 integration checks PASS on 2026-09-29; PDF/image vision remains future |
+| 7 | Drawing understanding | SLDDRW API reader implemented; 80 integration checks PASS on 2026-09-29; PDF/image vision remains future |
 | 8 | Mechanical design copilot | Future roadmap; implement only with explicit engineering rules/data |
 | 9 | Manufacturing cost | Future roadmap; requires approved price/process data |
 | 10 | Autonomous mechanical agent | Long-term integration phase |
@@ -34,9 +34,10 @@ Source of roadmap: `AgnetAiSoliworkVer1.docx`.
 - Exact/fuzzy-safe part matching.
 - Natural-language routing for stock-material commands.
 - BOM parser regression.
+- Capability registry evidence mapping (Verified vs Pilot).
 
 Run pure/CI-safe checks: `scripts\Test-All.cmd`
 
 Run SOLIDWORKS 2021 integration checks: `scripts\Test-SolidWorks.cmd`
 
-Latest integration checkpoint (2026-09-29): 69 checks PASS, 0 FAIL using disposable Part/Assembly/Drawing files under the Windows temp directory. It verifies Part and Feature creation; GetModelInfo; feature/sketch/dimension/dependency readers; feature impact analysis; selected-object/material/custom-property/bounding-box/mass readers; Assembly readers; manufacturing breakdown export and stock-material write-back; BOM; Drawing views/section/detail/dimensions/title block/PDF/DXF; balloons; and ReadDrawing sheets/views/dimensions/BOM/notes. This is runtime evidence for the covered fixture, not a claim that all manual scenarios pass.
+Latest integration checkpoint (2026-09-29): 80 checks PASS, 0 FAIL using disposable Part/Assembly/Drawing files under the Windows temp directory. It verifies Part and Feature creation; GetModelInfo; feature/sketch/dimension/dependency readers; feature impact analysis; selected-object/material/custom-property/bounding-box/mass readers; Assembly readers; manufacturing breakdown export and stock-material write-back; BOM including ExcludeFromBOM semantics; hidden loading of unloaded source files for BOM/manufacturing image capture; automatic closure of Agent-opened temporary documents; Drawing views/section/detail/dimensions/title block/PDF/DXF; balloons; and ReadDrawing sheets/views/dimensions/BOM/notes. Core automated suite: 33/33 PASS. This is runtime evidence for the covered fixture, not a claim that all manual scenarios pass.

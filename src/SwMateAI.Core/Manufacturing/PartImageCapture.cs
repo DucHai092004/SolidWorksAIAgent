@@ -1,7 +1,10 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
+using SwMateAI.Core.Common;
 
 namespace SwMateAI.Core.Manufacturing
 {
@@ -12,28 +15,37 @@ namespace SwMateAI.Core.Manufacturing
 
         public string Capture(BreakdownItem item, string folder)
         {
-            if (item == null || !item.IsLoaded || string.IsNullOrWhiteSpace(item.RepresentativeComponentName))
+            if (item == null || string.IsNullOrWhiteSpace(item.RepresentativeComponentName))
                 return string.Empty;
+
             var assemblyModel = _swApp.ActiveDoc as IModelDoc2;
             var assembly = assemblyModel as IAssemblyDoc;
-            var component = assembly?.GetComponentByName(item.RepresentativeComponentName);
-            var partModel = component?.GetModelDoc2() as IModelDoc2;
-            if (assemblyModel == null || partModel == null) return string.Empty;
+            if (assemblyModel == null || assembly == null) return string.Empty;
 
+            var component = assembly.GetComponentByName(item.RepresentativeComponentName);
             Directory.CreateDirectory(folder);
-            string imageId = (string.IsNullOrWhiteSpace(item.PartNumber) ? item.RepresentativeComponentName : item.PartNumber) + "_" + item.Configuration + "_" + item.RepresentativeComponentName;
-            string fileName = SafeFileName(imageId) + ".png";
-            string output = Path.Combine(folder, fileName);
+            string output = Path.Combine(folder, BuildShortImageName(item));
             string assemblyTitle = assemblyModel.GetTitle() ?? string.Empty;
-
-            int activateErrors = 0;
-            try
+            using (var session = ComponentModelSession.Acquire(
+                _swApp,
+                component,
+                item.SourcePath,
+                assemblyTitle,
+                readOnly: true,
+                hideNewDocument: true))
             {
+                var partModel = session.Model;
+                if (partModel == null || partModel.GetType() != (int)swDocumentTypes_e.swDocPART)
+                    return string.Empty;
+
+                session.ActivateConfiguration(item.Configuration);
+                int activateErrors = 0;
                 _swApp.ActivateDoc3(partModel.GetTitle(), false, 0, ref activateErrors);
                 partModel.ShowNamedView2("*Isometric", (int)swStandardViews_e.swIsometricView);
                 partModel.ViewZoomtofit2();
 
-                int errors = 0, warnings = 0;
+                int errors = 0;
+                int warnings = 0;
                 bool ok = partModel.Extension.SaveAs(
                     output,
                     (int)swSaveAsVersion_e.swSaveAsCurrentVersion,
@@ -45,19 +57,28 @@ namespace SwMateAI.Core.Manufacturing
                 item.ImagePath = output;
                 return output;
             }
-            finally
-            {
-                if (!string.IsNullOrWhiteSpace(assemblyTitle))
-                    _swApp.ActivateDoc3(assemblyTitle, false, 0, ref activateErrors);
-            }
         }
 
-        private static string SafeFileName(string value)
+        private static string BuildShortImageName(BreakdownItem item)
         {
-            foreach (char c in Path.GetInvalidFileNameChars()) value = value.Replace(c, '_');
-            return string.IsNullOrWhiteSpace(value) ? "part" : value;
+            string identity = string.Join("|", new[]
+            {
+                item.SourcePath ?? string.Empty,
+                item.Configuration ?? string.Empty,
+                item.RepresentativeComponentName ?? string.Empty,
+                item.PartNumber ?? string.Empty
+            });
+
+            string hash;
+            using (var sha = SHA256.Create())
+            {
+                byte[] bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(identity));
+                var sb = new StringBuilder(12);
+                for (int i = 0; i < 6; i++) sb.Append(bytes[i].ToString("X2"));
+                hash = sb.ToString();
+            }
+
+            return $"part_{hash}.png";
         }
     }
 }
-
-

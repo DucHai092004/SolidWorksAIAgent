@@ -10,6 +10,14 @@ namespace SwMateAI.Core.Skills
         High
     }
 
+    public enum SkillMaturity
+    {
+        Experimental,
+        Pilot,
+        Verified,
+        Blocked
+    }
+
     public class SkillMetadata
     {
         public string Name { get; set; } = string.Empty;
@@ -17,6 +25,10 @@ namespace SwMateAI.Core.Skills
         public string Category { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public SkillRiskLevel RiskLevel { get; set; } = SkillRiskLevel.Low;
+        public SkillMaturity Maturity { get; set; } = SkillMaturity.Pilot;
+        public bool HasLiveRegression { get; set; }
+        public string VerifiedSolidWorksVersion { get; set; } = string.Empty;
+        public string VerificationEvidence { get; set; } = string.Empty;
         public bool RequiresConfirmation { get; set; }
         public bool SupportsUndo { get; set; }
         public bool RequiresActiveDocument { get; set; }

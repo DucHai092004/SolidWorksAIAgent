@@ -29,6 +29,7 @@ namespace SwMateAI.Core.BOM
                 var component = obj as IComponent2;
                 if (component == null) continue;
                 if (component.IsSuppressed()) { result.SuppressedSkipped++; continue; }
+                if (IsExcludedFromBom(component)) { result.ExcludedFromBomSkipped++; continue; }
                 occurrences.Add(ToRecord(component));
             }
             result.TotalOccurrences = occurrences.Count;
@@ -55,6 +56,13 @@ namespace SwMateAI.Core.BOM
                 result.Items.Add(item);
             }
             return result;
+        }
+
+        private static bool IsExcludedFromBom(IComponent2 component)
+        {
+            if (component == null) return false;
+            try { return component.ExcludeFromBOM; }
+            catch { return false; }
         }
 
         private static ComponentRecord ToRecord(IComponent2 component)

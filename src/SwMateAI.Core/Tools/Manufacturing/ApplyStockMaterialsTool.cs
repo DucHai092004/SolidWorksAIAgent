@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SwMateAI.Core.Manufacturing;
+using SwMateAI.Core.Common;
 
 namespace SwMateAI.Core.Tools.Manufacturing
 {
@@ -20,7 +21,7 @@ namespace SwMateAI.Core.Tools.Manufacturing
         public ApplyStockMaterialsTool(ISldWorks swApp) : base(swApp) { }
         public override string Name => "ApplyStockMaterials";
         public override string Description =>
-            "Reads related Excel/CSV/PDF documents and writes verified Stock Material and StockSize custom properties to matched loaded Parts.";
+            "Reads related Excel/CSV/PDF documents and writes verified Stock Material and StockSize custom properties to matched Parts.";
 
         public override bool CanExecute(out string reason)
         {
@@ -45,45 +46,55 @@ namespace SwMateAI.Core.Tools.Manufacturing
                 SourceFilesScanned = breakdown.MaterialFilesScanned
             };
 
-            var assembly = SwApp.ActiveDoc as IAssemblyDoc;
+            var assemblyModel = SwApp.ActiveDoc as IModelDoc2;
+            var assembly = assemblyModel as IAssemblyDoc;
+            string returnTitle = assemblyModel?.GetTitle() ?? string.Empty;
             foreach (var item in breakdown.Items)
             {
                 if (item.StockMaterialNeedsReview || item.StockGeometryNeedsReview
                     || string.IsNullOrWhiteSpace(item.StockMaterial)
                     || string.IsNullOrWhiteSpace(item.StockSize))
                 { result.Skipped++; continue; }
+
                 var component = assembly?.GetComponentByName(item.RepresentativeComponentName);
-                var model = component?.GetModelDoc2() as IModelDoc2;
-                if (model == null) { result.Skipped++; continue; }
-
-                var manager = model.Extension?.get_CustomPropertyManager(item.Configuration ?? string.Empty);
-                if (manager == null) { result.Skipped++; continue; }
-
-                PropertyValue materialBefore = default(PropertyValue);
-                PropertyValue sizeBefore = default(PropertyValue);
-                PropertyValue sourceBefore = default(PropertyValue);
-                bool snapshotReady = false;
-                try
+                using (var session = ComponentModelSession.Acquire(
+                    SwApp, component, item.SourcePath, returnTitle, readOnly: false, hideNewDocument: true))
                 {
-                    materialBefore = ReadProperty(manager, "Stock Material");
-                    sizeBefore = ReadProperty(manager, "StockSize");
-                    sourceBefore = ReadProperty(manager, "Stock Material Source");
-                    snapshotReady = true;
-                    WriteAndVerify(manager, "Stock Material", item.StockMaterial);
-                    WriteAndVerify(manager, "StockSize", item.StockSize);
-                    WriteAndVerify(manager, "Stock Material Source", item.StockMaterialSource ?? string.Empty);
-                    model.SetSaveFlag();
-                    result.Applied++;
-                }
-                catch (Exception)
-                {
-                    result.Failed++;
-                    if (snapshotReady)
+                    var model = session.Model;
+                    if (model == null) { result.Skipped++; continue; }
+
+                    var manager = model.Extension?.get_CustomPropertyManager(item.Configuration ?? string.Empty);
+                    if (manager == null) { result.Skipped++; continue; }
+
+                    PropertyValue materialBefore = default(PropertyValue);
+                    PropertyValue sizeBefore = default(PropertyValue);
+                    PropertyValue sourceBefore = default(PropertyValue);
+                    bool snapshotReady = false;
+                    try
                     {
-                        // Attempt all restores even when one COM call fails.
-                        TryRestore(manager, "Stock Material", materialBefore);
-                        TryRestore(manager, "StockSize", sizeBefore);
-                        TryRestore(manager, "Stock Material Source", sourceBefore);
+                        materialBefore = ReadProperty(manager, "Stock Material");
+                        sizeBefore = ReadProperty(manager, "StockSize");
+                        sourceBefore = ReadProperty(manager, "Stock Material Source");
+                        snapshotReady = true;
+                        WriteAndVerify(manager, "Stock Material", item.StockMaterial);
+                        WriteAndVerify(manager, "StockSize", item.StockSize);
+                        WriteAndVerify(manager, "Stock Material Source", item.StockMaterialSource ?? string.Empty);
+                        model.SetSaveFlag();
+
+                        if (session.OpenedByResolver && !session.SaveIfOpenedByResolver(out var saveErrors, out var saveWarnings))
+                            throw new InvalidOperationException($"Failed to save stock properties. errors={saveErrors}, warnings={saveWarnings}");
+
+                        result.Applied++;
+                    }
+                    catch (Exception)
+                    {
+                        result.Failed++;
+                        if (snapshotReady)
+                        {
+                            TryRestore(manager, "Stock Material", materialBefore);
+                            TryRestore(manager, "StockSize", sizeBefore);
+                            TryRestore(manager, "Stock Material Source", sourceBefore);
+                        }
                     }
                 }
             }

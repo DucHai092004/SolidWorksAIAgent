@@ -71,6 +71,7 @@ namespace SwMateAI.Core.Skills
             }
 
             if (m.Name != tool.Name) m.Aliases.Add(tool.Name);
+            CapabilityRegistry.Apply(m);
             return m;
         }
 
