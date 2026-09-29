@@ -13,17 +13,17 @@ Source of roadmap: `AgnetAiSoliworkVer1.docx`.
 ## Roadmap checkpoints
 | Phase | Scope | Current checkpoint |
 |---|---|---|
-| 0 | Agent foundation / orchestration / safety / result checking | Existing; regression review required |
-| 1 | Basic CAD agent | Existing; runtime regression required |
-| 2 | Model understanding | Existing; runtime regression required |
-| 3 | Assembly | Existing; runtime regression required |
-| 4 | Manufacturing breakdown | Extended in current version; unit + runtime regression required |
-| 5 | BOM | Existing; regression required |
-| 6 | Drawing automation | Implemented: create/sheet/views/section/detail/dimensions/Drawing BOM/balloons/title-block properties/PDF/DXF; SOLIDWORKS 2021 integration PASS |
+| 0 | Agent foundation / orchestration / safety / result checking | Included in Version 1 RC; covered by build/Core regression and live Agent dispatch checks |
+| 1 | Basic CAD agent | Included in Version 1 RC; disposable SOLIDWORKS creation workflow PASS |
+| 2 | Model understanding | Included in Version 1 RC; model-reader regression PASS |
+| 3 | Assembly | Included in Version 1 RC; component/mate/interference integration regression PASS |
+| 4 | Manufacturing breakdown | Included in Version 1 RC; breakdown + Excel runtime regression PASS; manual image/document-cleanup spot check remains in acceptance guide |
+| 5 | BOM | Included in Version 1 RC. Legacy flat, Top-level, Parts-only and Indented modes implemented. SOLIDWORKS Show/Hide/Promote subassembly child behavior covered by 25/25 hierarchy integration checks. Excel/CSV/image/native Drawing BOM paths retained. |
+| 6 | Drawing automation | Included in Version 1 RC: create/sheet/views/section/detail/dimensions/Drawing BOM/balloons/title-block properties/PDF/DXF; SOLIDWORKS 2021 integration PASS |
 | 7 | Drawing understanding | Native SLDDRW semantic reader complete for sheets/views, dimensions, notes and tables/BOM. External-source readiness/evidence routing covers native drawings, text PDFs, raster/textless PDFs, mixed PDFs and raster images. `AnalyzeDrawingSource` is a read-only Agent tool. Tesseract CLI OCR is implemented for raster images. PDF pages with insufficient native text first try the largest embedded PdfPig image; if that image is unavailable or not PNG-convertible, an optional `pdftoppm` full-page renderer is used before OCR. Confidence/review gating remains mandatory. The complete code path is implemented and regression-tested, but real OCR/render runtime validation is still pending because neither Tesseract nor `pdftoppm` is installed/resolvable on the current test machine. |
-| 8 | Mechanical design copilot | Future roadmap; implement only with explicit engineering rules/data |
-| 9 | Manufacturing cost | Future roadmap; requires approved price/process data |
-| 10 | Autonomous mechanical agent | Long-term integration phase |
+| 8 | Mechanical design copilot | Future roadmap; outside Version 1 |
+| 9 | Manufacturing cost | Future roadmap; outside Version 1 |
+| 10 | Autonomous mechanical agent | Future roadmap; outside Version 1 |
 
 ## Current automated tests
 - Part-code normalization and chained CAD extensions.
@@ -34,6 +34,8 @@ Source of roadmap: `AgnetAiSoliworkVer1.docx`.
 - Exact/fuzzy-safe part matching.
 - Natural-language routing for stock-material commands.
 - BOM parser regression.
+- BOM hierarchy resolver: TopLevel / PartsOnly / Indented × Show / Hide / Promote.
+- BOM suppressed/excluded-node behavior.
 - Drawing-understanding planner routing.
 - Semantic drawing dimension extraction: name, owner view, type, system-unit value/position and tolerance metadata.
 - Semantic drawing note extraction: owner view and note text.
@@ -46,16 +48,30 @@ Source of roadmap: `AgnetAiSoliworkVer1.docx`.
 - PDF raster OCR provider: skips native-text pages, produces page-scoped `PDF_RASTER_TESSERACT` evidence for extractable raster pages and keeps low-confidence evidence review-gated.
 - Full-page PDF renderer fallback: when PdfPig cannot supply an OCR-ready raster, an injected page renderer can supply a full-page image; renderer success continues into OCR and renderer failure returns explicit review/error evidence without guessing.
 
-Run pure/CI-safe checks: `scripts\Test-All.cmd`
+## Verification commands
+Run full Version 1 acceptance:
 
-Run SOLIDWORKS 2021 integration checks: `scripts\Test-SolidWorks.cmd`
+`scripts\Test-Version1.cmd`
 
-Latest Phase 7 checkpoints (2026-09-29):
-- Core/build verification: 49/49 tests PASS using `scripts\Test-All.cmd` on `phase-7-drawing-vision-v2`.
-- Drawing Understanding integration: 30 checks PASS, 0 FAIL after the full-page renderer fallback changes. It verifies Agent registration/dispatch for `AnalyzeDrawingSource`, safe review gating for an unavailable raster source, sheets, model views, inserted dimensions, active-sheet preservation, semantic dimensions and semantic note ownership/count consistency.
-- Full SOLIDWORKS integration: 46 checks PASS, 0 FAIL after the full-page renderer fallback changes. It verifies CAD creation, model readers, Drawing automation, Assembly readers, manufacturing breakdown, BOM generation, native Drawing BOM, balloons, semantic table count and displayed table-cell content, and PDF/DXF export.
+Individual checks:
+- Pure/CI-safe build + Core: `scripts\Test-All.cmd`
+- Full SOLIDWORKS 2021 regression: `scripts\Test-SolidWorks.cmd`
+
+## Final Version 1 RC checkpoint
+Verified on `release-v1-rc1`:
+- Core/build verification: **59/59 tests PASS**.
+- Drawing Understanding integration: **30/30 PASS**.
+- BOM hierarchy integration: **25/25 PASS** using disposable Part -> Subassembly -> Top Assembly fixtures. All nine mode/display combinations PASS and `LegacyFlat` remains available.
+- Full SOLIDWORKS integration: **46/46 PASS**. It verifies CAD creation, model readers, Drawing automation, Assembly readers, manufacturing breakdown, BOM generation, native Drawing BOM, balloons, semantic table content and PDF/DXF export.
+- `scripts\Test-Version1.cmd`: **VERSION 1 ACCEPTANCE: PASS**.
+
+## External OCR/runtime status
 - Tesseract provider unit/runtime-contract tests PASS through an injected fake runner. Production resolution supports an explicit executable path, `SWMATE_TESSERACT_PATH`, `C:\Program Files\Tesseract-OCR\tesseract.exe`, or `tesseract.exe` on PATH.
-- PDF raster and full-page renderer tests PASS through injected fake extractors/runners/renderers. The installed PdfPig API supports `page.GetImages()` and `TryGetPng()` in this project. Full-page rendering uses optional `pdftoppm` with `SWMATE_PDFTOPPM_PATH` or `pdftoppm.exe` on PATH.
-- Runtime dependency checks on the current Windows test machine: both `tesseract --version` and `pdftoppm -v` are not resolvable. No claim is made that real raster OCR or full-page PDF rendering has passed on this machine yet.
+- PDF raster and full-page renderer tests PASS through injected fake extractors/runners/renderers. Full-page rendering uses optional `pdftoppm` with `SWMATE_PDFTOPPM_PATH` or `pdftoppm.exe` on PATH.
+- Runtime dependency checks on the current Windows test machine: both `tesseract --version` and `pdftoppm -v` are not resolvable.
+- Issue #8 tracks installation/configuration and real known-fixture validation. No claim is made that real raster OCR or full-page PDF rendering has passed on this machine yet.
 
-Runtime PASS applies only to the covered SOLIDWORKS 2021 fixtures and mocked OCR/render provider contracts. Real external raster OCR requires Tesseract to be installed/configured. Full-page image-only PDF OCR additionally requires `pdftoppm` (or another renderer) to be installed/configured. External raster semantics remain review-gated until those runtime evidence paths are validated on known fixtures.
+Runtime PASS applies to the covered SOLIDWORKS 2021 fixtures and mocked OCR/render provider contracts. External raster semantics remain review-gated until Issue #8 runtime evidence paths are validated on known fixtures.
+
+## Version 1 release status
+Automated Version 1 scope (Phase 0–7) is code-complete on `release-v1-rc1`. Remaining work for the user's next verification session is the manual smoke test in `docs/VERSION1_ACCEPTANCE.md` plus external dependency validation tracked by Issue #8. Phase 8–10 are not part of Version 1 acceptance.
