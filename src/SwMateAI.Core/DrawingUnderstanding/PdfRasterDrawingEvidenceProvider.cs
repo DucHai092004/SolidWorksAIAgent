@@ -26,15 +26,18 @@ namespace SwMateAI.Core.DrawingUnderstanding
         private readonly IPdfRasterPageExtractor _extractor;
         private readonly ITesseractOcrRunner _runner;
         private readonly string _language;
+        private readonly IPdfPageRenderer _pageRenderer;
 
         public PdfRasterDrawingEvidenceProvider(
             IPdfRasterPageExtractor extractor = null,
             ITesseractOcrRunner runner = null,
-            string language = "eng")
+            string language = "eng",
+            IPdfPageRenderer pageRenderer = null)
         {
             _extractor = extractor ?? new PdfPigRasterPageExtractor();
             _runner = runner ?? new TesseractOcrRunner();
             _language = string.IsNullOrWhiteSpace(language) ? "eng" : language.Trim();
+            _pageRenderer = pageRenderer ?? new PdftoppmPageRenderer();
         }
 
         public bool CanAnalyze(string path) =>
@@ -68,24 +71,46 @@ namespace SwMateAI.Core.DrawingUnderstanding
             foreach (var page in pages)
             {
                 if (page == null || page.HasNativeText) continue;
-                if (!string.IsNullOrWhiteSpace(page.Error))
+
+                byte[] imageBytes = page.ImageBytes;
+                string imageExtension = page.ImageExtension;
+                string extractionError = page.Error;
+
+                if (imageBytes == null || imageBytes.Length == 0)
                 {
-                    result.Errors.Add("Page " + page.PageNumber + ": " + page.Error);
-                    continue;
-                }
-                if (page.ImageBytes == null || page.ImageBytes.Length == 0)
-                {
-                    result.Errors.Add("Page " + page.PageNumber + ": no extractable raster image was found.");
-                    continue;
+                    PdfPageRenderResult rendered = null;
+                    try
+                    {
+                        rendered = _pageRenderer?.Render(path, page.PageNumber);
+                    }
+                    catch (Exception ex)
+                    {
+                        rendered = new PdfPageRenderResult { Error = "PDF page renderer failed: " + ex.Message };
+                    }
+
+                    if (rendered != null && rendered.IsSuccess && rendered.ImageBytes != null && rendered.ImageBytes.Length > 0)
+                    {
+                        imageBytes = rendered.ImageBytes;
+                        imageExtension = rendered.ImageExtension;
+                    }
+                    else
+                    {
+                        string renderError = rendered?.Error ?? "No PDF page renderer is available.";
+                        string detail = string.IsNullOrWhiteSpace(extractionError)
+                            ? renderError
+                            : extractionError + " Renderer fallback: " + renderError;
+                        result.Errors.Add("Page " + page.PageNumber + ": " + detail);
+                        continue;
+                    }
                 }
 
-                string extension = NormalizeExtension(page.ImageExtension);
+                string extension = NormalizeExtension(imageExtension);
                 string tempPath = Path.Combine(Path.GetTempPath(),
                     "swmate_pdf_ocr_" + Guid.NewGuid().ToString("N") + extension);
 
                 try
                 {
-                    File.WriteAllBytes(tempPath, page.ImageBytes);
+                    File.WriteAllBytes(tempPath, imageBytes);
                     TesseractOcrResult ocr = _runner.Run(tempPath, _language);
                     if (ocr == null || !ocr.IsSuccess)
                     {
