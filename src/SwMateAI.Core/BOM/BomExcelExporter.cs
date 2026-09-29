@@ -40,6 +40,9 @@ namespace SwMateAI.Core.BOM
                     cell.Interior.ColorIndex = 15;
                 }
 
+                int availableImages = 0;
+                int embeddedImages = 0;
+
                 for (int r = 0; r < result.Items.Count; r++)
                 {
                     var x = result.Items[r];
@@ -55,12 +58,23 @@ namespace SwMateAI.Core.BOM
 
                     if (File.Exists(x.ImagePath))
                     {
+                        availableImages++;
                         dynamic imageCell = sheet.Cells[row, 1];
                         double left = Convert.ToDouble(imageCell.Left) + 2;
                         double top = Convert.ToDouble(imageCell.Top) + 2;
-                        sheet.Shapes.AddPicture(x.ImagePath, false, true, left, top, 76, 56);
+                        dynamic picture = sheet.Shapes.AddPicture(x.ImagePath, 0, -1, left, top, 76, 56);
+                        picture.Visible = -1;
+                        picture.Placement = 1;
+                        embeddedImages++;
+                        Release(picture);
                     }
                 }
+
+                int shapeCount = Convert.ToInt32(sheet.Shapes.Count);
+                result.EmbeddedImageCount = shapeCount;
+                if (availableImages > 0 && shapeCount == 0)
+                    throw new InvalidOperationException("Excel did not embed any captured BOM images.");
+                if (shapeCount < embeddedImages) result.EmbeddedImageCount = shapeCount;
 
                 sheet.Columns.AutoFit();
                 sheet.Columns[1].ColumnWidth = 14;

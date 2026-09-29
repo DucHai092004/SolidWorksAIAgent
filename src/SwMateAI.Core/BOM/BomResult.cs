@@ -9,6 +9,7 @@ namespace SwMateAI.Core.BOM
         public int SuppressedSkipped { get; set; }
         public int UnloadedCount { get; set; }
         public int CapturedImageCount { get; set; }
+        public int EmbeddedImageCount { get; set; }
         public string ExcelPath { get; set; } = string.Empty;
         public string CsvPath { get; set; } = string.Empty;
     }

@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SwMateAI.Core.Common;
@@ -31,10 +33,7 @@ namespace SwMateAI.Core.BOM
             if (assemblyModel == null) return string.Empty;
 
             Directory.CreateDirectory(folder);
-            string imageId = (string.IsNullOrWhiteSpace(item.PartNumber)
-                ? item.RepresentativeComponentName
-                : item.PartNumber) + "_" + item.Configuration + "_" + item.RepresentativeComponentName;
-            string output = Path.Combine(folder, SafeFileName(imageId) + ".png");
+            string output = Path.Combine(folder, BuildShortImageName(item));
             string assemblyTitle = assemblyModel.GetTitle() ?? string.Empty;
             using (var session = TemporaryModelCaptureSession.Acquire(
                 _swApp, componentModel, item.SourcePath, assemblyTitle))
@@ -64,10 +63,27 @@ namespace SwMateAI.Core.BOM
             }
         }
 
-        private static string SafeFileName(string value)
+        private static string BuildShortImageName(BomItem item)
         {
-            foreach (char c in Path.GetInvalidFileNameChars()) value = value.Replace(c, '_');
-            return string.IsNullOrWhiteSpace(value) ? "bom_item" : value;
+            string identity = string.Join("|", new[]
+            {
+                item.SourcePath ?? string.Empty,
+                item.Configuration ?? string.Empty,
+                item.RepresentativeComponentName ?? string.Empty,
+                item.PartNumber ?? string.Empty
+            });
+
+            string hash;
+            using (var sha = SHA256.Create())
+            {
+                byte[] bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(identity));
+                var sb = new StringBuilder(12);
+                for (int i = 0; i < 6; i++) sb.Append(bytes[i].ToString("X2"));
+                hash = sb.ToString();
+            }
+
+            int number = item.ItemNumber > 0 ? item.ItemNumber : 0;
+            return $"bom_{number:000}_{hash}.png";
         }
     }
 }
