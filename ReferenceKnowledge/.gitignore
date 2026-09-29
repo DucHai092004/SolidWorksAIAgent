@@ -1,0 +1,4 @@
+# External reference sources are local-only snapshots.
+# Track our analysis documents, not third-party repositories.
+sources/*
+!sources/README.md
