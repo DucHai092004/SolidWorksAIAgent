@@ -16,6 +16,7 @@ namespace SwMateAI.Core.DrawingUnderstanding
         public List<DrawingViewInfo> Views { get; } = new List<DrawingViewInfo>();
         public List<DrawingDimensionInfo> Dimensions { get; } = new List<DrawingDimensionInfo>();
         public List<DrawingNoteInfo> Notes { get; } = new List<DrawingNoteInfo>();
+        public List<DrawingTableInfo> Tables { get; } = new List<DrawingTableInfo>();
     }
 
     public class DrawingSheetInfo
@@ -53,5 +54,15 @@ namespace SwMateAI.Core.DrawingUnderstanding
     {
         public string ViewName { get; set; } = string.Empty;
         public string Text { get; set; } = string.Empty;
+    }
+
+    public class DrawingTableInfo
+    {
+        public string ViewName { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public int RowCount { get; set; }
+        public int ColumnCount { get; set; }
+        public List<List<string>> Rows { get; } = new List<List<string>>();
     }
 }
