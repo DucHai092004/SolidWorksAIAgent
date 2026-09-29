@@ -62,10 +62,21 @@ namespace SwMateAI.BomHierarchy.IntegrationRunner
                 Track(sw);
 
                 var subPart1 = subAssembly?.AddComponent4(partPath, string.Empty, 0, 0, 0);
-                var subPart2 = subAssembly?.AddComponent4(partPath, string.Empty, 0.08, 0, 0);
-                Check("Add two Part occurrences to Subassembly",
-                    subPart1 != null && subPart2 != null,
-                    "Could not add both Part occurrences");
+                Check("Add first Part occurrence to Subassembly",
+                    subPart1 != null,
+                    "First AddComponent4 returned null");
+                Save(subModel, subPath);
+
+                ToolResult secondInsert = agent.ExecuteTool("InsertComponent", new Dictionary<string, object>
+                {
+                    ["Path"] = partPath,
+                    ["X"] = 80d,
+                    ["Y"] = 0d,
+                    ["Z"] = 0d
+                });
+                Check("Add second Part occurrence to Subassembly",
+                    secondInsert.IsSuccess,
+                    secondInsert.ErrorMessage ?? Convert.ToString(secondInsert.Data));
                 Save(subModel, subPath);
 
                 var subConfiguration = subModel?.ConfigurationManager?.ActiveConfiguration as IConfiguration;
@@ -73,6 +84,7 @@ namespace SwMateAI.BomHierarchy.IntegrationRunner
                     subConfiguration != null,
                     "Active Subassembly configuration is null");
 
+                CloseActive(sw);
                 var topModel = sw.NewDocument(assemblyTemplate, 0, 0, 0) as IModelDoc2;
                 var topAssembly = topModel as IAssemblyDoc;
                 Check("Create hierarchy Top assembly", topAssembly != null, "Could not create Top assembly");
