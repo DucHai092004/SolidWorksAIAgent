@@ -47,6 +47,11 @@ namespace SwMateAI.Core.BOM
                     sheet.Rows[row].RowHeight = 62;
                     sheet.Cells[row, 2].Value2 = x.ItemNumber;
                     sheet.Cells[row, 3].Value2 = x.PartNumber;
+                    if (x.Level > 0)
+                    {
+                        int indent = Math.Min(15, Math.Max(0, x.Level));
+                        sheet.Cells[row, 3].IndentLevel = indent;
+                    }
                     sheet.Cells[row, 4].Value2 = x.Description;
                     sheet.Cells[row, 5].Value2 = x.Quantity;
                     sheet.Cells[row, 6].Value2 = x.Material;
