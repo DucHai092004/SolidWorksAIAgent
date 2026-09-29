@@ -40,7 +40,7 @@ namespace SwMateAI.Core.DrawingUnderstanding
 
             string executable = ResolveExecutable();
             string tempRoot = Path.Combine(Path.GetTempPath(), "swmate_pdf_page_" + Guid.NewGuid().ToString("N"));
-            string outputPath = tempRoot + "-" + pageNumber + ".png";
+            string outputPath = tempRoot + ".png";
 
             var startInfo = new ProcessStartInfo
             {
