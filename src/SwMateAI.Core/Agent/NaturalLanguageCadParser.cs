@@ -66,6 +66,9 @@ namespace SwMateAI.Core.Agent
             if (TryFeatureImpactQuery(input, out command))
                 return true;
 
+            if (TryDrawingReadQuery(input, out command))
+                return true;
+
             if (TryDrawingFinishingQuery(input, out command))
                 return true;
 
@@ -186,6 +189,17 @@ namespace SwMateAI.Core.Agent
                 return true;
             }
             return false;
+        }
+
+        private static bool TryDrawingReadQuery(string input, out NaturalLanguageCadCommand command)
+        {
+            command = null;
+            string s = input.Trim().ToLowerInvariant();
+            bool drawing = Regex.IsMatch(s, @"(?:bản\s*vẽ|ban\s*ve|drawing|slddrw)");
+            bool read = Regex.IsMatch(s, @"(?:đọc|doc|phân\s*tích|phan\s*tich|hiểu|hieu|read|analy[sz]e|inspect)");
+            if (!drawing || !read) return false;
+            command = new NaturalLanguageCadCommand { Intent = SkillNames.ReadDrawing };
+            return true;
         }
 
         private static bool TryDrawingFinishingQuery(string input, out NaturalLanguageCadCommand command)

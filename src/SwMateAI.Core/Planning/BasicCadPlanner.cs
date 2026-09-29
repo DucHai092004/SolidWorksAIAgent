@@ -87,7 +87,8 @@ namespace SwMateAI.Core.Planning
                 command.Intent == SkillNames.InsertBalloon ||
                 command.Intent == SkillNames.FillTitleBlock ||
                 command.Intent == SkillNames.ExportPDF ||
-                command.Intent == SkillNames.ExportDXF)
+                command.Intent == SkillNames.ExportDXF ||
+                command.Intent == SkillNames.ReadDrawing)
             {
                 var finishPlan = new TaskPlan { Goal = "Complete Drawing automation task" };
                 finishPlan.Steps.Add(new PlanStep

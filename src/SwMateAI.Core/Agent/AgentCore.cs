@@ -150,6 +150,9 @@ namespace SwMateAI.Core.Agent
             Register(new FillTitleBlockTool(_swApp));
             Register(new ExportPdfTool(_swApp));
             Register(new ExportDxfTool(_swApp));
+
+            // Phase 7 Drawing Understanding
+            Register(new ReadDrawingTool(_swApp));
         }
 
         private void Register(ISwTool tool)

@@ -24,6 +24,8 @@ public class NaturalLanguageParserTests
     [DataRow("Chèn balloon", SkillNames.InsertBalloon)]
     [DataRow("Chèn BOM vào bản vẽ", SkillNames.InsertDrawingBOM)]
     [DataRow("Điền khung tên", SkillNames.FillTitleBlock)]
+    [DataRow("Đọc bản vẽ hiện tại", SkillNames.ReadDrawing)]
+    [DataRow("Analyze this drawing", SkillNames.ReadDrawing)]
     public void DrawingCompletionCommands_AreRecognized(string text, string expectedIntent)
     {
         Assert.IsTrue(NaturalLanguageCadParser.TryParse(text, out var command, out var error), error);
