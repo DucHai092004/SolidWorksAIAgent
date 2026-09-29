@@ -13,13 +13,14 @@ namespace SwMateAI.Core.Tools.Drawing
             _pipeline = pipeline ?? new DrawingSourceEvidencePipeline(new IDrawingSourceEvidenceProvider[]
             {
                 new PdfTextDrawingEvidenceProvider(),
+                new PdfRasterDrawingEvidenceProvider(),
                 new TesseractCliDrawingEvidenceProvider()
             });
         }
 
         public string Name => "AnalyzeDrawingSource";
         public string Description =>
-            "Analyzes an external Drawing/PDF/image source for native/text/raster readiness and returns available evidence. Raster images use Tesseract OCR when available and remain review-gated when evidence is weak or unavailable.";
+            "Analyzes an external Drawing/PDF/image source for native/text/raster readiness and returns available evidence. Text PDFs use native extraction; raster images and extractable image-only PDF pages use Tesseract OCR when available. Weak or unavailable evidence remains review-gated.";
 
         public ToolResult Execute(Dictionary<string, object> parameters)
         {
