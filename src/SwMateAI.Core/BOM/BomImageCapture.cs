@@ -7,7 +7,7 @@ namespace SwMateAI.Core.BOM
 {
     /// <summary>
     /// Captures an isometric preview for one representative BOM component.
-    /// The image is intended to be embedded in Excel and may be deleted afterwards.
+    /// Lightweight/unloaded source documents are opened temporarily and closed after capture.
     /// </summary>
     public class BomImageCapture
     {
@@ -20,25 +20,55 @@ namespace SwMateAI.Core.BOM
 
         public string Capture(BomItem item, string folder)
         {
-            if (item == null || !item.IsLoaded || string.IsNullOrWhiteSpace(item.RepresentativeComponentName))
-                return string.Empty;
+            if (item == null) return string.Empty;
 
             var assemblyModel = _swApp.ActiveDoc as IModelDoc2;
             var assembly = assemblyModel as IAssemblyDoc;
-            var component = assembly?.GetComponentByName(item.RepresentativeComponentName);
-            var componentModel = component?.GetModelDoc2() as IModelDoc2;
-            if (assemblyModel == null || componentModel == null) return string.Empty;
+            if (assemblyModel == null || assembly == null) return string.Empty;
 
-            Directory.CreateDirectory(folder);
-            string imageId = (string.IsNullOrWhiteSpace(item.PartNumber)
-                ? item.RepresentativeComponentName
-                : item.PartNumber) + "_" + item.Configuration;
-            string output = Path.Combine(folder, SafeFileName(imageId) + ".png");
+            var component = string.IsNullOrWhiteSpace(item.RepresentativeComponentName)
+                ? null
+                : assembly.GetComponentByName(item.RepresentativeComponentName);
+            var componentModel = component?.GetModelDoc2() as IModelDoc2;
+            bool openedTemporarily = false;
             string assemblyTitle = assemblyModel.GetTitle() ?? string.Empty;
             int activateErrors = 0;
 
             try
             {
+                if (componentModel == null)
+                {
+                    if (string.IsNullOrWhiteSpace(item.SourcePath) || !File.Exists(item.SourcePath))
+                        return string.Empty;
+
+                    int documentType = ResolveDocumentType(item.SourcePath);
+                    if (documentType == (int)swDocumentTypes_e.swDocNONE)
+                        return string.Empty;
+
+                    int openErrors = 0;
+                    int openWarnings = 0;
+                    componentModel = _swApp.OpenDoc6(
+                        item.SourcePath,
+                        documentType,
+                        (int)(swOpenDocOptions_e.swOpenDocOptions_Silent |
+                              swOpenDocOptions_e.swOpenDocOptions_ReadOnly),
+                        item.Configuration ?? string.Empty,
+                        ref openErrors,
+                        ref openWarnings) as IModelDoc2;
+                    openedTemporarily = componentModel != null;
+                }
+
+                if (componentModel == null) return string.Empty;
+
+                Directory.CreateDirectory(folder);
+                string shortName = SafeFileName(string.IsNullOrWhiteSpace(item.PartNumber)
+                    ? "item"
+                    : item.PartNumber);
+                if (shortName.Length > 60) shortName = shortName.Substring(0, 60);
+                string output = Path.Combine(
+                    folder,
+                    "bom_" + item.ItemNumber.ToString("D4") + "_" + shortName + ".png");
+
                 _swApp.ActivateDoc3(componentModel.GetTitle(), false, 0, ref activateErrors);
                 componentModel.ShowNamedView2("*Isometric", (int)swStandardViews_e.swIsometricView);
                 componentModel.ViewZoomtofit2();
@@ -61,7 +91,22 @@ namespace SwMateAI.Core.BOM
             {
                 if (!string.IsNullOrWhiteSpace(assemblyTitle))
                     _swApp.ActivateDoc3(assemblyTitle, false, 0, ref activateErrors);
+
+                if (openedTemporarily && componentModel != null)
+                {
+                    try { _swApp.CloseDoc(componentModel.GetTitle()); }
+                    catch { }
+                }
             }
+        }
+
+        private static int ResolveDocumentType(string path)
+        {
+            if (path.EndsWith(".SLDPRT", StringComparison.OrdinalIgnoreCase))
+                return (int)swDocumentTypes_e.swDocPART;
+            if (path.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase))
+                return (int)swDocumentTypes_e.swDocASSEMBLY;
+            return (int)swDocumentTypes_e.swDocNONE;
         }
 
         private static string SafeFileName(string value)
