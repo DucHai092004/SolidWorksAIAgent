@@ -3,14 +3,16 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Threading;
 using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.swconst;
 
 namespace SwMateAI.Core.BOM
 {
     /// <summary>
-    /// Lightweight BOM preview capture.
-    /// Uses the preview already stored in each SOLIDWORKS file and never opens,
-    /// activates, rebuilds or changes the active component document.
+    /// Lightweight BOM preview capture. It prefers the preview already stored in
+    /// each SOLIDWORKS file. A render fallback is permitted only for local copies
+    /// staged inside the isolated BOM worker temp folder, never for production files.
     /// </summary>
     public sealed class BomPreviewImageCapture
     {
@@ -65,10 +67,15 @@ namespace SwMateAI.Core.BOM
                 if (!ok && !string.IsNullOrWhiteSpace(configuration))
                     ok = TryPreview(sourcePath, string.Empty, bitmapPath);
 
-                if (!ok || !File.Exists(bitmapPath)) return string.Empty;
-
-                using (var image = Image.FromFile(bitmapPath))
-                    image.Save(pngPath, ImageFormat.Png);
+                if (ok && File.Exists(bitmapPath))
+                {
+                    using (var image = Image.FromFile(bitmapPath))
+                        image.Save(pngPath, ImageFormat.Png);
+                }
+                else if (IsWorkerStagedPath(sourcePath))
+                {
+                    TryRenderWorkerCopy(sourcePath, configuration, pngPath);
+                }
 
                 if (!File.Exists(pngPath)) return string.Empty;
                 item.ImagePath = pngPath;
@@ -103,6 +110,101 @@ namespace SwMateAI.Core.BOM
             {
                 return false;
             }
+        }
+
+        private bool TryRenderWorkerCopy(string sourcePath, string configuration, string pngPath)
+        {
+            int documentType = ResolveDocumentType(sourcePath);
+            if (documentType == (int)swDocumentTypes_e.swDocNONE) return false;
+
+            IModelDoc2 model = null;
+            string title = string.Empty;
+            try
+            {
+                int errors = 0;
+                int warnings = 0;
+                int options =
+                    (int)swOpenDocOptions_e.swOpenDocOptions_Silent |
+                    (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly;
+
+                model = _swApp.OpenDoc6(
+                    sourcePath,
+                    documentType,
+                    options,
+                    configuration ?? string.Empty,
+                    ref errors,
+                    ref warnings) as IModelDoc2;
+
+                if (model == null && !string.IsNullOrWhiteSpace(configuration))
+                {
+                    errors = 0;
+                    warnings = 0;
+                    model = _swApp.OpenDoc6(
+                        sourcePath,
+                        documentType,
+                        options,
+                        string.Empty,
+                        ref errors,
+                        ref warnings) as IModelDoc2;
+                }
+
+                if (model == null) return false;
+                title = model.GetTitle() ?? string.Empty;
+
+                try { model.Visible = true; } catch { }
+                model.ShowNamedView2("*Isometric", (int)swStandardViews_e.swIsometricView);
+                model.ViewZoomtofit2();
+                Thread.Sleep(120);
+
+                int saveErrors = 0;
+                int saveWarnings = 0;
+                bool saved = model.Extension.SaveAs(
+                    pngPath,
+                    (int)swSaveAsVersion_e.swSaveAsCurrentVersion,
+                    (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                    null,
+                    ref saveErrors,
+                    ref saveWarnings);
+
+                return saved && saveErrors == 0 && File.Exists(pngPath);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+                if (!string.IsNullOrWhiteSpace(title))
+                {
+                    try { _swApp.CloseDoc(title); } catch { }
+                }
+                Thread.Sleep(120);
+            }
+        }
+
+        private static bool IsWorkerStagedPath(string sourcePath)
+        {
+            try
+            {
+                string fullPath = Path.GetFullPath(sourcePath);
+                string marker = Path.DirectorySeparatorChar + "SW-MATE_AI" +
+                                Path.DirectorySeparatorChar + "BOM_Worker" +
+                                Path.DirectorySeparatorChar;
+                return fullPath.IndexOf(marker, StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static int ResolveDocumentType(string path)
+        {
+            if (path.EndsWith(".SLDPRT", StringComparison.OrdinalIgnoreCase))
+                return (int)swDocumentTypes_e.swDocPART;
+            if (path.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase))
+                return (int)swDocumentTypes_e.swDocASSEMBLY;
+            return (int)swDocumentTypes_e.swDocNONE;
         }
 
         private static string SafeFileName(string value)
