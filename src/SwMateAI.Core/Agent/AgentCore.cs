@@ -48,7 +48,7 @@ namespace SwMateAI.Core.Agent
         public IReadOnlyList<SkillMetadata> RegisteredSkillMetadata => _skills.GetMetadata();
 
         /// <summary>
-        /// Read-only map of tool name → description, for display in UI or future planner.
+        /// Read-only map of tool name → description, for display in UI or future planner use.
         /// </summary>
         public IReadOnlyDictionary<string, string> ToolDescriptions
         {
@@ -150,6 +150,7 @@ namespace SwMateAI.Core.Agent
             Register(new FillTitleBlockTool(_swApp));
             Register(new ExportPdfTool(_swApp));
             Register(new ExportDxfTool(_swApp));
+            Register(new ExportDrawingPackageTool(_swApp));
 
             // Phase 7 Drawing Understanding
             Register(new ReadDrawingTool(_swApp));
