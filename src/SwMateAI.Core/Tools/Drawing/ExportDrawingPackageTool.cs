@@ -2,16 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 
 namespace SwMateAI.Core.Tools.Drawing
 {
-    /// <summary>
-    /// Creates production drawing packages from the active Part/Assembly.
-    /// Single mode exports the active Part/Assembly.
-    /// Batch mode exports every unique Part referenced by the active Assembly.
-    /// </summary>
     public class ExportDrawingPackageTool : SwToolBase
     {
         public ExportDrawingPackageTool(ISldWorks swApp) : base(swApp) { }
@@ -57,6 +53,8 @@ namespace SwMateAI.Core.Tools.Drawing
             bool batch = Bool(parameters, "Batch", false);
             bool saveDrawing = Bool(parameters, "SaveDrawing", true);
             bool exportPdf = Bool(parameters, "ExportPdf", true);
+            bool previewOnly = Bool(parameters, "PreviewOnly", false);
+            int pauseMilliseconds = Int(parameters, "PauseMilliseconds", batch ? 200 : 0, 0, 3000);
             string projection = Text(parameters, "Projection");
             if (string.IsNullOrWhiteSpace(projection)) projection = "Third";
 
@@ -64,12 +62,8 @@ namespace SwMateAI.Core.Tools.Drawing
             if (string.IsNullOrWhiteSpace(outputFolder))
                 outputFolder = DefaultOutputFolder(activeModel);
 
-            Directory.CreateDirectory(outputFolder);
-            string drawingFolder = Path.Combine(outputFolder, "SLDDRW");
-            string pdfFolder = Path.Combine(outputFolder, "PDF");
-            if (saveDrawing) Directory.CreateDirectory(drawingFolder);
-            if (exportPdf) Directory.CreateDirectory(pdfFolder);
-
+            string template = SwApp.GetUserPreferenceStringValue(
+                (int)swUserPreferenceStringValue_e.swDefaultTemplateDrawing);
             var sourcePaths = ResolveSourcePaths(activeModel, batch);
             if (sourcePaths.Count == 0)
             {
@@ -77,6 +71,30 @@ namespace SwMateAI.Core.Tools.Drawing
                     ? "No saved Part files were found in the active Assembly."
                     : "The active model must be saved before a drawing can be generated.");
             }
+
+            if (previewOnly)
+            {
+                return ToolResult.Success(new Dictionary<string, object>
+                {
+                    ["Mode"] = batch ? "Batch" : "Single",
+                    ["OutputFolder"] = outputFolder,
+                    ["TemplatePath"] = template,
+                    ["Projection"] = projection,
+                    ["SaveDrawing"] = saveDrawing,
+                    ["ExportPdf"] = exportPdf,
+                    ["SourceFiles"] = sourcePaths.ToArray(),
+                    ["SourceCount"] = sourcePaths.Count,
+                    ["PauseMilliseconds"] = pauseMilliseconds
+                });
+            }
+
+            Directory.CreateDirectory(outputFolder);
+            string drawingFolder = Path.Combine(outputFolder, "SLDDRW");
+            string pdfFolder = Path.Combine(outputFolder, "PDF");
+            string logFolder = Path.Combine(outputFolder, "Logs");
+            if (saveDrawing) Directory.CreateDirectory(drawingFolder);
+            if (exportPdf) Directory.CreateDirectory(pdfFolder);
+            Directory.CreateDirectory(logFolder);
 
             string returnTitle = activeModel.GetTitle() ?? string.Empty;
             var succeeded = new List<string>();
@@ -86,13 +104,7 @@ namespace SwMateAI.Core.Tools.Drawing
             {
                 try
                 {
-                    ExportOne(
-                        sourcePath,
-                        projection,
-                        drawingFolder,
-                        pdfFolder,
-                        saveDrawing,
-                        exportPdf);
+                    ExportOne(sourcePath, template, projection, drawingFolder, pdfFolder, saveDrawing, exportPdf);
                     succeeded.Add(sourcePath);
                 }
                 catch (Exception ex)
@@ -102,9 +114,11 @@ namespace SwMateAI.Core.Tools.Drawing
                 finally
                 {
                     Reactivate(returnTitle);
+                    if (pauseMilliseconds > 0) Thread.Sleep(pauseMilliseconds);
                 }
             }
 
+            string logPath = WriteLog(logFolder, succeeded, failed);
             var summary = new Dictionary<string, object>
             {
                 ["Mode"] = batch ? "Batch" : "Single",
@@ -112,17 +126,19 @@ namespace SwMateAI.Core.Tools.Drawing
                 ["Succeeded"] = succeeded.Count,
                 ["Failed"] = failed.Count,
                 ["SucceededFiles"] = succeeded.ToArray(),
-                ["Errors"] = failed.ToArray()
+                ["Errors"] = failed.ToArray(),
+                ["LogPath"] = logPath
             };
 
             if (succeeded.Count == 0)
-                return ToolResult.Error("Drawing export failed for every source. " + string.Join(" | ", failed));
+                return ToolResult.Error("Drawing export failed for every source. Log=" + logPath);
 
             return ToolResult.Success(summary);
         }
 
         private void ExportOne(
             string sourcePath,
+            string template,
             string projection,
             string drawingFolder,
             string pdfFolder,
@@ -131,11 +147,8 @@ namespace SwMateAI.Core.Tools.Drawing
         {
             if (!File.Exists(sourcePath))
                 throw new FileNotFoundException("Source model was not found.", sourcePath);
-
-            string template = SwApp.GetUserPreferenceStringValue(
-                (int)swUserPreferenceStringValue_e.swDefaultTemplateDrawing);
-            if (string.IsNullOrWhiteSpace(template))
-                throw new InvalidOperationException("No default Drawing template is configured in SOLIDWORKS.");
+            if (string.IsNullOrWhiteSpace(template) || !File.Exists(template))
+                throw new FileNotFoundException("Drawing template was not found.", template);
 
             var drawingModel = SwApp.NewDocument(template, 0, 0, 0) as IModelDoc2;
             var drawing = drawingModel as IDrawingDoc;
@@ -152,19 +165,14 @@ namespace SwMateAI.Core.Tools.Drawing
                     throw new InvalidOperationException("SOLIDWORKS could not create standard drawing views.");
 
                 drawingModel.ForceRebuild3(false);
-                string baseName = Path.GetFileNameWithoutExtension(sourcePath);
+                drawingModel.GraphicsRedraw2();
+                Thread.Sleep(120);
+                string baseName = SafeBaseName(sourcePath);
 
                 if (saveDrawing)
-                {
-                    string drawingPath = UniquePath(Path.Combine(drawingFolder, baseName + ".SLDDRW"));
-                    SaveDrawing(drawingModel, drawingPath);
-                }
-
+                    SaveDrawing(drawingModel, UniquePath(Path.Combine(drawingFolder, baseName + ".SLDDRW")));
                 if (exportPdf)
-                {
-                    string pdfPath = UniquePath(Path.Combine(pdfFolder, baseName + ".pdf"));
-                    SavePdf(drawingModel, pdfPath);
-                }
+                    SavePdf(drawingModel, UniquePath(Path.Combine(pdfFolder, baseName + ".pdf")));
             }
             finally
             {
@@ -177,8 +185,7 @@ namespace SwMateAI.Core.Tools.Drawing
 
         private void SaveDrawing(IModelDoc2 drawingModel, string path)
         {
-            int errors = 0;
-            int warnings = 0;
+            int errors = 0, warnings = 0;
             bool ok = drawingModel.Extension.SaveAs(
                 path,
                 (int)swSaveAsVersion_e.swSaveAsCurrentVersion,
@@ -186,7 +193,6 @@ namespace SwMateAI.Core.Tools.Drawing
                 null,
                 ref errors,
                 ref warnings);
-
             if (!ok || errors != 0 || !File.Exists(path))
                 throw new IOException("SLDDRW save failed. Errors=" + errors + ", Warnings=" + warnings + ".");
         }
@@ -194,14 +200,11 @@ namespace SwMateAI.Core.Tools.Drawing
         private void SavePdf(IModelDoc2 drawingModel, string path)
         {
             var data = SwApp.GetExportFileData((int)swExportDataFileType_e.swExportPdfData) as IExportPdfData;
-            if (data == null)
-                throw new InvalidOperationException("SOLIDWORKS did not provide PDF export data.");
-
+            if (data == null) throw new InvalidOperationException("SOLIDWORKS did not provide PDF export data.");
             data.ViewPdfAfterSaving = false;
             data.SetSheets((int)swExportDataSheetsToExport_e.swExportData_ExportAllSheets, null);
 
-            int errors = 0;
-            int warnings = 0;
+            int errors = 0, warnings = 0;
             bool ok = drawingModel.Extension.SaveAs(
                 path,
                 (int)swSaveAsVersion_e.swSaveAsCurrentVersion,
@@ -209,7 +212,6 @@ namespace SwMateAI.Core.Tools.Drawing
                 data,
                 ref errors,
                 ref warnings);
-
             if (!ok || errors != 0 || !File.Exists(path))
                 throw new IOException("PDF export failed. Errors=" + errors + ", Warnings=" + warnings + ".");
         }
@@ -218,11 +220,7 @@ namespace SwMateAI.Core.Tools.Drawing
         {
             string activePath = activeModel.GetPathName() ?? string.Empty;
             if (!batch)
-            {
-                return string.IsNullOrWhiteSpace(activePath)
-                    ? new List<string>()
-                    : new List<string> { activePath };
-            }
+                return string.IsNullOrWhiteSpace(activePath) ? new List<string>() : new List<string> { activePath };
 
             if (activeModel.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY)
                 return new List<string>();
@@ -237,7 +235,6 @@ namespace SwMateAI.Core.Tools.Drawing
             {
                 var component = item as IComponent2;
                 if (component == null) continue;
-
                 string path = component.GetPathName() ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(path)) continue;
                 if (!path.EndsWith(".sldprt", StringComparison.OrdinalIgnoreCase)) continue;
@@ -259,19 +256,46 @@ namespace SwMateAI.Core.Tools.Drawing
             catch { }
         }
 
+        private static string WriteLog(string folder, IList<string> succeeded, IList<string> failed)
+        {
+            string path = Path.Combine(folder, "DrawingExport_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".log");
+            using (var writer = new StreamWriter(path, false, System.Text.Encoding.UTF8))
+            {
+                writer.WriteLine("SW-MATE AI Drawing Export");
+                writer.WriteLine("Time: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                writer.WriteLine("Succeeded: " + succeeded.Count);
+                writer.WriteLine("Failed: " + failed.Count);
+                foreach (string value in succeeded) writer.WriteLine("OK|" + value);
+                foreach (string value in failed) writer.WriteLine("ERROR|" + value);
+            }
+            return path;
+        }
+
+        private static string SafeBaseName(string path)
+        {
+            string name = Path.GetFileNameWithoutExtension(path ?? string.Empty);
+            foreach (char c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
+            return string.IsNullOrWhiteSpace(name) ? "Drawing" : name;
+        }
+
         private static bool IsFirstAngle(string value)
         {
             string v = (value ?? string.Empty).Trim().ToLowerInvariant();
-            return v == "first" || v == "first angle" || v == "góc thứ nhất" ||
-                   v == "goc thu nhat" || v == "1";
+            return v == "first" || v == "first angle" || v == "góc thứ nhất" || v == "goc thu nhat" || v == "1";
         }
 
         private static bool Bool(Dictionary<string, object> input, string key, bool defaultValue)
         {
-            if (input == null || !input.TryGetValue(key, out var raw) || raw == null)
-                return defaultValue;
+            if (input == null || !input.TryGetValue(key, out var raw) || raw == null) return defaultValue;
             if (raw is bool value) return value;
             return bool.TryParse(Convert.ToString(raw), out var parsed) ? parsed : defaultValue;
+        }
+
+        private static int Int(Dictionary<string, object> input, string key, int defaultValue, int min, int max)
+        {
+            if (input == null || !input.TryGetValue(key, out var raw) || raw == null) return defaultValue;
+            if (!int.TryParse(Convert.ToString(raw), out int value)) return defaultValue;
+            return Math.Max(min, Math.Min(max, value));
         }
 
         private static string Text(Dictionary<string, object> input, string key)
