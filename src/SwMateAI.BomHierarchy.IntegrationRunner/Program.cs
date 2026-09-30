@@ -133,16 +133,14 @@ namespace SwMateAI.BomHierarchy.IntegrationRunner
                 {
                     try { sw.CloseDoc(subModel.GetTitle()); } catch { }
                 }
-                int setLightweightStatus = topSub == null
-                    ? -1
-                    : topSub.SetSuppression2((int)swComponentSuppressionState_e.swComponentLightweight);
+                bool lightweightApplied = topAssembly != null && topAssembly.LightweightAllResolved();
                 int actualSuppression = topSub == null ? -1 : topSub.GetSuppression();
                 bool isLightweight =
                     actualSuppression == (int)swComponentSuppressionState_e.swComponentLightweight ||
                     actualSuppression == (int)swComponentSuppressionState_e.swComponentFullyLightweight;
                 Check("Set top Subassembly Lightweight",
-                    topSub != null && isLightweight,
-                    "SetStatus=" + setLightweightStatus + ", State=" + actualSuppression);
+                    topSub != null && lightweightApplied && isLightweight,
+                    "Applied=" + lightweightApplied + ", State=" + actualSuppression);
 
                 ToolResult lightweightExport = agent.ExecuteTool("CreateBOM", new Dictionary<string, object>
                 {
