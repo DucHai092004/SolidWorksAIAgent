@@ -128,19 +128,7 @@ namespace SwMateAI.UI
             var bomButtons = new WrapPanel();
             bomButtons.Children.Add(BuildActionButton("XUẤT BOM EXCEL", delegate
             {
-                RunExtractionTool(
-                    agent,
-                    "CreateBOM",
-                    new Dictionary<string, object>
-                    {
-                        ["Mode"] = "LegacyFlat",
-                        ["RespectChildDisplay"] = true,
-                        ["ExportExcel"] = true,
-                        ["ExportCsv"] = false,
-                        ["OutputFolder"] = PrepareOutputFolder(outputBox.Text)
-                    },
-                    status,
-                    "BOM Excel");
+                StartBomExcelWorker(agent, outputBox.Text, status);
             }));
 
             bomButtons.Children.Add(BuildActionButton("XUẤT BẢNG PHÔI", delegate
