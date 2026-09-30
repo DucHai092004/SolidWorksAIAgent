@@ -30,15 +30,48 @@ namespace SwMateAI.UI
             var agent = TryGetAgentCore();
             if (agent == null) return;
 
+            NormalizeTabHeaders(tabs);
+
             tabs.Items.Add(new TabItem
             {
-                Header = "Bóc tách & Xuất",
+                Header = BuildTabHeader("Bóc tách & Xuất"),
                 Foreground = Brushes.White,
                 Background = new SolidColorBrush(Color.FromRgb(22, 36, 58)),
                 Content = BuildExtractionExportPanel(agent)
             });
 
             _extractionTabInstalled = true;
+        }
+
+        private static void NormalizeTabHeaders(TabControl tabs)
+        {
+            if (tabs == null) return;
+
+            foreach (object rawItem in tabs.Items)
+            {
+                var tab = rawItem as TabItem;
+                if (tab == null || tab.Header is Border) continue;
+
+                string text = Convert.ToString(tab.Header);
+                if (string.IsNullOrWhiteSpace(text)) continue;
+                tab.Header = BuildTabHeader(text);
+            }
+        }
+
+        private static Border BuildTabHeader(string text)
+        {
+            return new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(22, 36, 58)),
+                Padding = new Thickness(7, 3, 7, 3),
+                Child = new TextBlock
+                {
+                    Text = text,
+                    Foreground = Brushes.White,
+                    FontWeight = FontWeights.SemiBold,
+                    FontSize = 9
+                }
+            };
         }
 
         private UIElement BuildExtractionExportPanel(AgentCore agent)
