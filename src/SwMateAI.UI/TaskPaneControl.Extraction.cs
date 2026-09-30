@@ -86,7 +86,7 @@ namespace SwMateAI.UI
             });
             panel.Children.Add(new TextBlock
             {
-                Text = "Ưu tiên ổn định: tác vụ nặng chạy tuần tự; BOM và Drawing/PDF batch được tách khỏi phiên SolidWorks chính.",
+                Text = "Ưu tiên ổn định: tác vụ nặng chạy tuần tự; BOM, Bảng phôi và Drawing/PDF batch được tách khỏi phiên SolidWorks chính.",
                 Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
                 FontSize = 9,
                 TextWrapping = TextWrapping.Wrap,
@@ -122,22 +122,11 @@ namespace SwMateAI.UI
             }));
             bomButtons.Children.Add(BuildActionButton("BẢNG PHÔI EXCEL", delegate
             {
-                try
-                {
-                    string folder = PrepareOutputFolder(outputBox.Text);
-                    var parameters = new Dictionary<string, object>();
-                    if (!string.IsNullOrWhiteSpace(folder))
-                        parameters["OutputPath"] = Path.Combine(folder, "StockMaterial_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xlsx");
-                    RunExtractionTool(agent, "ExportManufacturingBreakdown", parameters, status, "Bảng phôi Excel");
-                }
-                catch (Exception ex)
-                {
-                    SetBomStatus(status, "[LỖI] Bảng phôi: " + ex.Message, 248, 113, 113);
-                }
+                StartStockExportWorker(agent, outputBox.Text, status);
             }));
             panel.Children.Add(BuildSection(
                 "BOM & BẢNG PHÔI",
-                "BOM có ảnh chạy worker riêng. Bảng phôi dùng OpenXML, không mở Excel; ảnh chỉ lấy preview an toàn, không đổi Part đang làm việc.",
+                "BOM ảnh và Bảng phôi đều chạy worker riêng. Excel được tạo bằng OpenXML, không mở Excel COM.",
                 bomButtons));
 
             var drawingButtons = new WrapPanel();
@@ -151,7 +140,7 @@ namespace SwMateAI.UI
             }));
             panel.Children.Add(BuildSection(
                 "XUẤT BẢN VẼ TỰ ĐỘNG",
-                "Tạo standard views và SLDDRW. Batch chạy tuần tự ở SolidWorks nền riêng; lỗi một Part không dừng cả lô.",
+                "Tạo standard views và SLDDRW. Worker xử lý tuần tự; lỗi một Part không dừng cả lô.",
                 drawingButtons));
 
             var pdfButtons = new WrapPanel();
@@ -208,7 +197,7 @@ namespace SwMateAI.UI
             }));
             panel.Children.Add(BuildSection(
                 "TRẠNG THÁI",
-                "Kết quả và tiến trình gần nhất. Batch sẽ cập nhật từng file khi worker xử lý.",
+                "Kết quả và tiến trình gần nhất. Worker sẽ cập nhật trạng thái trong khi xử lý.",
                 status,
                 utilityButtons));
 
