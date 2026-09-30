@@ -146,6 +146,16 @@ namespace SwMateAI.BomHierarchy.IntegrationRunner
                     topSub != null && lightweightSelected && isLightweight,
                     "Selected=" + lightweightSelected + ", State=" + actualSuppression);
 
+                int activateErrors = 0;
+                sw.ActivateDoc3(
+                    topModel.GetTitle(),
+                    true,
+                    (int)swRebuildOnActivation_e.swDontRebuildActiveDoc,
+                    ref activateErrors);
+                Check("Reactivate Top assembly before Lightweight BOM",
+                    activateErrors == 0 && sw.ActiveDoc is IAssemblyDoc,
+                    "Activate errors=" + activateErrors);
+
                 ToolResult lightweightExport = agent.ExecuteTool("CreateBOM", new Dictionary<string, object>
                 {
                     ["Mode"] = BomMode.LegacyFlat.ToString(),
