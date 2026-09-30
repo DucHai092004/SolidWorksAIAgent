@@ -29,155 +29,191 @@ namespace SwMateAI.UI
                 SetBomStatus(status, "[RUN] Đang có một tác vụ Drawing/PDF chạy. Vui lòng chờ hoàn tất.", 251, 191, 36);
                 return;
             }
+            if (!TryBeginExtractionTask(label, status)) return;
 
-            string folder;
-            try { folder = PrepareOutputFolder(outputText); }
-            catch (Exception ex)
-            {
-                SetBomStatus(status, "[LỖI] Thư mục đầu ra: " + ex.Message, 248, 113, 113);
-                return;
-            }
-
-            ToolResult preflight = agent.ExecuteTool(
-                "ExportDrawingPackage",
-                new Dictionary<string, object>
-                {
-                    ["Batch"] = batch,
-                    ["SaveDrawing"] = saveDrawing,
-                    ["ExportPdf"] = exportPdf,
-                    ["Projection"] = "Third",
-                    ["OutputFolder"] = folder,
-                    ["PreviewOnly"] = true,
-                    ["PauseMilliseconds"] = batch ? 250 : 100
-                });
-
-            if (!preflight.IsSuccess || !(preflight.Data is IDictionary<string, object> map))
-            {
-                SetBomStatus(status, "[LỖI] " + label + ": " + preflight.ErrorMessage, 248, 113, 113);
-                return;
-            }
-
-            string[] sources = map.TryGetValue("SourceFiles", out object rawSources) && rawSources is string[] array
-                ? array
-                : Array.Empty<string>();
-            string template = map.TryGetValue("TemplatePath", out object rawTemplate) ? Convert.ToString(rawTemplate) : string.Empty;
-            string resolvedFolder = map.TryGetValue("OutputFolder", out object rawFolder) ? Convert.ToString(rawFolder) : folder;
-            int pause = map.TryGetValue("PauseMilliseconds", out object rawPause) && int.TryParse(Convert.ToString(rawPause), out int parsedPause)
-                ? parsedPause
-                : (batch ? 250 : 100);
-
-            if (sources.Length == 0)
-            {
-                SetBomStatus(status, "[LỖI] Không tìm thấy file nguồn để xuất.", 248, 113, 113);
-                return;
-            }
-
-            if (batch)
-            {
-                var answer = MessageBox.Show(
-                    "Sẽ xử lý tuần tự " + sources.Length + " chi tiết trong SolidWorks nền riêng.\n" +
-                    "Lỗi một chi tiết sẽ được ghi log và tiếp tục chi tiết tiếp theo.\n\nTiếp tục?",
-                    "SW-MATE AI - Xuất hàng loạt",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-                if (answer != MessageBoxResult.Yes) return;
-            }
-
-            string baseDirectory = Path.GetDirectoryName(typeof(TaskPaneControl).Assembly.Location) ?? string.Empty;
-            string workerDirectory = Path.Combine(baseDirectory, "DrawingWorker");
-            string workerPath = Path.Combine(workerDirectory, "SwMateAI.DrawingWorker.exe");
-            if (!File.Exists(workerPath))
-            {
-                SetBomStatus(status, "[LỖI] Thiếu DrawingWorker\\SwMateAI.DrawingWorker.exe.", 248, 113, 113);
-                return;
-            }
-
-            string manifest = Path.Combine(Path.GetTempPath(), "SW_MATE_DRAW_" + Guid.NewGuid().ToString("N") + ".txt");
+            bool handedOffToWorker = false;
+            string manifest = string.Empty;
             try
             {
-                WriteDrawingManifest(manifest, template, resolvedFolder, saveDrawing, exportPdf, pause, sources);
-            }
-            catch (Exception ex)
-            {
-                SetBomStatus(status, "[LỖI] Không tạo được manifest Drawing: " + ex.Message, 248, 113, 113);
-                return;
-            }
-
-            var stdout = new StringBuilder();
-            var stderr = new StringBuilder();
-            var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
+                string folder;
+                try { folder = PrepareOutputFolder(outputText); }
+                catch (Exception ex)
                 {
-                    FileName = workerPath,
-                    WorkingDirectory = workerDirectory,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    Arguments = "--manifest " + QuoteArgument(manifest)
-                },
-                EnableRaisingEvents = true
-            };
+                    SetBomStatus(status, "[LỖI] Thư mục đầu ra: " + ex.Message, 248, 113, 113);
+                    return;
+                }
 
-            process.OutputDataReceived += delegate(object sender, DataReceivedEventArgs e)
-            {
-                if (e.Data == null) return;
-                lock (stdout) stdout.AppendLine(e.Data);
-                if (!e.Data.StartsWith("PROGRESS|FILE|", StringComparison.OrdinalIgnoreCase)) return;
-                string[] parts = e.Data.Split('|');
-                string progress = parts.Length > 2 ? parts[2] : string.Empty;
-                string state = parts.Length > 3 ? parts[3] : string.Empty;
-                string file = parts.Length > 4 ? parts[4] : string.Empty;
-                Dispatcher.BeginInvoke(new Action(delegate
+                ToolResult preflight = agent.ExecuteTool(
+                    "ExportDrawingPackage",
+                    new Dictionary<string, object>
+                    {
+                        ["Batch"] = batch,
+                        ["SaveDrawing"] = saveDrawing,
+                        ["ExportPdf"] = exportPdf,
+                        ["Projection"] = "Third",
+                        ["OutputFolder"] = folder,
+                        ["PreviewOnly"] = true,
+                        ["PauseMilliseconds"] = batch ? 300 : 150
+                    });
+
+                if (!preflight.IsSuccess || !(preflight.Data is IDictionary<string, object> map))
+                {
+                    SetBomStatus(status, "[LỖI] " + label + ": " + preflight.ErrorMessage, 248, 113, 113);
+                    return;
+                }
+
+                string[] sources = map.TryGetValue("SourceFiles", out object rawSources) && rawSources is string[] array
+                    ? array
+                    : Array.Empty<string>();
+                string template = map.TryGetValue("TemplatePath", out object rawTemplate) ? Convert.ToString(rawTemplate) : string.Empty;
+                string resolvedFolder = map.TryGetValue("OutputFolder", out object rawFolder) ? Convert.ToString(rawFolder) : folder;
+                int pause = map.TryGetValue("PauseMilliseconds", out object rawPause) && int.TryParse(Convert.ToString(rawPause), out int parsedPause)
+                    ? parsedPause
+                    : (batch ? 300 : 150);
+
+                if (sources.Length == 0)
+                {
+                    SetBomStatus(status, "[LỖI] Không tìm thấy file nguồn để xuất.", 248, 113, 113);
+                    return;
+                }
+                if (string.IsNullOrWhiteSpace(template) || !File.Exists(template))
                 {
                     SetBomStatus(status,
-                        "[RUN] " + label + " — " + progress + " — " + state + " — " + file,
-                        state == "ERROR" ? (byte)251 : (byte)125,
-                        state == "ERROR" ? (byte)191 : (byte)211,
-                        state == "ERROR" ? (byte)36 : (byte)252);
-                }));
-            };
+                        "[LỖI] Chưa cấu hình Drawing Template hợp lệ trong SolidWorks. Hãy đặt Default Drawing Template trước khi xuất.",
+                        248, 113, 113);
+                    return;
+                }
 
-            process.ErrorDataReceived += delegate(object sender, DataReceivedEventArgs e)
-            {
-                if (e.Data == null) return;
-                lock (stderr) stderr.AppendLine(e.Data);
-            };
-
-            process.Exited += delegate
-            {
-                int exitCode = -1;
-                try { process.WaitForExit(); exitCode = process.ExitCode; } catch { }
-                string outText; string errText;
-                lock (stdout) outText = stdout.ToString();
-                lock (stderr) errText = stderr.ToString();
-                try { if (File.Exists(manifest)) File.Delete(manifest); } catch { }
-
-                Dispatcher.BeginInvoke(new Action(delegate
+                if (batch)
                 {
-                    _drawingWorkerRunning = false;
-                    ApplyDrawingWorkerResult(status, label, exitCode, outText, errText);
-                    try { process.Dispose(); } catch { }
-                }));
-            };
+                    var answer = MessageBox.Show(
+                        "Sẽ xử lý tuần tự " + sources.Length + " chi tiết trong SolidWorks nền riêng.\n" +
+                        "Worker sẽ tự làm mới phiên nền theo từng nhóm để hạn chế tăng RAM.\n" +
+                        "Lỗi một chi tiết được ghi log và không dừng cả lô.\n\nTiếp tục?",
+                        "SW-MATE AI - Xuất hàng loạt",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+                    if (answer != MessageBoxResult.Yes) return;
+                }
 
-            try
-            {
+                string baseDirectory = Path.GetDirectoryName(typeof(TaskPaneControl).Assembly.Location) ?? string.Empty;
+                string workerDirectory = Path.Combine(baseDirectory, "DrawingWorker");
+                string workerPath = Path.Combine(workerDirectory, "SwMateAI.DrawingWorker.exe");
+                if (!File.Exists(workerPath))
+                {
+                    SetBomStatus(status, "[LỖI] Thiếu DrawingWorker\\SwMateAI.DrawingWorker.exe.", 248, 113, 113);
+                    return;
+                }
+
+                manifest = Path.Combine(Path.GetTempPath(), "SW_MATE_DRAW_" + Guid.NewGuid().ToString("N") + ".txt");
+                try
+                {
+                    WriteDrawingManifest(manifest, template, resolvedFolder, saveDrawing, exportPdf, pause, batch ? 15 : 1, sources);
+                }
+                catch (Exception ex)
+                {
+                    SetBomStatus(status, "[LỖI] Không tạo được manifest Drawing: " + ex.Message, 248, 113, 113);
+                    return;
+                }
+
+                var stdout = new StringBuilder();
+                var stderr = new StringBuilder();
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = workerPath,
+                        WorkingDirectory = workerDirectory,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        Arguments = "--manifest " + QuoteArgument(manifest)
+                    },
+                    EnableRaisingEvents = true
+                };
+
+                process.OutputDataReceived += delegate(object sender, DataReceivedEventArgs e)
+                {
+                    if (e.Data == null) return;
+                    lock (stdout) stdout.AppendLine(e.Data);
+
+                    if (e.Data.StartsWith("PROGRESS|INSTANCE|", StringComparison.OrdinalIgnoreCase) ||
+                        e.Data.StartsWith("PROGRESS|SESSION|", StringComparison.OrdinalIgnoreCase))
+                    {
+                        UpdateExtractionProgress(0, 0, label + " — đang chuẩn bị/làm mới SolidWorks nền...");
+                        return;
+                    }
+
+                    if (!e.Data.StartsWith("PROGRESS|FILE|", StringComparison.OrdinalIgnoreCase)) return;
+                    string[] parts = e.Data.Split('|');
+                    string progress = parts.Length > 2 ? parts[2] : string.Empty;
+                    string state = parts.Length > 3 ? parts[3] : string.Empty;
+                    string file = parts.Length > 4 ? parts[4] : string.Empty;
+                    ParseProgress(progress, out double current, out double total);
+                    Dispatcher.BeginInvoke(new Action(delegate
+                    {
+                        SetBomStatus(status,
+                            "[RUN] " + label + " — " + progress + " — " + state + " — " + file,
+                            state == "ERROR" ? (byte)251 : (byte)125,
+                            state == "ERROR" ? (byte)191 : (byte)211,
+                            state == "ERROR" ? (byte)36 : (byte)252);
+                        UpdateExtractionProgress(current, total,
+                            label + " — " + progress + " — " + state + " — " + file);
+                    }));
+                };
+
+                process.ErrorDataReceived += delegate(object sender, DataReceivedEventArgs e)
+                {
+                    if (e.Data == null) return;
+                    lock (stderr) stderr.AppendLine(e.Data);
+                };
+
+                string manifestToDelete = manifest;
+                process.Exited += delegate
+                {
+                    int exitCode = -1;
+                    try { process.WaitForExit(); exitCode = process.ExitCode; } catch { }
+                    string outText; string errText;
+                    lock (stdout) outText = stdout.ToString();
+                    lock (stderr) errText = stderr.ToString();
+                    try { if (File.Exists(manifestToDelete)) File.Delete(manifestToDelete); } catch { }
+
+                    Dispatcher.BeginInvoke(new Action(delegate
+                    {
+                        _drawingWorkerRunning = false;
+                        ApplyDrawingWorkerResult(status, label, exitCode, outText, errText);
+                        bool success = exitCode == 0 && outText.IndexOf("RESULT|OK|", StringComparison.OrdinalIgnoreCase) >= 0;
+                        EndExtractionTask(success
+                            ? label + " — hoàn tất."
+                            : label + " — kết thúc có lỗi.");
+                        try { process.Dispose(); } catch { }
+                    }));
+                };
+
                 _drawingWorkerRunning = true;
                 SetBomStatus(status,
                     "[RUN] " + label + " — đã chuẩn bị " + sources.Length + " file. Đang khởi động SolidWorks nền riêng...",
                     125, 211, 252);
+                UpdateExtractionProgress(0, sources.Length, label + " — chuẩn bị " + sources.Length + " file.");
                 process.Start();
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
+                handedOffToWorker = true;
             }
             catch (Exception ex)
             {
                 _drawingWorkerRunning = false;
-                try { if (File.Exists(manifest)) File.Delete(manifest); } catch { }
-                try { process.Dispose(); } catch { }
+                try { if (!string.IsNullOrWhiteSpace(manifest) && File.Exists(manifest)) File.Delete(manifest); } catch { }
                 SetBomStatus(status, "[LỖI] Không khởi động được Drawing worker: " + ex.Message, 248, 113, 113);
+            }
+            finally
+            {
+                if (!handedOffToWorker)
+                {
+                    _drawingWorkerRunning = false;
+                    EndExtractionTask(label + " — không chạy.");
+                }
             }
         }
 
@@ -188,17 +224,19 @@ namespace SwMateAI.UI
             bool saveDrawing,
             bool exportPdf,
             int pauseMilliseconds,
+            int sessionBatchSize,
             IEnumerable<string> sources)
         {
             using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
             {
-                writer.WriteLine("VERSION|1");
+                writer.WriteLine("VERSION|2");
                 writer.WriteLine("TEMPLATE|" + Encode(template));
                 writer.WriteLine("OUTPUT|" + Encode(outputFolder));
                 writer.WriteLine("PROJECTION|" + Encode("Third"));
                 writer.WriteLine("SAVEDRAWING|" + (saveDrawing ? "1" : "0"));
                 writer.WriteLine("EXPORTPDF|" + (exportPdf ? "1" : "0"));
                 writer.WriteLine("PAUSE|" + pauseMilliseconds);
+                writer.WriteLine("SESSIONBATCH|" + Math.Max(1, Math.Min(50, sessionBatchSize)));
                 foreach (string source in sources) writer.WriteLine("SOURCE|" + Encode(source));
             }
         }
@@ -216,6 +254,7 @@ namespace SwMateAI.UI
                 SetBomStatus(status,
                     "[OK] " + label + " hoàn tất. Thành công=" + FindWorkerValue(parts, "SUCCEEDED") +
                     ", lỗi=" + FindWorkerValue(parts, "FAILED") +
+                    ", phiên nền=" + FindWorkerValue(parts, "SESSIONS") +
                     ", thời gian=" + FindWorkerValue(parts, "MS") + " ms. Thư mục=" + folder +
                     ". Log=" + FindWorkerValue(parts, "LOG"),
                     52, 211, 153);
