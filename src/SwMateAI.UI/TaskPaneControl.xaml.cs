@@ -34,6 +34,7 @@ namespace SwMateAI.UI
         {
             ApplyLanguageSelectorContrast();
             InstallVersion1TestTab();
+            InstallExtractionExportTab();
         }
 
         private void ApplyLanguageSelectorContrast()
@@ -372,6 +373,7 @@ namespace SwMateAI.UI
                 case "FillTitleBlock": return "Title=Test Drawing;DrawingNumber=TEST-001;Revision=A";
                 case "ExportPDF": return "OutputPath=";
                 case "ExportDXF": return "OutputPath=";
+                case "ExportDrawingPackage": return "Batch=false;SaveDrawing=true;ExportPdf=true;Projection=Third;OutputFolder=";
                 case "AnalyzeDrawingSource": return "Path=";
                 default: return string.Empty;
             }
