@@ -25,19 +25,21 @@
   <Target Name="BuildExtractionWorkers" BeforeTargets="Build">
     <MSBuild
       Projects="$(MSBuildProjectDirectory)\..\SwMateAI.BomWorker\SwMateAI.BomWorker.csproj"
-      Targets="Build"
+      Targets="Restore;Build"
       Properties="Configuration=$(Configuration);Platform=x64" />
     <MSBuild
       Projects="$(MSBuildProjectDirectory)\..\SwMateAI.StockWorker\SwMateAI.StockWorker.csproj"
-      Targets="Build"
+      Targets="Restore;Build"
       Properties="Configuration=$(Configuration);Platform=x64" />
     <MSBuild
       Projects="$(MSBuildProjectDirectory)\..\SwMateAI.DrawingWorker\SwMateAI.DrawingWorker.csproj"
-      Targets="Build"
+      Targets="Restore;Build"
       Properties="Configuration=$(Configuration);Platform=x64" />
   </Target>
 
-  <Target Name="CopyExtractionWorkers" AfterTargets="Build">
+  <!-- Package worker runtimes before Xarial's AfterBuild/RegAsm step. This keeps
+       the package complete even when a non-admin build cannot register COM. -->
+  <Target Name="CopyExtractionWorkers" BeforeTargets="AfterBuild">
     <ItemGroup>
       <BomWorkerFiles Include="$(MSBuildProjectDirectory)\..\SwMateAI.BomWorker\bin\x64\$(Configuration)\net48\*.*" />
       <StockWorkerFiles Include="$(MSBuildProjectDirectory)\..\SwMateAI.StockWorker\bin\x64\$(Configuration)\net48\*.*" />
