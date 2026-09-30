@@ -180,7 +180,7 @@ namespace SwMateAI.BomWorker
             catch { }
 
             string fallback = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                System.Environment.GetFolderPath(System.Environment.SpecialFolder.ProgramFiles),
                 "SOLIDWORKS Corp",
                 "SOLIDWORKS",
                 "SLDWORKS.exe");
