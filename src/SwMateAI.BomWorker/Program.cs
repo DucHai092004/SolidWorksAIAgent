@@ -15,11 +15,15 @@ namespace SwMateAI.BomWorker
 {
     internal static class Program
     {
+        private const int SessionBatchSize = 20;
+
         private static int Main(string[] args)
         {
             ISldWorks isolated = null;
             Process isolatedProcess = null;
             string tempRoot = null;
+            int sessionCount = 0;
+            int itemsInSession = 0;
 
             try
             {
@@ -39,6 +43,8 @@ namespace SwMateAI.BomWorker
                     outputFolder = Path.Combine(root, "SW-MATE_AI_Output");
                 }
                 Directory.CreateDirectory(outputFolder);
+                string logFolder = Path.Combine(outputFolder, "Logs");
+                Directory.CreateDirectory(logFolder);
 
                 tempRoot = Path.Combine(
                     Path.GetTempPath(),
@@ -50,82 +56,129 @@ namespace SwMateAI.BomWorker
                 Directory.CreateDirectory(localSourceFolder);
                 Directory.CreateDirectory(imageFolder);
 
-                Console.WriteLine("PROGRESS|INSTANCE|STARTING");
-                Console.Out.Flush();
-
-                isolatedProcess = StartIsolatedSolidWorks();
-                if (isolatedProcess == null)
-                    return Fail("Could not start isolated SOLIDWORKS preview process.");
-
-                isolated = WaitForSolidWorksCom(isolatedProcess.Id, 45000);
-                if (isolated == null)
-                    return Fail("Isolated SOLIDWORKS preview process did not become available.");
-
-                try { isolated.Visible = false; } catch { }
-                Console.WriteLine("PROGRESS|INSTANCE|READY|PID=" + isolatedProcess.Id);
-                Console.Out.Flush();
-
-                var capture = new BomPreviewImageCapture(isolated);
                 var localCopies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                var skippedDetails = new List<string>();
+                BomPreviewImageCapture capture = null;
                 int captured = 0;
                 int skipped = 0;
-                int index = 0;
+                int consecutiveSessionFailures = 0;
                 var clock = Stopwatch.StartNew();
 
-                foreach (BomItem item in manifest.Result.Items)
+                for (int i = 0; i < manifest.Result.Items.Count; i++)
                 {
-                    index++;
+                    BomItem item = manifest.Result.Items[i];
+                    int index = i + 1;
                     string originalSource = item.SourcePath;
+                    string localSource = LocalizeSource(originalSource, localSourceFolder, localCopies, index);
+
+                    if (string.IsNullOrWhiteSpace(localSource))
+                    {
+                        skipped++;
+                        skippedDetails.Add(ItemLabel(item) + "|SOURCE_COPY_FAILED|" + originalSource);
+                        EmitImageProgress(index, manifest.Result.Items.Count, captured, skipped);
+                        continue;
+                    }
+
+                    if (isolated == null || isolatedProcess == null || itemsInSession >= SessionBatchSize)
+                    {
+                        ShutdownSession(ref isolated, ref isolatedProcess);
+                        capture = null;
+                        itemsInSession = 0;
+
+                        if (!StartSession(ref isolated, ref isolatedProcess, ++sessionCount))
+                        {
+                            consecutiveSessionFailures++;
+                            skipped++;
+                            skippedDetails.Add(ItemLabel(item) + "|SESSION_START_FAILED|" + originalSource);
+                            EmitImageProgress(index, manifest.Result.Items.Count, captured, skipped);
+
+                            if (consecutiveSessionFailures >= 2)
+                            {
+                                for (int r = i + 1; r < manifest.Result.Items.Count; r++)
+                                {
+                                    skipped++;
+                                    skippedDetails.Add(ItemLabel(manifest.Result.Items[r]) + "|SESSION_UNAVAILABLE|" + manifest.Result.Items[r].SourcePath);
+                                    EmitImageProgress(r + 1, manifest.Result.Items.Count, captured, skipped);
+                                }
+                                break;
+                            }
+                            continue;
+                        }
+
+                        consecutiveSessionFailures = 0;
+                        capture = new BomPreviewImageCapture(isolated);
+                    }
+
                     try
                     {
-                        string localSource = LocalizeSource(
-                            originalSource,
-                            localSourceFolder,
-                            localCopies,
-                            index);
+                        item.SourcePath = localSource;
+                        string image = capture?.Capture(item, imageFolder) ?? string.Empty;
+                        itemsInSession++;
 
-                        if (string.IsNullOrWhiteSpace(localSource))
+                        if (!string.IsNullOrWhiteSpace(image) && File.Exists(image))
                         {
-                            skipped++;
+                            captured++;
                         }
                         else
                         {
-                            item.SourcePath = localSource;
-                            string image = capture.Capture(item, imageFolder);
-                            if (!string.IsNullOrWhiteSpace(image) && File.Exists(image)) captured++;
-                            else skipped++;
+                            skipped++;
+                            skippedDetails.Add(ItemLabel(item) + "|IMAGE_CAPTURE_FAILED|" + originalSource);
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
                         skipped++;
+                        skippedDetails.Add(ItemLabel(item) + "|EXCEPTION=" + Escape(ex.Message) + "|" + originalSource);
+                        ShutdownSession(ref isolated, ref isolatedProcess);
+                        capture = null;
+                        itemsInSession = 0;
                     }
                     finally
                     {
                         item.SourcePath = originalSource;
                     }
 
-                    Console.WriteLine(
-                        "PROGRESS|IMAGE|" + index + "/" + manifest.Result.Items.Count +
-                        "|OK=" + captured + "|SKIP=" + skipped);
-                    Console.Out.Flush();
+                    EmitImageProgress(index, manifest.Result.Items.Count, captured, skipped);
 
-                    Thread.Sleep(150);
+                    if (index % 5 == 0)
+                    {
+                        try
+                        {
+                            GC.Collect();
+                            GC.WaitForPendingFinalizers();
+                        }
+                        catch { }
+                    }
+
+                    Thread.Sleep(180);
                 }
 
+                ShutdownSession(ref isolated, ref isolatedProcess);
                 manifest.Result.CapturedImageCount = captured;
+
                 string baseName = SafeBaseName(manifest.AssemblyPath);
                 string outputPath = UniquePath(Path.Combine(outputFolder, baseName + "_BOM.xlsx"));
                 new BomFastExcelExporter().Export(manifest.Result, outputPath);
+                ValidateExcel(outputPath);
                 clock.Stop();
+
+                string logPath = WriteLog(
+                    logFolder,
+                    manifest.Result.Items.Count,
+                    captured,
+                    skipped,
+                    sessionCount,
+                    clock.ElapsedMilliseconds,
+                    skippedDetails);
 
                 Console.WriteLine(
                     "RESULT|OK|" + Escape(outputPath) +
                     "|ITEMS=" + manifest.Result.Items.Count +
                     "|IMAGES=" + captured +
                     "|SKIPPED=" + skipped +
+                    "|SESSIONS=" + sessionCount +
                     "|MS=" + clock.ElapsedMilliseconds +
-                    "|PID=" + isolatedProcess.Id);
+                    "|LOG=" + Escape(logPath));
                 return 0;
             }
             catch (Exception ex)
@@ -134,28 +187,74 @@ namespace SwMateAI.BomWorker
             }
             finally
             {
-                if (isolated != null)
-                {
-                    try { isolated.ExitApp(); } catch { }
-                }
-                ReleaseCom(isolated);
-
-                if (isolatedProcess != null)
-                {
-                    try
-                    {
-                        if (!isolatedProcess.WaitForExit(5000) && !isolatedProcess.HasExited)
-                            isolatedProcess.Kill();
-                    }
-                    catch { }
-                    try { isolatedProcess.Dispose(); } catch { }
-                }
+                ShutdownSession(ref isolated, ref isolatedProcess);
 
                 if (!string.IsNullOrWhiteSpace(tempRoot) && Directory.Exists(tempRoot))
                 {
                     try { Directory.Delete(tempRoot, true); } catch { }
                 }
             }
+        }
+
+        private static bool StartSession(ref ISldWorks isolated, ref Process isolatedProcess, int sessionNumber)
+        {
+            Console.WriteLine("PROGRESS|INSTANCE|STARTING|SESSION=" + sessionNumber);
+            Console.Out.Flush();
+
+            isolatedProcess = StartIsolatedSolidWorks();
+            if (isolatedProcess == null) return false;
+
+            isolated = WaitForSolidWorksCom(isolatedProcess.Id, 45000);
+            if (isolated == null)
+            {
+                ShutdownSession(ref isolated, ref isolatedProcess);
+                return false;
+            }
+
+            try
+            {
+                isolated.Visible = true;
+                isolated.FrameState = 0;
+                isolated.FrameLeft = -30000;
+                isolated.FrameTop = -30000;
+                isolated.FrameWidth = 1024;
+                isolated.FrameHeight = 768;
+            }
+            catch { }
+
+            Console.WriteLine("PROGRESS|INSTANCE|READY|SESSION=" + sessionNumber + "|PID=" + isolatedProcess.Id);
+            Console.Out.Flush();
+            return true;
+        }
+
+        private static void ShutdownSession(ref ISldWorks isolated, ref Process isolatedProcess)
+        {
+            if (isolated != null)
+            {
+                try { isolated.ExitApp(); } catch { }
+            }
+            ReleaseCom(isolated);
+            isolated = null;
+
+            if (isolatedProcess != null)
+            {
+                try
+                {
+                    if (!isolatedProcess.WaitForExit(5000) && !isolatedProcess.HasExited)
+                        isolatedProcess.Kill();
+                }
+                catch { }
+                try { isolatedProcess.Dispose(); } catch { }
+            }
+            isolatedProcess = null;
+        }
+
+        private static void EmitImageProgress(int index, int total, int captured, int skipped)
+        {
+            Console.WriteLine(
+                "PROGRESS|IMAGE|" + index + "/" + total +
+                "|OK=" + captured + "|SKIP=" + skipped);
+            Console.Out.Flush();
         }
 
         private static string LocalizeSource(
@@ -220,6 +319,53 @@ namespace SwMateAI.BomWorker
                 });
             }
             return manifest;
+        }
+
+        private static void ValidateExcel(string path)
+        {
+            if (!File.Exists(path)) throw new IOException("BOM Excel was not created: " + path);
+            var info = new FileInfo(path);
+            if (info.Length < 1024) throw new IOException("BOM Excel is unexpectedly small: " + info.Length + " bytes.");
+
+            using (var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                int first = stream.ReadByte();
+                int second = stream.ReadByte();
+                if (first != 'P' || second != 'K')
+                    throw new IOException("BOM Excel does not have a valid XLSX/ZIP signature.");
+            }
+        }
+
+        private static string WriteLog(
+            string folder,
+            int itemCount,
+            int captured,
+            int skipped,
+            int sessions,
+            long elapsedMilliseconds,
+            IList<string> skippedDetails)
+        {
+            string path = Path.Combine(folder, "BomWorker_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".log");
+            using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
+            {
+                writer.WriteLine("SW-MATE AI BOM Worker");
+                writer.WriteLine("Time: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                writer.WriteLine("Items: " + itemCount);
+                writer.WriteLine("Images: " + captured);
+                writer.WriteLine("Skipped: " + skipped);
+                writer.WriteLine("Sessions: " + sessions);
+                writer.WriteLine("ElapsedMs: " + elapsedMilliseconds);
+                foreach (string detail in skippedDetails ?? Array.Empty<string>())
+                    writer.WriteLine("SKIP|" + detail);
+            }
+            return path;
+        }
+
+        private static string ItemLabel(BomItem item)
+        {
+            if (item == null) return "Item";
+            return "#" + item.ItemNumber + " " +
+                   (string.IsNullOrWhiteSpace(item.PartNumber) ? Path.GetFileName(item.SourcePath) : item.PartNumber);
         }
 
         private static int ParseInt(string value)
@@ -348,6 +494,7 @@ namespace SwMateAI.BomWorker
         private static string SafeBaseName(string path)
         {
             string name = Path.GetFileNameWithoutExtension(path ?? string.Empty);
+            foreach (char c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
             return string.IsNullOrWhiteSpace(name) ? "Assembly" : name;
         }
 
