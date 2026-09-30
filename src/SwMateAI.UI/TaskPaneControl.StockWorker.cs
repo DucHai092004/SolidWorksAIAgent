@@ -158,6 +158,14 @@ namespace SwMateAI.UI
                     try { watchdogTimer?.Dispose(); } catch { }
                     int exitCode = -1;
                     try { process.WaitForExit(); exitCode = process.ExitCode; } catch { }
+
+                    // The worker owns this exact hidden SOLIDWORKS PID. Always clean it
+                    // up after worker exit in case ExitApp returned before the process
+                    // actually terminated. This never targets the user's main session.
+                    int completedChildPid = Interlocked.CompareExchange(ref childSolidWorksPid, 0, 0);
+                    KillProcessSafe(completedChildPid);
+                    Interlocked.Exchange(ref childSolidWorksPid, 0);
+
                     string outText; string errText;
                     lock (stdout) outText = stdout.ToString();
                     lock (stderr) errText = stderr.ToString();
