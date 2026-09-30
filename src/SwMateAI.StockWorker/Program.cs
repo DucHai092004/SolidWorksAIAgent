@@ -17,8 +17,26 @@ namespace SwMateAI.StockWorker
     internal static class Program
     {
         private const int ImageSessionBatchSize = 20;
+        private static WorkerWatchdog _watchdog;
 
         private static int Main(string[] args)
+        {
+            int watchdogSeconds = IntArg(args, "--watchdog-seconds", 300, 30, 1800);
+            using (var watchdog = new WorkerWatchdog(watchdogSeconds))
+            {
+                _watchdog = watchdog;
+                try
+                {
+                    return Run(args);
+                }
+                finally
+                {
+                    _watchdog = null;
+                }
+            }
+        }
+
+        private static int Run(string[] args)
         {
             ISldWorks swApp = null;
             IModelDoc2 model = null;
@@ -34,6 +52,7 @@ namespace SwMateAI.StockWorker
                 if (string.IsNullOrWhiteSpace(source) || !File.Exists(source))
                     return Fail("A saved Assembly source is required.");
 
+                _watchdog?.Touch("PREPARE_OUTPUT");
                 if (string.IsNullOrWhiteSpace(output))
                 {
                     string root = Path.GetDirectoryName(source) ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
@@ -60,12 +79,14 @@ namespace SwMateAI.StockWorker
                 if (!StartSession(ref swApp, ref swProcess, ++sessionCount))
                     return Fail("Could not start isolated SOLIDWORKS process.");
 
-                Console.WriteLine("PROGRESS|STOCK|OPEN|" + Escape(Path.GetFileName(source)));
-                Console.Out.Flush();
+                EmitStockProgress("OPEN", Path.GetFileName(source));
+                _watchdog?.Touch("OPEN_ASSEMBLY_LIGHTWEIGHT");
 
                 int errors = 0, warnings = 0;
                 int options = (int)swOpenDocOptions_e.swOpenDocOptions_Silent |
-                              (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly;
+                              (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly |
+                              (int)swOpenDocOptions_e.swOpenDocOptions_LoadLightweight |
+                              (int)swOpenDocOptions_e.swOpenDocOptions_OverrideDefaultLoadLightweight;
                 model = swApp.OpenDoc6(
                     source,
                     (int)swDocumentTypes_e.swDocASSEMBLY,
@@ -76,12 +97,13 @@ namespace SwMateAI.StockWorker
                 if (model == null)
                     return Fail("Could not open Assembly. Errors=" + errors + ", Warnings=" + warnings + ".");
 
+                _watchdog?.Touch("ASSEMBLY_OPENED");
                 string modelTitle = model.GetTitle() ?? string.Empty;
                 int activateErrors = 0;
                 try { swApp.ActivateDoc3(modelTitle, false, 0, ref activateErrors); } catch { }
 
-                Console.WriteLine("PROGRESS|STOCK|RESOLVE|Lightweight components");
-                Console.Out.Flush();
+                EmitStockProgress("RESOLVE", "Lightweight components");
+                _watchdog?.Touch("RESOLVE_COMPONENTS");
                 try
                 {
                     var assembly = model as IAssemblyDoc;
@@ -89,21 +111,21 @@ namespace SwMateAI.StockWorker
                     model.ForceRebuild3(false);
                 }
                 catch { }
+                _watchdog?.Touch("RESOLVE_DONE");
 
-                Console.WriteLine("PROGRESS|STOCK|BUILD|Material + stock calculation");
-                Console.Out.Flush();
+                EmitStockProgress("BUILD", "Material + stock calculation");
+                _watchdog?.Touch("BUILD_BREAKDOWN");
                 BreakdownResult breakdown = new ManufacturingBreakdownBuilder(swApp, new StockCalculationOptions()).Build();
                 if (breakdown == null || breakdown.Items.Count == 0)
                     return Fail("Manufacturing breakdown contains no Part items.");
+                _watchdog?.Touch("BREAKDOWN_READY");
 
                 try { swApp.CloseDoc(modelTitle); } catch { }
                 ReleaseCom(model);
                 model = null;
                 Thread.Sleep(250);
 
-                Console.WriteLine("PROGRESS|STOCK|IMAGES|" + breakdown.Items.Count + " items");
-                Console.Out.Flush();
-
+                EmitStockProgress("IMAGES", breakdown.Items.Count + " items");
                 var localCopies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 var skippedDetails = new List<string>();
                 PartImageCapture capture = new PartImageCapture(swApp);
@@ -115,9 +137,10 @@ namespace SwMateAI.StockWorker
                 {
                     BreakdownItem item = breakdown.Items[i];
                     int index = i + 1;
+                    _watchdog?.Touch("IMAGE_" + index + "_OF_" + breakdown.Items.Count);
+
                     string originalSource = item.SourcePath;
                     string localSource = LocalizeSource(originalSource, localSourceFolder, localCopies, index);
-
                     if (string.IsNullOrWhiteSpace(localSource))
                     {
                         skipped++;
@@ -130,6 +153,7 @@ namespace SwMateAI.StockWorker
                     {
                         ShutdownSession(ref swApp, ref swProcess);
                         imagesInSession = 0;
+                        _watchdog?.Touch("RESTART_IMAGE_SESSION");
 
                         if (!StartSession(ref swApp, ref swProcess, ++sessionCount))
                         {
@@ -195,12 +219,13 @@ namespace SwMateAI.StockWorker
                 }
 
                 ShutdownSession(ref swApp, ref swProcess);
+                EmitStockProgress("EXPORT", "OpenXML XLSX");
+                _watchdog?.Touch("EXPORT_EXCEL");
 
-                Console.WriteLine("PROGRESS|STOCK|EXPORT|OpenXML XLSX");
-                Console.Out.Flush();
                 BreakdownTable table = new BreakdownTableGenerator().Generate(breakdown);
                 ExportExcelWithRetry(table, output);
                 ValidateExcel(output);
+                _watchdog?.Touch("WRITE_LOG");
                 clock.Stop();
 
                 string logPath = WriteLog(
@@ -222,6 +247,8 @@ namespace SwMateAI.StockWorker
                     "|SESSIONS=" + sessionCount +
                     "|MS=" + clock.ElapsedMilliseconds +
                     "|LOG=" + Escape(logPath));
+                Console.Out.Flush();
+                _watchdog?.Touch("COMPLETE");
                 return 0;
             }
             catch (Exception ex)
@@ -246,11 +273,15 @@ namespace SwMateAI.StockWorker
 
         private static bool StartSession(ref ISldWorks swApp, ref Process swProcess, int sessionNumber)
         {
+            _watchdog?.Touch("START_SOLIDWORKS_SESSION_" + sessionNumber);
             Console.WriteLine("PROGRESS|INSTANCE|STARTING|SESSION=" + sessionNumber);
             Console.Out.Flush();
 
             swProcess = StartIsolatedSolidWorks();
             if (swProcess == null) return false;
+            _watchdog?.AttachProcess(swProcess);
+            _watchdog?.Touch("WAIT_SOLIDWORKS_COM_" + sessionNumber);
+
             swApp = WaitForSolidWorksCom(swProcess.Id, 45000);
             if (swApp == null)
             {
@@ -259,6 +290,7 @@ namespace SwMateAI.StockWorker
             }
 
             ConfigureOffscreen(swApp);
+            _watchdog?.Touch("SOLIDWORKS_READY_" + sessionNumber);
             Console.WriteLine("PROGRESS|INSTANCE|READY|SESSION=" + sessionNumber + "|PID=" + swProcess.Id);
             Console.Out.Flush();
             return true;
@@ -266,6 +298,7 @@ namespace SwMateAI.StockWorker
 
         private static void ShutdownSession(ref ISldWorks swApp, ref Process swProcess)
         {
+            _watchdog?.Touch("SHUTDOWN_SOLIDWORKS");
             if (swApp != null)
             {
                 try { swApp.ExitApp(); } catch { }
@@ -284,6 +317,7 @@ namespace SwMateAI.StockWorker
                 try { swProcess.Dispose(); } catch { }
             }
             swProcess = null;
+            _watchdog?.AttachProcess(null);
         }
 
         private static void ConfigureOffscreen(ISldWorks swApp)
@@ -298,6 +332,13 @@ namespace SwMateAI.StockWorker
                 swApp.FrameHeight = 768;
             }
             catch { }
+        }
+
+        private static void EmitStockProgress(string stage, string detail)
+        {
+            _watchdog?.Touch("STOCK_" + (stage ?? "PROCESS"));
+            Console.WriteLine("PROGRESS|STOCK|" + (stage ?? string.Empty) + "|" + Escape(detail));
+            Console.Out.Flush();
         }
 
         private static string LocalizeSource(
@@ -324,6 +365,7 @@ namespace SwMateAI.StockWorker
 
         private static void EmitImageProgress(int index, int total, int captured, int skipped)
         {
+            _watchdog?.Touch("IMAGE_" + index + "_OF_" + total);
             Console.WriteLine(
                 "PROGRESS|IMAGE|" + index + "/" + total +
                 "|OK=" + captured + "|SKIP=" + skipped);
@@ -438,6 +480,7 @@ namespace SwMateAI.StockWorker
                 UseShellExecute = true,
                 WindowStyle = ProcessWindowStyle.Hidden
             });
+
             var clock = Stopwatch.StartNew();
             while (clock.ElapsedMilliseconds < 45000)
             {
@@ -537,6 +580,13 @@ namespace SwMateAI.StockWorker
             return string.Empty;
         }
 
+        private static int IntArg(string[] args, string key, int fallback, int min, int max)
+        {
+            string raw = Arg(args, key);
+            if (!int.TryParse(raw, out int value)) return fallback;
+            return Math.Max(min, Math.Min(max, value));
+        }
+
         private static string Escape(string value)
         {
             return (value ?? string.Empty).Replace("\r", " ").Replace("\n", " ").Replace("|", "/");
@@ -545,6 +595,7 @@ namespace SwMateAI.StockWorker
         private static int Fail(string message)
         {
             Console.WriteLine("RESULT|ERROR|" + Escape(message));
+            Console.Out.Flush();
             return 1;
         }
 
@@ -552,6 +603,99 @@ namespace SwMateAI.StockWorker
         {
             if (value == null || !Marshal.IsComObject(value)) return;
             try { Marshal.FinalReleaseComObject(value); } catch { }
+        }
+
+        private sealed class WorkerWatchdog : IDisposable
+        {
+            private readonly int _timeoutSeconds;
+            private readonly Thread _thread;
+            private readonly ManualResetEvent _stop = new ManualResetEvent(false);
+            private readonly object _sync = new object();
+            private DateTime _lastProgressUtc = DateTime.UtcNow;
+            private string _phase = "START";
+            private int _processId;
+            private bool _disposed;
+
+            public WorkerWatchdog(int timeoutSeconds)
+            {
+                _timeoutSeconds = Math.Max(30, timeoutSeconds);
+                _thread = new Thread(Run)
+                {
+                    IsBackground = true,
+                    Name = "SW-MATE Stock Worker Watchdog"
+                };
+                _thread.Start();
+            }
+
+            public void Touch(string phase)
+            {
+                lock (_sync)
+                {
+                    _lastProgressUtc = DateTime.UtcNow;
+                    _phase = string.IsNullOrWhiteSpace(phase) ? "PROCESS" : phase;
+                }
+            }
+
+            public void AttachProcess(Process process)
+            {
+                int pid = 0;
+                try { pid = process?.Id ?? 0; } catch { }
+                lock (_sync)
+                {
+                    _processId = pid;
+                    _lastProgressUtc = DateTime.UtcNow;
+                }
+            }
+
+            private void Run()
+            {
+                while (!_stop.WaitOne(1000))
+                {
+                    DateTime last;
+                    string phase;
+                    int pid;
+                    lock (_sync)
+                    {
+                        last = _lastProgressUtc;
+                        phase = _phase;
+                        pid = _processId;
+                    }
+
+                    if ((DateTime.UtcNow - last).TotalSeconds <= _timeoutSeconds) continue;
+
+                    if (pid > 0)
+                    {
+                        try
+                        {
+                            Process child = Process.GetProcessById(pid);
+                            if (!child.HasExited) child.Kill();
+                            child.Dispose();
+                        }
+                        catch { }
+                    }
+
+                    try
+                    {
+                        Console.WriteLine(
+                            "RESULT|ERROR|TIMEOUT: no progress for " + _timeoutSeconds +
+                            " seconds. Phase=" + Escape(phase));
+                        Console.Out.Flush();
+                    }
+                    catch { }
+
+                    Environment.Exit(3);
+                    return;
+                }
+            }
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+                _disposed = true;
+                try { _stop.Set(); } catch { }
+                try { if (!_thread.Join(2000)) _thread.Interrupt(); } catch { }
+                try { _stop.Dispose(); } catch { }
+            }
         }
 
         [DllImport("ole32.dll")]
