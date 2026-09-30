@@ -52,6 +52,7 @@ namespace SwMateAI.Core.Skills
         public const string FillTitleBlock = "FillTitleBlock";
         public const string ExportPDF = "ExportPDF";
         public const string ExportDXF = "ExportDXF";
+        public const string ExportDrawingPackage = "ExportDrawingPackage";
         public const string ReadDrawing = "ReadDrawing";
         public const string AnalyzeDrawingSource = "AnalyzeDrawingSource";
     }
