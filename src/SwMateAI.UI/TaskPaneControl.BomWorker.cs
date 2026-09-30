@@ -1,12 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows.Controls;
 using System.Windows.Media;
 using SwMateAI.Core.Agent;
-using SwMateAI.Core.Tools;
 
 namespace SwMateAI.UI
 {
@@ -25,19 +23,17 @@ namespace SwMateAI.UI
                 return;
             }
 
-            ToolResult preflight = agent.ExecuteTool(
-                "CreateBOM",
-                new Dictionary<string, object>
-                {
-                    ["Mode"] = "LegacyFlat",
-                    ["RespectChildDisplay"] = true,
-                    ["ExportExcel"] = false,
-                    ["ExportCsv"] = false
-                });
-
-            if (!preflight.IsSuccess)
+            AgentContext context = agent.ObserveContext();
+            if (!context.HasActiveDocument ||
+                !string.Equals(context.DocumentType, "Assembly", StringComparison.OrdinalIgnoreCase))
             {
-                SetBomStatus(status, "[LỖI] Không thể đọc BOM: " + preflight.ErrorMessage, 248, 113, 113);
+                SetBomStatus(status, "[LỖI] Hãy mở một Assembly trước khi xuất BOM.", 248, 113, 113);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(context.DocumentPath) || !File.Exists(context.DocumentPath))
+            {
+                SetBomStatus(status, "[LỖI] Hãy lưu Assembly trước khi xuất BOM có ảnh.", 248, 113, 113);
                 return;
             }
 
@@ -76,8 +72,13 @@ namespace SwMateAI.UI
                 RedirectStandardOutput = true,
                 RedirectStandardError = true
             };
+
+            string arguments =
+                "--source " + QuoteArgument(context.DocumentPath) +
+                " --configuration " + QuoteArgument(context.ActiveConfiguration ?? string.Empty);
             if (!string.IsNullOrWhiteSpace(folder))
-                startInfo.Arguments = "--output " + QuoteArgument(folder);
+                arguments += " --output " + QuoteArgument(folder);
+            startInfo.Arguments = arguments;
 
             var process = new Process
             {
@@ -111,7 +112,7 @@ namespace SwMateAI.UI
                 _bomWorkerRunning = true;
                 SetBomStatus(
                     status,
-                    "[RUN] Đang xuất BOM Excel có ảnh ở tiến trình riêng. SolidWorks vẫn có thể tiếp tục sử dụng.",
+                    "[RUN] Đang xuất BOM Excel có ảnh bằng phiên SolidWorks nền riêng. Bạn vẫn có thể tiếp tục làm việc.",
                     125, 211, 252);
                 process.Start();
             }
