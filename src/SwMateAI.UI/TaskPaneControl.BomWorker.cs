@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Controls;
-using System.Windows.Media;
 using SwMateAI.Core.Agent;
 using SwMateAI.Core.BOM;
 using SwMateAI.Core.Tools;
@@ -15,10 +14,7 @@ namespace SwMateAI.UI
     {
         private bool _bomWorkerRunning;
 
-        private void StartBomExcelWorker(
-            AgentCore agent,
-            string outputText,
-            TextBlock status)
+        private void StartBomExcelWorker(AgentCore agent, string outputText, TextBlock status)
         {
             if (_bomWorkerRunning)
             {
@@ -67,10 +63,7 @@ namespace SwMateAI.UI
                 return;
             }
 
-            string manifest = Path.Combine(
-                Path.GetTempPath(),
-                "SW-MATE_AI_BOM_" + Guid.NewGuid().ToString("N") + ".txt");
-
+            string manifest = Path.Combine(Path.GetTempPath(), "SW-MATE_AI_BOM_" + Guid.NewGuid().ToString("N") + ".txt");
             try { WriteBomManifest(manifest, context.DocumentPath, bom); }
             catch (Exception ex)
             {
@@ -78,40 +71,60 @@ namespace SwMateAI.UI
                 return;
             }
 
-            var startInfo = new ProcessStartInfo
+            var stdout = new StringBuilder();
+            var stderr = new StringBuilder();
+            var process = new Process
             {
-                FileName = workerPath,
-                WorkingDirectory = workerDirectory,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                Arguments = "--manifest " + QuoteArgument(manifest) +
-                            (string.IsNullOrWhiteSpace(folder) ? string.Empty : " --output " + QuoteArgument(folder))
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = workerPath,
+                    WorkingDirectory = workerDirectory,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    Arguments = "--manifest " + QuoteArgument(manifest) +
+                                (string.IsNullOrWhiteSpace(folder) ? string.Empty : " --output " + QuoteArgument(folder))
+                },
+                EnableRaisingEvents = true
             };
 
-            var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
+            process.OutputDataReceived += delegate(object sender, DataReceivedEventArgs e)
+            {
+                if (e.Data == null) return;
+                lock (stdout) stdout.AppendLine(e.Data);
+                if (!e.Data.StartsWith("PROGRESS|IMAGE|", StringComparison.OrdinalIgnoreCase)) return;
+                string[] parts = e.Data.Split('|');
+                string progress = parts.Length > 2 ? parts[2] : string.Empty;
+                string ok = parts.Length > 3 ? parts[3].Replace("OK=", string.Empty) : "?";
+                string skip = parts.Length > 4 ? parts[4].Replace("SKIP=", string.Empty) : "?";
+                Dispatcher.BeginInvoke(new Action(delegate
+                {
+                    SetBomStatus(status,
+                        "[RUN] BOM + ảnh — " + progress + " — ảnh OK=" + ok + ", bỏ qua=" + skip,
+                        125, 211, 252);
+                }));
+            };
+
+            process.ErrorDataReceived += delegate(object sender, DataReceivedEventArgs e)
+            {
+                if (e.Data == null) return;
+                lock (stderr) stderr.AppendLine(e.Data);
+            };
+
             process.Exited += delegate
             {
-                string stdout = string.Empty;
-                string stderr = string.Empty;
                 int exitCode = -1;
-                try
-                {
-                    stdout = process.StandardOutput.ReadToEnd();
-                    stderr = process.StandardError.ReadToEnd();
-                    exitCode = process.ExitCode;
-                }
-                catch { }
-                finally
-                {
-                    try { if (File.Exists(manifest)) File.Delete(manifest); } catch { }
-                }
+                try { process.WaitForExit(); exitCode = process.ExitCode; } catch { }
+                string outText; string errText;
+                lock (stdout) outText = stdout.ToString();
+                lock (stderr) errText = stderr.ToString();
+                try { if (File.Exists(manifest)) File.Delete(manifest); } catch { }
 
                 Dispatcher.BeginInvoke(new Action(delegate
                 {
                     _bomWorkerRunning = false;
-                    ApplyBomWorkerResult(status, exitCode, stdout, stderr);
+                    ApplyBomWorkerResult(status, exitCode, outText, errText);
                     try { process.Dispose(); } catch { }
                 }));
             };
@@ -119,11 +132,12 @@ namespace SwMateAI.UI
             try
             {
                 _bomWorkerRunning = true;
-                SetBomStatus(
-                    status,
-                    "[RUN] Đang tạo BOM có ảnh theo chế độ ổn định. Ảnh được xử lý tuần tự ở tiến trình riêng.",
+                SetBomStatus(status,
+                    "[RUN] Đang tạo BOM có ảnh theo chế độ ổn định. Đã đọc " + bom.Items.Count + " dòng BOM; đang khởi động worker ảnh...",
                     125, 211, 252);
                 process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
             }
             catch (Exception ex)
             {
@@ -148,12 +162,8 @@ namespace SwMateAI.UI
                         item.ItemNumber.ToString(),
                         item.Level.ToString(),
                         item.Quantity.ToString(),
-                        Encode(item.PartNumber),
-                        Encode(item.Description),
-                        Encode(item.Material),
-                        Encode(item.ComponentType),
-                        Encode(item.Configuration),
-                        Encode(item.SourcePath),
+                        Encode(item.PartNumber), Encode(item.Description), Encode(item.Material),
+                        Encode(item.ComponentType), Encode(item.Configuration), Encode(item.SourcePath),
                         Encode(item.RepresentativeComponentName),
                         item.IsVirtual ? "1" : "0",
                         item.IsLoaded ? "1" : "0"
@@ -177,14 +187,11 @@ namespace SwMateAI.UI
             {
                 string[] parts = line.Split('|');
                 string path = parts.Length > 2 ? parts[2] : string.Empty;
-                string items = FindWorkerValue(parts, "ITEMS");
-                string images = FindWorkerValue(parts, "IMAGES");
-                string skipped = FindWorkerValue(parts, "SKIPPED");
-                string milliseconds = FindWorkerValue(parts, "MS");
-                SetBomStatus(
-                    status,
-                    "[OK] BOM Excel hoàn tất. Dòng=" + items + ", ảnh=" + images +
-                    ", bỏ qua=" + skipped + ", thời gian=" + milliseconds + " ms. File=" + path,
+                SetBomStatus(status,
+                    "[OK] BOM Excel hoàn tất. Dòng=" + FindWorkerValue(parts, "ITEMS") +
+                    ", ảnh=" + FindWorkerValue(parts, "IMAGES") +
+                    ", bỏ qua=" + FindWorkerValue(parts, "SKIPPED") +
+                    ", thời gian=" + FindWorkerValue(parts, "MS") + " ms. File=" + path,
                     52, 211, 153);
                 return;
             }
@@ -201,8 +208,7 @@ namespace SwMateAI.UI
         {
             string prefix = key + "=";
             foreach (string part in parts ?? Array.Empty<string>())
-                if (part.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                    return part.Substring(prefix.Length);
+                if (part.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return part.Substring(prefix.Length);
             return "?";
         }
 
@@ -214,7 +220,7 @@ namespace SwMateAI.UI
         private static void SetBomStatus(TextBlock status, string text, byte red, byte green, byte blue)
         {
             status.Text = text;
-            status.Foreground = new SolidColorBrush(Color.FromRgb(red, green, blue));
+            status.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(red, green, blue));
         }
     }
 }
