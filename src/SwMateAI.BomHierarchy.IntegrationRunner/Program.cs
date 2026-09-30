@@ -133,14 +133,18 @@ namespace SwMateAI.BomHierarchy.IntegrationRunner
                 {
                     try { sw.CloseDoc(subModel.GetTitle()); } catch { }
                 }
-                bool lightweightApplied = topAssembly != null && topAssembly.LightweightAllResolved();
+                topModel?.ClearSelection2(true);
+                bool lightweightSelected = topSub != null && topSub.Select4(false, null, false);
+                if (lightweightSelected && topAssembly != null)
+                    topAssembly.MakeLightWeight();
+
                 int actualSuppression = topSub == null ? -1 : topSub.GetSuppression();
                 bool isLightweight =
                     actualSuppression == (int)swComponentSuppressionState_e.swComponentLightweight ||
                     actualSuppression == (int)swComponentSuppressionState_e.swComponentFullyLightweight;
                 Check("Set top Subassembly Lightweight",
-                    topSub != null && lightweightApplied && isLightweight,
-                    "Applied=" + lightweightApplied + ", State=" + actualSuppression);
+                    topSub != null && lightweightSelected && isLightweight,
+                    "Selected=" + lightweightSelected + ", State=" + actualSuppression);
 
                 ToolResult lightweightExport = agent.ExecuteTool("CreateBOM", new Dictionary<string, object>
                 {
@@ -165,6 +169,15 @@ namespace SwMateAI.BomHierarchy.IntegrationRunner
                     !string.IsNullOrWhiteSpace(lightweightBom.ExcelPath) &&
                     File.Exists(lightweightBom.ExcelPath),
                     lightweightBom?.ExcelPath ?? "Excel path missing");
+
+                string imageDetail = lightweightBom == null
+                    ? "BOM result missing"
+                    : string.Join(" | ", lightweightBom.Items.Select(x =>
+                        "#" + x.ItemNumber +
+                        " " + x.ComponentType +
+                        " " + x.PartNumber +
+                        " Loaded=" + x.IsLoaded +
+                        " Image=" + (!string.IsNullOrWhiteSpace(x.ImagePath))));
                 Check("Lightweight BOM image captured",
                     lightweightBom != null &&
                     lightweightBom.Items.Count > 0 &&
@@ -172,7 +185,7 @@ namespace SwMateAI.BomHierarchy.IntegrationRunner
                     lightweightBom == null
                         ? "BOM result missing"
                         : "Captured=" + lightweightBom.CapturedImageCount +
-                          "/" + lightweightBom.Items.Count);
+                          "/" + lightweightBom.Items.Count + " :: " + imageDetail);
             }
             catch (Exception ex)
             {
