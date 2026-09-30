@@ -1,0 +1,141 @@
+using System;
+using SwMateAI.Core.Common;
+using SwMateAI.Core.Planning;
+using SwMateAI.Core.Skills;
+
+namespace SwMateAI.Core.Agent
+{
+    public class AgentOrchestrator
+    {
+        private readonly SolidWorksContextReader _contextReader;
+        private readonly SkillRegistry _registry;
+        private readonly IAgentLogger _logger;
+        private readonly SolidWorksResultChecker _resultChecker;
+        private readonly System.Collections.Generic.Stack<ISkill> _undoStack = new System.Collections.Generic.Stack<ISkill>();
+
+        public AgentState State { get; } = new AgentState();
+        public AgentContext LastContext { get; private set; }
+        public bool CanUndo => _undoStack.Count > 0;
+
+        public AgentOrchestrator(SolidWorksContextReader contextReader, SkillRegistry registry, IAgentLogger logger, SolidWorksResultChecker resultChecker)
+        {
+            _contextReader = contextReader ?? throw new ArgumentNullException(nameof(contextReader));
+            _registry = registry ?? throw new ArgumentNullException(nameof(registry));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _resultChecker = resultChecker ?? throw new ArgumentNullException(nameof(resultChecker));
+        }
+
+        public AgentContext Observe()
+        {
+            State.Transition(AgentStage.Observing);
+            LastContext = _contextReader.Read();
+            _logger.Info($"Observed SOLIDWORKS: {LastContext.DocumentType} '{LastContext.DocumentName}', selection={LastContext.SelectedObjectCount}.");
+            State.Transition(AgentStage.Idle);
+            return LastContext;
+        }
+
+        public ExecutionResult ExecutePlan(TaskPlan plan, bool confirmed = false)
+        {
+            if (plan == null || !plan.IsValid) return Fail(plan, null, "Task plan is empty or invalid.", 0);
+
+            State.ActivePlanId = plan.Id;
+            State.Transition(AgentStage.Observing);
+            LastContext = _contextReader.Read();
+            State.Transition(AgentStage.Validating);
+            _logger.Info($"Validating plan '{plan.Goal}' ({plan.Steps.Count} step(s)).");
+
+            foreach (var step in plan.Steps)
+            {
+                if (!_registry.TryGet(step.SkillName, out var skill))
+                    return Fail(plan, step, $"Skill '{step.SkillName}' is not registered.", 0);
+                step.SkillName = skill.Name;
+                if (skill.RequiresConfirmation && !confirmed)
+                    return Fail(plan, step, $"Skill '{skill.Name}' requires confirmation.", 0);
+            }
+
+            int completed = 0;
+            var outputs = new System.Collections.Generic.List<object>();
+            foreach (var step in plan.Steps)
+            {
+                _registry.TryGet(step.SkillName, out var skill);
+
+                // Re-observe before every step because earlier steps may create or change
+                // the document/selection required by later skills.
+                State.Transition(AgentStage.Observing);
+                LastContext = _contextReader.Read();
+                State.Transition(AgentStage.Validating);
+                if (!skill.CanExecute(LastContext, out var reason))
+                    return Fail(plan, step, $"Skill '{skill.Name}' cannot execute: {reason}", completed);
+
+                var beforeSnapshot = _resultChecker.Capture();
+
+                State.Transition(AgentStage.Executing);
+                step.Status = PlanStepStatus.Running;
+                _logger.Info($"Executing step {step.Index}: {step.SkillName}.");
+
+                var result = skill.Execute(step.Parameters);
+                if (!result.IsSuccess) return Fail(plan, step, result.Error, completed);
+
+                State.Transition(AgentStage.Checking);
+                if (!skill.Validate(out var validationError))
+                    return FailWithRollback(plan, step, skill, $"Validation failed: {validationError}", completed);
+
+                if (!_resultChecker.Validate(skill.Name, beforeSnapshot, out var modelValidationError))
+                    return FailWithRollback(plan, step, skill, $"Model validation failed: {modelValidationError}", completed);
+                step.IsVerified = true;
+                step.ValidationMessage = "Rebuild, Feature Tree and model checks passed.";
+                _logger.Info($"Verified model result for step {step.Index}: {step.SkillName}.");
+
+                step.Status = PlanStepStatus.Completed;
+                if (skill.Metadata.SupportsUndo) _undoStack.Push(skill);
+                outputs.Add(result.Data);
+                completed++;
+
+                // Refresh context after a successful step so the next step sees the
+                // actual SolidWorks state produced by this skill.
+                LastContext = _contextReader.Read();
+            }
+
+            State.Transition(AgentStage.Completed);
+            _logger.Info($"Plan completed successfully: {completed}/{plan.Steps.Count} step(s).");
+            var execution = new ExecutionResult { IsSuccess = true, Plan = plan, CompletedSteps = completed };
+            foreach (var output in outputs) execution.StepOutputs.Add(output);
+            return execution;
+        }
+
+
+        public SkillResult UndoLast()
+        {
+            if (_undoStack.Count == 0) return SkillResult.Failure("There is no Agent action to undo.");
+            var skill = _undoStack.Peek();
+            State.Transition(AgentStage.Executing);
+            var result = skill.Undo();
+            if (!result.IsSuccess) { State.Fail(result.Error); return result; }
+            _undoStack.Pop();
+            LastContext = _contextReader.Read();
+            State.Transition(AgentStage.Completed);
+            _logger.Info($"Undo completed for skill '{skill.Name}'.");
+            return result;
+        }
+
+        private ExecutionResult FailWithRollback(TaskPlan plan, PlanStep step, ISkill skill, string error, int completed)
+        {
+            if (skill?.Metadata?.SupportsUndo == true)
+            {
+                var rollback = skill.Undo();
+                string suffix = rollback.IsSuccess ? " Automatic rollback succeeded." : $" Automatic rollback failed: {rollback.Error}";
+                error += suffix;
+                _logger.Info(suffix.Trim());
+            }
+            return Fail(plan, step, error, completed);
+        }
+
+        private ExecutionResult Fail(TaskPlan plan, PlanStep step, string error, int completed)
+        {
+            if (step != null) { step.Status = PlanStepStatus.Failed; step.Error = error ?? string.Empty; }
+            State.Fail(error);
+            _logger.Error(error ?? "Unknown agent error.");
+            return new ExecutionResult { IsSuccess = false, Plan = plan, FailedStep = step, CompletedSteps = completed, Error = error ?? string.Empty };
+        }
+    }
+}

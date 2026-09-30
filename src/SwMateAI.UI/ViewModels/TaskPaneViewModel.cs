@@ -3,9 +3,15 @@ using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Linq;
 using System.Windows.Input;
 using SwMateAI.Core.Agent;
 using SwMateAI.Core.Models;
+using SwMateAI.Core.Models.Understanding;
+using SwMateAI.Core.Models.Assembly;
+using SwMateAI.Core.Manufacturing;
+using SwMateAI.Core.BOM;
+using SwMateAI.Core.Planning;
 
 namespace SwMateAI.UI.ViewModels
 {
@@ -27,7 +33,7 @@ namespace SwMateAI.UI.ViewModels
         private string _documentTitle   = string.Empty;
         private string _filePath        = string.Empty;
         private bool   _isSaved;
-        private string _statusText      = "Connecting…";
+        private string _statusText      = "Đang kết nối…";
         private bool   _isRefreshing;
         private string _rectangleWidth = "60";
         private string _rectangleHeight = "40";
@@ -41,6 +47,23 @@ namespace SwMateAI.UI.ViewModels
         private string _plateThickness = "10";
         private string _plateHoleDiameter = "10";
         private string _plateHoleDepth = "10";
+        private string _naturalLanguageCommand = "Tạo tấm 120 x 80 x 15 mm, lỗ phi 12 ở giữa";
+        private string _planGoal = "Chưa có kế hoạch";
+        private string _lastResultText = "Sẵn sàng nhận lệnh.";
+        private string _agentStageText = "Idle";
+        private string _activeConfiguration = "—";
+        private string _selectionSummary = "0 đã chọn";
+        private bool _hasPlan;
+        private bool _lastRunSucceeded;
+        private string _dimensionName = string.Empty;
+        private string _dimensionValue = "20";
+        private string _modelSummary = "Chưa đọc model.";
+        private string _uiLanguageCode = "vi-VN";
+        private TaskPlan _currentPlan;
+        private bool _hasPendingConfirmation;
+        private string _confirmationSummary = string.Empty;
+        private string _pendingIntent = string.Empty;
+        private string _pendingCommandText = string.Empty;
 
         // ─── Public properties (bound to XAML) ───────────────────────────────
 
@@ -122,6 +145,22 @@ namespace SwMateAI.UI.ViewModels
         public string PlateThickness { get => _plateThickness; set { _plateThickness = value; OnPropertyChanged(); } }
         public string PlateHoleDiameter { get => _plateHoleDiameter; set { _plateHoleDiameter = value; OnPropertyChanged(); } }
         public string PlateHoleDepth { get => _plateHoleDepth; set { _plateHoleDepth = value; OnPropertyChanged(); } }
+        public string DimensionName { get => _dimensionName; set { _dimensionName = value; OnPropertyChanged(); } }
+        public string DimensionValue { get => _dimensionValue; set { _dimensionValue = value; OnPropertyChanged(); } }
+        public string ModelSummary { get => _modelSummary; private set { _modelSummary = value; OnPropertyChanged(); } }
+        public string NaturalLanguageCommand { get => _naturalLanguageCommand; set { _naturalLanguageCommand = value; OnPropertyChanged(); } }
+        public string PlanGoal { get => _planGoal; private set { _planGoal = value; OnPropertyChanged(); } }
+        public string LastResultText { get => _lastResultText; private set { _lastResultText = value; OnPropertyChanged(); } }
+        public string AgentStageText { get => _agentStageText; private set { _agentStageText = value; OnPropertyChanged(); OnPropertyChanged(nameof(AgentStageDisplay)); OnPropertyChanged(nameof(AgentStageColor)); } }
+        public string ActiveConfiguration { get => _activeConfiguration; private set { _activeConfiguration = value; OnPropertyChanged(); } }
+        public string SelectionSummary { get => _selectionSummary; private set { _selectionSummary = value; OnPropertyChanged(); } }
+        public bool HasPlan { get => _hasPlan; private set { _hasPlan = value; OnPropertyChanged(); } }
+        public bool LastRunSucceeded { get => _lastRunSucceeded; private set { _lastRunSucceeded = value; OnPropertyChanged(); OnPropertyChanged(nameof(ResultColor)); } }
+        public bool HasPendingConfirmation { get => _hasPendingConfirmation; private set { _hasPendingConfirmation = value; OnPropertyChanged(); RelayCommand.RaiseCanExecuteChanged(); } }
+        public string ConfirmationSummary { get => _confirmationSummary; private set { _confirmationSummary = value; OnPropertyChanged(); } }
+        public string AgentStageDisplay => TranslateAgentStage(AgentStageText);
+        public string AgentStageColor => AgentStageText == "Failed" ? "#EF4444" : AgentStageText == "Completed" ? "#22C55E" : "#38BDF8";
+        public string ResultColor => LastRunSucceeded ? "#22C55E" : "#94A3B8";
 
         public bool IsRefreshing
         {
@@ -131,6 +170,8 @@ namespace SwMateAI.UI.ViewModels
 
         /// <summary>Log entries shown in the agent console panel.</summary>
         public ObservableCollection<string> ConsoleLog { get; } = new ObservableCollection<string>();
+        public ObservableCollection<PlanStepUiItem> CurrentPlanSteps { get; } = new ObservableCollection<PlanStepUiItem>();
+        public ObservableCollection<string> CommandHistory { get; } = new ObservableCollection<string>();
 
         // ─── Commands ─────────────────────────────────────────────────────────
 
@@ -142,6 +183,13 @@ namespace SwMateAI.UI.ViewModels
         public ICommand CreateCircleCommand { get; }
         public ICommand CutExtrudeCommand { get; }
         public ICommand CreatePlateWithHoleCommand { get; }
+        public ICommand ExecuteNaturalLanguageCommand { get; }
+        public ICommand AddDimensionCommand { get; }
+        public ICommand ModifyDimensionCommand { get; }
+        public ICommand InspectModelCommand { get; }
+        public ICommand ConfirmPlanCommand { get; }
+        public ICommand CancelPlanCommand { get; }
+        public ICommand UndoLastActionCommand { get; }
 
         // ─── Constructor ──────────────────────────────────────────────────────
 
@@ -180,6 +228,117 @@ namespace SwMateAI.UI.ViewModels
             CreatePlateWithHoleCommand = new RelayCommand(
                 execute:    CreatePlateWithHole,
                 canExecute: () => !IsRefreshing);
+
+            ExecuteNaturalLanguageCommand = new RelayCommand(
+                execute:    ExecuteNaturalLanguage,
+                canExecute: () => !IsRefreshing);
+
+            AddDimensionCommand = new RelayCommand(
+                execute:    AddDimension,
+                canExecute: () => !IsRefreshing);
+
+            ModifyDimensionCommand = new RelayCommand(
+                execute:    ModifyDimension,
+                canExecute: () => !IsRefreshing);
+
+            InspectModelCommand = new RelayCommand(
+                execute:    InspectModel,
+                canExecute: () => !IsRefreshing);
+
+            ConfirmPlanCommand = new RelayCommand(ConfirmPendingPlan, () => HasPendingConfirmation && !IsRefreshing);
+            CancelPlanCommand = new RelayCommand(CancelPendingPlan, () => HasPendingConfirmation && !IsRefreshing);
+            UndoLastActionCommand = new RelayCommand(UndoLastAction, () => _agentCore.CanUndoLastAction && !IsRefreshing);
+        }
+
+        public void SetUiLanguage(string languageCode)
+        {
+            _uiLanguageCode = string.Equals(languageCode, "en-US", StringComparison.OrdinalIgnoreCase) ? "en-US" : "vi-VN";
+            OnPropertyChanged(nameof(AgentStageDisplay));
+            RefreshPlanDisplay();
+            SelectionSummary = Tr($"{_agentCore.ObserveContext().SelectedObjectCount} đã chọn", $"{_agentCore.ObserveContext().SelectedObjectCount} selected");
+            StatusText = IsConnected ? $"SOLIDWORKS {SwVersion}" : Tr("Chưa kết nối", "Not connected");
+
+            if (_currentPlan == null)
+                LastResultText = Tr("Sẵn sàng nhận lệnh.", "Ready for a command.");
+            else if (LastRunSucceeded)
+                LastResultText = Tr($"Hoàn thành và đã kiểm tra {_currentPlan.Steps.Count}/{_currentPlan.Steps.Count} skill.", $"Completed and verified {_currentPlan.Steps.Count}/{_currentPlan.Steps.Count} skill(s).");
+        }
+
+        private bool IsVietnamese => _uiLanguageCode != "en-US";
+        private string Tr(string vi, string en) => IsVietnamese ? vi : en;
+
+        private string TranslateAgentStage(string stage)
+        {
+            switch (stage)
+            {
+                case "Planning": return Tr("Đang lập kế hoạch", "Planning");
+                case "Executing": return Tr("Đang thực hiện", "Executing");
+                case "Completed": return Tr("Hoàn thành", "Completed");
+                case "Failed": return Tr("Thất bại", "Failed");
+                case "AwaitingConfirmation": return Tr("Chờ xác nhận", "Awaiting confirmation");
+                default: return Tr("Sẵn sàng", "Idle");
+            }
+        }
+
+        private string TranslatePlanGoal(string goal)
+        {
+            if (goal == "Create requested CAD part") return Tr("Tạo chi tiết CAD theo yêu cầu", goal);
+            if (goal == "Modify requested CAD dimension") return Tr("Chỉnh sửa kích thước CAD theo yêu cầu", goal);
+            if (goal == "Read requested CAD model data") return Tr("Đọc dữ liệu model theo yêu cầu", goal);
+            if (goal == "Analyze feature change impact") return Tr("Phân tích ảnh hưởng khi thay đổi Feature", goal);
+            if (goal == "Modify Assembly") return Tr("Thay đổi Assembly", goal);
+            if (goal == "Build manufacturing breakdown") return Tr("Bóc tách chi tiết gia công và tính phôi", goal);
+            if (goal == "Export manufacturing breakdown") return Tr("Bóc tách, chụp ảnh và xuất Excel", goal);
+            if (goal == "Create Assembly BOM") return Tr("Tạo BOM cho Assembly", goal);
+            if (goal == "Insert native SOLIDWORKS BOM") return Tr("Chèn BOM native vào Assembly", goal);
+            return goal;
+        }
+
+        private string TranslateStepDescription(PlanStep step)
+        {
+            if (!IsVietnamese) return step.Description;
+            switch (step.Description)
+            {
+                case "Create base plate geometry": return "Tạo hình học tấm cơ sở";
+                case "Fillet four vertical plate edges": return "Bo 4 cạnh đứng của tấm";
+                case "Chamfer four vertical plate edges": return "Vát 4 cạnh đứng của tấm";
+                case "Read data from the active SOLIDWORKS model": return "Đọc dữ liệu từ model SOLIDWORKS đang mở";
+            }
+            if (step.Description.StartsWith("Find downstream dependencies of ", StringComparison.OrdinalIgnoreCase))
+                return "Tìm các Feature phía sau phụ thuộc vào " + step.Description.Substring("Find downstream dependencies of ".Length);
+            if (step.Description == "Build BOM from active Assembly components") return "Tạo BOM từ các component của Assembly đang mở";
+            if (step.Description == "Insert native SOLIDWORKS BOM table into active Assembly") return "Chèn bảng BOM native vào Assembly đang mở";
+            if (step.Description.StartsWith("Capture Part images and export Excel with ", StringComparison.OrdinalIgnoreCase))
+                return "Chụp ảnh Part và xuất Excel với " + step.Description.Substring("Capture Part images and export Excel with ".Length).Replace(" allowance per side", " lượng dư mỗi mặt");
+            if (step.Description.StartsWith("Scan Assembly and calculate stock with ", StringComparison.OrdinalIgnoreCase))
+                return "Quét Assembly và tính phôi với " + step.Description.Substring("Scan Assembly and calculate stock with ".Length).Replace(" allowance per side", " lượng dư mỗi mặt");
+            if (step.Description.StartsWith("Delete Mate ", StringComparison.OrdinalIgnoreCase))
+                return "Xóa Mate " + step.Description.Substring("Delete Mate ".Length);
+            if (step.Description.StartsWith("Set ", StringComparison.OrdinalIgnoreCase))
+                return "Đặt " + step.Description.Substring(4).Replace(" to ", " thành ");
+            return step.Description;
+        }
+
+        private string TranslatePlanStatus(PlanStepStatus status)
+        {
+            if (!IsVietnamese) return status.ToString();
+            switch (status)
+            {
+                case PlanStepStatus.Running: return "Đang chạy";
+                case PlanStepStatus.Completed: return "Hoàn thành";
+                case PlanStepStatus.Failed: return "Thất bại";
+                case PlanStepStatus.Skipped: return "Bỏ qua";
+                default: return "Chờ thực hiện";
+            }
+        }
+
+        private void RefreshPlanDisplay()
+        {
+            CurrentPlanSteps.Clear();
+            if (_currentPlan == null) return;
+            PlanGoal = TranslatePlanGoal(_currentPlan.Goal);
+            foreach (var step in _currentPlan.Steps)
+                CurrentPlanSteps.Add(new PlanStepUiItem { Index = step.Index, SkillName = step.SkillName, Description = TranslateStepDescription(step), Status = TranslatePlanStatus(step.Status), IsVerified = step.IsVerified });
         }
 
         // ─── Actions ──────────────────────────────────────────────────────────
@@ -200,7 +359,7 @@ namespace SwMateAI.UI.ViewModels
                 if (!result.IsSuccess)
                 {
                     AddLog($"  [ERR] {result.ErrorMessage}");
-                    StatusText = "Error retrieving model info.";
+                    StatusText = Tr("Lỗi khi đọc thông tin model.", "Error retrieving model info.");
                     return;
                 }
 
@@ -219,7 +378,7 @@ namespace SwMateAI.UI.ViewModels
                 DocumentTitle = info.DocumentTitle;
                 FilePath      = info.FilePath;
                 IsSaved       = info.IsSaved;
-                StatusText    = IsConnected ? $"SOLIDWORKS {SwVersion}" : "Not connected";
+                StatusText    = IsConnected ? $"SOLIDWORKS {SwVersion}" : Tr("Chưa kết nối", "Not connected");
 
                 AddLog($"  IsConnected   : {info.IsConnected}");
                 AddLog($"  SW Version    : {info.SolidWorksVersion}");
@@ -230,11 +389,17 @@ namespace SwMateAI.UI.ViewModels
                     AddLog($"  Saved         : {info.IsSaved}");
                     if (info.IsSaved) AddLog($"  Path          : {info.FilePath}");
                 }
+
+                var context = _agentCore.ObserveContext();
+                ActiveConfiguration = string.IsNullOrWhiteSpace(context.ActiveConfiguration) ? "—" : context.ActiveConfiguration;
+                SelectionSummary = Tr($"{context.SelectedObjectCount} đã chọn", $"{context.SelectedObjectCount} selected");
+                AddLog($"  Active Config : {ActiveConfiguration}");
+                AddLog($"  Selection     : {context.SelectedObjectCount} object(s)");
             }
             catch (Exception ex)
             {
                 AddLog($"  [EXCEPTION] {ex.Message}");
-                StatusText = "Unexpected error.";
+                StatusText = Tr("Lỗi không mong muốn.", "Unexpected error.");
             }
             finally
             {
@@ -253,18 +418,18 @@ namespace SwMateAI.UI.ViewModels
                 if (!result.IsSuccess)
                 {
                     AddLog($"  [ERR] {result.ErrorMessage}");
-                    StatusText = "Failed to create Part.";
+                    StatusText = Tr("Không thể tạo Part.", "Failed to create Part.");
                     return;
                 }
 
                 AddLog($"  [OK] {result.Data}");
-                StatusText = "New Part created.";
+                ReportManualSuccess("Đã tạo Part mới trong SOLIDWORKS.", "New Part created in SOLIDWORKS.");
                 RefreshInfo();
             }
             catch (Exception ex)
             {
                 AddLog($"  [EXCEPTION] {ex.Message}");
-                StatusText = "Unexpected error creating Part.";
+                StatusText = Tr("Lỗi không mong muốn khi tạo Part.", "Unexpected error creating Part.");
             }
         }
 
@@ -279,18 +444,18 @@ namespace SwMateAI.UI.ViewModels
                 if (!result.IsSuccess)
                 {
                     AddLog($"  [ERR] {result.ErrorMessage}");
-                    StatusText = "Failed to create Sketch.";
+                    StatusText = Tr("Không thể tạo Sketch.", "Failed to create Sketch.");
                     return;
                 }
 
                 AddLog($"  [OK] {result.Data}");
-                StatusText = "New Sketch created.";
+                ReportManualSuccess("Đã tạo Sketch mới trong Part hiện tại.", "New Sketch created in the current Part.");
                 RefreshInfo();
             }
             catch (Exception ex)
             {
                 AddLog($"  [EXCEPTION] {ex.Message}");
-                StatusText = "Unexpected error creating Sketch.";
+                StatusText = Tr("Lỗi không mong muốn khi tạo Sketch.", "Unexpected error creating Sketch.");
             }
         }
 
@@ -304,11 +469,11 @@ namespace SwMateAI.UI.ViewModels
                     ["Width"] = RectangleWidth,
                     ["Height"] = RectangleHeight
                 });
-                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to create Rectangle."; return; }
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể tạo hình chữ nhật.", "Failed to create Rectangle."); return; }
                 AddLog($"  [OK] {result.Data}");
-                StatusText = "Rectangle created.";
+                ReportManualSuccess("Đã tạo hình chữ nhật trong Sketch hiện tại.", "Rectangle created in the current Sketch.");
             }
-            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected rectangle error."; }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi khi tạo hình chữ nhật.", "Unexpected rectangle error."); }
         }
 
         private void Extrude()
@@ -317,12 +482,12 @@ namespace SwMateAI.UI.ViewModels
             try
             {
                 var result = _agentCore.ExecuteTool("Extrude", new Dictionary<string, object> { ["Depth"] = ExtrudeDepth });
-                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to Extrude."; return; }
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể Extrude.", "Failed to Extrude."); return; }
                 AddLog($"  [OK] {result.Data}");
-                StatusText = "Boss-Extrude created.";
+                ReportManualSuccess("Đã tạo Boss-Extrude và cập nhật model hiện tại.", "Boss-Extrude created and the current model was updated.");
                 RefreshInfo();
             }
-            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected extrude error."; }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi Extrude không mong muốn.", "Unexpected extrude error."); }
         }
 
         private void CreateCircle()
@@ -334,10 +499,10 @@ namespace SwMateAI.UI.ViewModels
                 {
                     ["Diameter"] = CircleDiameter, ["X"] = CircleX, ["Y"] = CircleY
                 });
-                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to create Circle."; return; }
-                AddLog($"  [OK] {result.Data}"); StatusText = "Circle created.";
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể tạo đường tròn.", "Failed to create Circle."); return; }
+                AddLog($"  [OK] {result.Data}"); ReportManualSuccess("Đã tạo đường tròn trong Sketch hiện tại.", "Circle created in the current Sketch.");
             }
-            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected circle error."; }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi khi tạo đường tròn.", "Unexpected circle error."); }
         }
 
         private void CutExtrude()
@@ -346,10 +511,10 @@ namespace SwMateAI.UI.ViewModels
             try
             {
                 var result = _agentCore.ExecuteTool("CutExtrude", new Dictionary<string, object> { ["Depth"] = CutDepth });
-                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Failed to Cut-Extrude."; return; }
-                AddLog($"  [OK] {result.Data}"); StatusText = "Cut-Extrude created."; RefreshInfo();
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể Cut-Extrude.", "Failed to Cut-Extrude."); return; }
+                AddLog($"  [OK] {result.Data}"); ReportManualSuccess("Đã tạo Cut-Extrude và cập nhật model hiện tại.", "Cut-Extrude created and the current model was updated."); RefreshInfo();
             }
-            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected cut error."; }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi Cut-Extrude không mong muốn.", "Unexpected cut error."); }
         }
 
         private void CreatePlateWithHole()
@@ -365,10 +530,364 @@ namespace SwMateAI.UI.ViewModels
                     ["HoleDiameter"] = PlateHoleDiameter,
                     ["HoleDepth"] = PlateHoleDepth
                 });
-                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = "Auto workflow failed."; return; }
-                AddLog($"  [OK] {result.Data}"); StatusText = "Plate with hole created automatically."; RefreshInfo();
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Quy trình tự động thất bại.", "Auto workflow failed."); return; }
+                AddLog($"  [OK] {result.Data}"); ReportManualSuccess("Đã tạo xong tấm và lỗ trong Part hiện tại.", "Plate and hole were created in the current Part."); RefreshInfo();
             }
-            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = "Unexpected auto workflow error."; }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi quy trình tự động.", "Unexpected auto workflow error."); }
+        }
+
+        private void AddDimension()
+        {
+            AddLog($"> AddDimension called ({DimensionValue} mm)");
+            try
+            {
+                var result = _agentCore.ExecuteTool("AddDimension", new Dictionary<string, object> { ["Value"] = DimensionValue });
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể thêm kích thước.", "Failed to add dimension."); return; }
+                AddLog($"  [OK] {result.Data}"); ReportManualSuccess("Đã thêm kích thước vào Sketch hiện tại.", "Dimension added to the current Sketch."); RefreshInfo();
+            }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi kích thước không mong muốn.", "Unexpected dimension error."); }
+        }
+
+        private void ModifyDimension()
+        {
+            AddLog($"> ModifyDimension called ({DimensionName}, {DimensionValue} mm)");
+            try
+            {
+                var args = new Dictionary<string, object> { ["Value"] = DimensionValue };
+                if (!string.IsNullOrWhiteSpace(DimensionName)) args["Name"] = DimensionName;
+                var result = _agentCore.ExecuteTool("ModifyDimension", args);
+                if (!result.IsSuccess) { AddLog($"  [ERR] {result.ErrorMessage}"); StatusText = Tr("Không thể sửa kích thước.", "Failed to modify dimension."); return; }
+                AddLog($"  [OK] {result.Data}"); ReportManualSuccess("Đã sửa kích thước và rebuild model hiện tại.", "Dimension modified and the current model was rebuilt."); RefreshInfo();
+            }
+            catch (Exception ex) { AddLog($"  [EXCEPTION] {ex.Message}"); StatusText = Tr("Lỗi kích thước không mong muốn.", "Unexpected dimension error."); }
+        }
+
+        private void InspectModel()
+        {
+            try
+            {
+                if (string.Equals(DocumentType, "Assembly", StringComparison.OrdinalIgnoreCase))
+                {
+                    var assembly = _agentCore.ExecuteTool("ReadAssembly").Data as AssemblyInfo;
+                    var components = _agentCore.ExecuteTool("ReadComponents").Data as List<AssemblyComponentInfo> ?? new List<AssemblyComponentInfo>();
+                    var mates = _agentCore.ExecuteTool("ReadMates").Data as List<AssemblyMateInfo> ?? new List<AssemblyMateInfo>();
+                    ModelSummary = assembly == null ? Tr("Không thể đọc Assembly.", "Could not read Assembly.") : Tr(
+                        $"Assembly: {assembly.Name}\nComponent: {components.Count}   Mate: {mates.Count}   Suppressed: {assembly.SuppressedComponentCount}\nConfiguration: {assembly.Configuration}   Lightweight: {assembly.LightweightComponentCount}",
+                        $"Assembly: {assembly.Name}\nComponents: {components.Count}   Mates: {mates.Count}   Suppressed: {assembly.SuppressedComponentCount}\nConfiguration: {assembly.Configuration}   Lightweight: {assembly.LightweightComponentCount}");
+                    ReportManualSuccess("Đã đọc Assembly thành công. Kết quả hiển thị trong Trình đọc Model.", "Assembly inspection completed. Results are shown in Model Inspector.");
+                    AddLog($"  [ASSEMBLY] {components.Count} components, {mates.Count} mates");
+                    return;
+                }
+                var features = _agentCore.ExecuteTool("ReadFeatureTree").Data as List<FeatureInfo> ?? new List<FeatureInfo>();
+                var sketches = _agentCore.ExecuteTool("ReadSketches").Data as List<FeatureInfo> ?? new List<FeatureInfo>();
+                var dimensions = _agentCore.ExecuteTool("ReadDimensions").Data as List<DimensionInfo> ?? new List<DimensionInfo>();
+                string material = _agentCore.ExecuteTool("ReadMaterial").Data as string ?? string.Empty;
+                var mass = _agentCore.ExecuteTool("ReadMassProperties").Data as MassPropertiesInfo;
+                var box = _agentCore.ExecuteTool("ReadBoundingBox").Data as BoundingBoxInfo;
+                var selected = _agentCore.ExecuteTool("ReadSelectedObject").Data as List<SelectedObjectInfo> ?? new List<SelectedObjectInfo>();
+                var dependencies = _agentCore.ExecuteTool("ReadFeatureDependencies").Data as List<FeatureDependencyInfo> ?? new List<FeatureDependencyInfo>();
+
+                ModelSummary = Tr(
+                    $"Feature: {features.Count}   Sketch: {sketches.Count}   Kích thước: {dimensions.Count}\n" +
+                    $"Vật liệu: {(string.IsNullOrWhiteSpace(material) ? "<chưa chỉ định>" : material)}\n" +
+                    $"Khối lượng: {(mass == null ? "?" : mass.MassKg.ToString("0.###") + " kg")}   Kích thước tổng thể: {(box == null ? "?" : box.ToString())}\n" +
+                    $"Đang chọn: {selected.Count} đối tượng   Quan hệ feature: {dependencies.Sum(x => x.Children.Count)}",
+                    $"Features: {features.Count}   Sketches: {sketches.Count}   Dimensions: {dimensions.Count}\n" +
+                    $"Material: {(string.IsNullOrWhiteSpace(material) ? "<not specified>" : material)}\n" +
+                    $"Mass: {(mass == null ? "?" : mass.MassKg.ToString("0.###") + " kg")}   Size: {(box == null ? "?" : box.ToString())}\n" +
+                    $"Selection: {selected.Count} object(s)   Feature relations: {dependencies.Sum(x => x.Children.Count)}");
+                ReportManualSuccess("Đã đọc model thành công. Kết quả hiển thị trong Trình đọc Model.", "Model inspection completed. Results are shown in Model Inspector.");
+                AddLog($"  [MODEL] {features.Count} features, {dimensions.Count} dimensions, size={(box == null ? "?" : box.ToString())}");
+            }
+            catch (Exception ex)
+            {
+                ModelSummary = Tr($"Đọc model thất bại: {ex.Message}", $"Model inspection failed: {ex.Message}");
+                AddLog($"  [MODEL ERR] {ex.Message}");
+            }
+        }
+
+        private void ExecuteNaturalLanguage()
+        {
+            AddLog($"> COMMAND: {NaturalLanguageCommand}");
+            if (!NaturalLanguageCadParser.TryParse(NaturalLanguageCommand, out var command, out var parseError))
+            {
+                AddLog($"  [PARSE ERR] {parseError}");
+                StatusText = Tr("Không hiểu được lệnh CAD.", "Could not understand CAD command.");
+                return;
+            }
+
+            if (command.Intent == "ExportManufacturingBreakdown")
+            {
+                AddLog($"  [PARSED] Manufacturing export, allowance={command.StockAllowanceMm:0.###} mm");
+            }
+            else if (IsReadIntent(command.Intent))
+            {
+                AddLog($"  [PARSED] Read-model intent: {command.Intent}");
+            }
+            else if (command.Intent == "ModifyDimension")
+            {
+                AddLog($"  [PARSED] Modify dimension {command.DimensionName} -> {command.DimensionValue:0.###} mm");
+            }
+            else if (command.Intent == "InsertComponent" || command.Intent == "MoveComponent" || command.Intent == "AddMate" || command.Intent == "DeleteMate" || command.Intent == "ReplaceComponent" || command.Intent == "InsertSolidWorksBOM")
+            {
+                AddLog($"  [PARSED] Assembly action: {command.Intent}");
+            }
+            else
+            {
+                string holesInfo = command.Holes.Count > 0 ? $"{command.Holes.Count} hole(s)" : "no holes";
+                string cornerInfo = command.FilletRadius > 0 ? $", fillet R{command.FilletRadius}" :
+                                    command.ChamferDistance > 0 ? $", chamfer {command.ChamferDistance} mm" : string.Empty;
+                AddLog($"  [PARSED] Plate {command.Width} x {command.Height} x {command.Thickness} mm, {holesInfo}{cornerInfo}");
+            }
+
+            var plan = BasicCadPlanner.Build(command);
+            _currentPlan = plan;
+            HasPlan = true;
+            RefreshPlanDisplay();
+            AgentStageText = "Planning";
+            LastResultText = Tr("Kế hoạch đã sẵn sàng. Đang thực hiện các skill...", "Plan ready. Executing skills...");
+            LastRunSucceeded = false;
+            AddLog($"  [PLAN] {plan.Goal}");
+            foreach (var step in plan.Steps) AddLog($"    {step.Index}. {step.SkillName} - {step.Description}");
+
+            if (_agentCore.PlanRequiresConfirmation(plan))
+            {
+                _pendingIntent = command.Intent;
+                _pendingCommandText = NaturalLanguageCommand;
+                HasPendingConfirmation = true;
+                ConfirmationSummary = string.Join("\n", plan.Steps.Select(x => $"{x.Index}. {TranslateStepDescription(x)}"));
+                AgentStageText = "AwaitingConfirmation";
+                LastResultText = Tr("Kế hoạch sẽ thay đổi Assembly. Hãy kiểm tra Preview và xác nhận trước khi thực hiện.",
+                                    "This plan will modify the Assembly. Review the preview and confirm before execution.");
+                StatusText = Tr("Đang chờ xác nhận kế hoạch.", "Waiting for plan confirmation.");
+                AddLog("  [CONFIRM] Plan requires user confirmation before execution.");
+                return;
+            }
+
+            HasPendingConfirmation = false;
+            _agentCore.State.CurrentRequest = NaturalLanguageCommand;
+            AgentStageText = "Executing";
+            var execution = _agentCore.ExecutePlan(plan);
+            if (!execution.IsSuccess)
+            {
+                RefreshPlanDisplay();
+                AgentStageText = "Failed";
+                LastResultText = execution.Error;
+                LastRunSucceeded = false;
+                CommandHistory.Insert(0, $"FAIL • {NaturalLanguageCommand}");
+                AddLog($"  [AGENT ERR] {execution.Error}");
+                StatusText = Tr("Kế hoạch Agent thất bại.", "Agent plan failed.");
+                return;
+            }
+            RefreshPlanDisplay();
+            AgentStageText = "Completed";
+            LastRunSucceeded = true;
+            LastResultText = FormatSuccessfulExecution(command.Intent, execution, plan);
+            CommandHistory.Insert(0, $"OK • {NaturalLanguageCommand}");
+            while (CommandHistory.Count > 20) CommandHistory.RemoveAt(CommandHistory.Count - 1);
+            AddLog($"  [CHECK] Completed {execution.CompletedSteps}/{plan.Steps.Count} step(s). Model verification passed.");
+
+            StatusText = Tr("Lệnh CAD đã hoàn thành.", "CAD command completed.");
+            RefreshInfo();
+        }
+
+        private void ConfirmPendingPlan()
+        {
+            if (_currentPlan == null || !HasPendingConfirmation) return;
+            HasPendingConfirmation = false;
+            AgentStageText = "Executing";
+            AddLog("  [CONFIRM] User confirmed plan. Executing...");
+            _agentCore.State.CurrentRequest = _pendingCommandText;
+            var execution = _agentCore.ExecutePlan(_currentPlan, confirmed: true);
+            if (!execution.IsSuccess)
+            {
+                RefreshPlanDisplay(); AgentStageText = "Failed"; LastResultText = execution.Error; LastRunSucceeded = false;
+                CommandHistory.Insert(0, $"FAIL • {_pendingCommandText}"); AddLog($"  [AGENT ERR] {execution.Error}");
+                StatusText = Tr("Kế hoạch Agent thất bại.", "Agent plan failed."); RelayCommand.RaiseCanExecuteChanged(); return;
+            }
+            RefreshPlanDisplay(); AgentStageText = "Completed"; LastRunSucceeded = true;
+            LastResultText = FormatSuccessfulExecution(_pendingIntent, execution, _currentPlan);
+            CommandHistory.Insert(0, $"OK • {_pendingCommandText}");
+            AddLog($"  [CHECK] Completed {execution.CompletedSteps}/{_currentPlan.Steps.Count} step(s). Model verification passed.");
+            StatusText = Tr("Hành động Assembly đã hoàn thành.", "Assembly action completed.");
+            RefreshInfo(); RelayCommand.RaiseCanExecuteChanged();
+        }
+
+        private void CancelPendingPlan()
+        {
+            HasPendingConfirmation = false; AgentStageText = "Idle";
+            LastResultText = Tr("Đã hủy kế hoạch trước khi thay đổi Assembly.", "Plan cancelled before modifying the Assembly.");
+            StatusText = Tr("Đã hủy kế hoạch.", "Plan cancelled."); AddLog("  [CONFIRM] Plan cancelled by user.");
+        }
+
+        private void UndoLastAction()
+        {
+            var result = _agentCore.UndoLastAction();
+            LastRunSucceeded = result.IsSuccess;
+            LastResultText = result.IsSuccess ? Tr("Đã hoàn tác hành động Assembly cuối cùng.", "Last Assembly action was undone.") : result.Error;
+            StatusText = LastResultText; AddLog(result.IsSuccess ? "  [UNDO] Success." : $"  [UNDO ERR] {result.Error}");
+            RefreshInfo(); RelayCommand.RaiseCanExecuteChanged();
+        }
+
+        private string FormatSuccessfulExecution(string intent, ExecutionResult execution, TaskPlan plan)
+        {
+            string prefix = Tr("✅ Đã hoàn thành.\n", "✅ Completed.\n");
+
+            if (IsReadIntent(intent))
+                return prefix + FormatModelQueryResult(intent, execution.LastData);
+
+            if (execution.LastData is AssemblyActionResult action)
+                return prefix + Tr($"Đã cập nhật Assembly hiện tại và kiểm tra kết quả: {action}", $"The current Assembly was updated and verified: {action}");
+
+            if (execution.LastData is AssemblyMateActionResult mateAction)
+                return prefix + Tr($"Đã cập nhật Mate trong Assembly hiện tại và kiểm tra kết quả: {mateAction}", $"Assembly mate operation completed and verified: {mateAction}");
+
+            if (execution.LastData is SolidWorksBomResult nativeBom)
+                return prefix + Tr($"BOM native đã được chèn vào tài liệu hiện tại. Feature: {nativeBom.FeatureName} | Cấu hình: {nativeBom.Configuration}", $"Native BOM was inserted into the current document. Feature: {nativeBom.FeatureName} | Configuration: {nativeBom.Configuration}");
+
+            string where = SuccessDestination(intent);
+            return prefix + Tr(
+                $"Đã thực hiện và kiểm tra {execution.CompletedSteps}/{plan.Steps.Count} bước. {where}",
+                $"Executed and verified {execution.CompletedSteps}/{plan.Steps.Count} step(s). {where}");
+        }
+
+        private string SuccessDestination(string intent)
+        {
+            switch (intent)
+            {
+                case "CreateDrawing": return Tr("Drawing mới đang mở trong SOLIDWORKS.", "The new Drawing is open in SOLIDWORKS.");
+                case "CreateSheet": return Tr("Sheet mới đã được thêm vào Drawing hiện tại.", "The new sheet was added to the current Drawing.");
+                case "InsertStandardViews":
+                case "InsertIsometricView":
+                case "CreateSection":
+                case "CreateDetail":
+                    return Tr("Kết quả đã được chèn vào Drawing hiện tại.", "The result was inserted into the current Drawing.");
+                case "CreateBOM": return Tr("BOM đã được tạo cho Assembly hiện tại.", "The BOM was created for the current Assembly.");
+                case "ExportManufacturingBreakdown": return Tr("Tệp đã được lưu trong thư mục SW-MATE_AI_Output cạnh Assembly.", "The file was saved in the SW-MATE_AI_Output folder next to the Assembly.");
+                default: return Tr("Kết quả đã được áp dụng trực tiếp vào tài liệu SOLIDWORKS hiện tại.", "The result was applied directly to the current SOLIDWORKS document.");
+            }
+        }
+
+        private static bool IsReadIntent(string intent)
+        {
+            return intent == "ReadFeatureTree" || intent == "ReadFeatures" || intent == "ReadFeatureDependencies" || intent == "AnalyzeFeatureImpact" || intent == "ReadSketches" ||
+                   intent == "ReadDimensions" || intent == "ReadMaterial" || intent == "ReadMassProperties" ||
+                   intent == "ReadCustomProperties" || intent == "ReadSelectedObject" || intent == "ReadBoundingBox" ||
+                   intent == "ReadAssembly" || intent == "ReadComponents" || intent == "ReadMates" || intent == "CheckInterference" ||
+                   intent == "BuildManufacturingBreakdown" || intent == "ExportManufacturingBreakdown" || intent == "CreateBOM";
+        }
+
+        private string FormatModelQueryResult(string intent, object data)
+        {
+            if (intent == "CreateBOM" && data is BomResult bom)
+            {
+                string rows = string.Join("\n", bom.Items.Take(16).Select(x => $"• {x.ItemNumber}. {x.PartNumber} | {x.Description} | SL {x.Quantity} | {x.Material} | {x.ComponentType}"));
+                string saved = !string.IsNullOrWhiteSpace(bom.ExcelPath) && !string.IsNullOrWhiteSpace(bom.CsvPath)
+                    ? Tr("Excel và CSV đã được lưu trong thư mục SW-MATE_AI_Output cạnh Assembly.", "Excel and CSV were saved in the SW-MATE_AI_Output folder next to the Assembly.")
+                    : !string.IsNullOrWhiteSpace(bom.ExcelPath)
+                        ? Tr("Excel đã được lưu trong thư mục SW-MATE_AI_Output cạnh Assembly.", "Excel was saved in the SW-MATE_AI_Output folder next to the Assembly.")
+                        : !string.IsNullOrWhiteSpace(bom.CsvPath)
+                            ? Tr("CSV đã được lưu trong thư mục SW-MATE_AI_Output cạnh Assembly.", "CSV was saved in the SW-MATE_AI_Output folder next to the Assembly.")
+                            : Tr("BOM đã được tạo trong Agent; chưa xuất file.", "BOM was created in the Agent; no file was exported.");
+                return Tr($"BOM: {bom.Items.Count} loại component, {bom.TotalOccurrences} occurrence. Suppressed bỏ qua: {bom.SuppressedSkipped}. Chưa loaded: {bom.UnloadedCount}.\nẢnh đã chèn vào Excel: {bom.CapturedImageCount}/{bom.Items.Count}.\n{saved}\n{rows}",
+                          $"BOM: {bom.Items.Count} unique component(s), {bom.TotalOccurrences} occurrence(s). Suppressed skipped: {bom.SuppressedSkipped}. Unloaded: {bom.UnloadedCount}.\nImages embedded in Excel: {bom.CapturedImageCount}/{bom.Items.Count}.\n{saved}\n{rows}");
+            }
+            if (intent == "ExportManufacturingBreakdown" && data is BreakdownExportResult exported)
+            {
+                int count = exported.Breakdown?.UniquePartCount ?? 0;
+                return Tr(
+                    $"Đã xuất bóc tách: {count} Part duy nhất. Ảnh đã chụp: {exported.CapturedImageCount}.\nExcel đã được lưu trong thư mục SW-MATE_AI_Output cạnh Assembly.\nCông nghệ gia công và Nhà gia công được để trống.",
+                    $"Breakdown exported: {count} unique Part(s). Images captured: {exported.CapturedImageCount}.\nExcel was saved in the SW-MATE_AI_Output folder next to the Assembly.\nManufacturing technology and Supplier are left blank.");
+            }
+            if (intent == "BuildManufacturingBreakdown" && data is BreakdownResult breakdown)
+            {
+                string rows = string.Join("\n", breakdown.Items.Take(14).Select(x =>
+                {
+                    string weight = x.StockWeightKg > 0 ? x.StockWeightKg.ToString("0.###") + " kg" : "?";
+                    return $"• {x.PartNumber} | SL {x.Quantity} | {x.Material} | TP {x.FinishedSize} | Phôi {x.StockType}: {x.StockSize} | {weight}";
+                }));
+                return Tr(
+                    $"Bóc tách + tính phôi: {breakdown.TotalPartOccurrences} occurrence, {breakdown.UniquePartCount} Part duy nhất. Lượng dư: {breakdown.AllowancePerSideMm:0.###} mm/mặt. Suppressed bỏ qua: {breakdown.SuppressedSkipped}. Chưa loaded: {breakdown.UnloadedPartCount}.\n{rows}\nCông nghệ gia công: để trống | Nhà gia công: để trống",
+                    $"Breakdown + stock: {breakdown.TotalPartOccurrences} occurrence(s), {breakdown.UniquePartCount} unique Part(s). Allowance: {breakdown.AllowancePerSideMm:0.###} mm/side. Suppressed skipped: {breakdown.SuppressedSkipped}. Unloaded: {breakdown.UnloadedPartCount}.\n{rows}\nManufacturing technology: blank | Supplier: blank");
+            }
+            if (intent == "ReadAssembly" && data is AssemblyInfo assembly)
+                return Tr($"Assembly: {assembly.Name}\nComponent: {assembly.TotalComponentCount} (top-level {assembly.TopLevelComponentCount})\nMate: {assembly.MateCount}\nConfiguration: {assembly.Configuration}\nSuppressed: {assembly.SuppressedComponentCount}   Lightweight: {assembly.LightweightComponentCount}",
+                          $"Assembly: {assembly.Name}\nComponents: {assembly.TotalComponentCount} (top-level {assembly.TopLevelComponentCount})\nMates: {assembly.MateCount}\nConfiguration: {assembly.Configuration}\nSuppressed: {assembly.SuppressedComponentCount}   Lightweight: {assembly.LightweightComponentCount}");
+            if (intent == "ReadComponents" && data is List<AssemblyComponentInfo> components)
+            {
+                string list = string.Join("\n", components.Take(18).Select(c => $"• {new string('·', Math.Min(c.Depth, 8))} {c.Name} | {c.ReferencedConfiguration} | {c.SuppressionStateName}"));
+                return Tr($"Assembly có {components.Count} component occurrence:\n{list}", $"Assembly has {components.Count} component occurrence(s):\n{list}");
+            }
+            if (intent == "ReadMates" && data is List<AssemblyMateInfo> mates)
+            {
+                string list = string.Join("\n", mates.Take(18).Select(m => $"• {m.Name} [{m.TypeName}] → {string.Join(", ", m.Components)}"));
+                return Tr($"Assembly có {mates.Count} Mate:\n{list}", $"Assembly has {mates.Count} mate(s):\n{list}");
+            }
+            if (intent == "CheckInterference" && data is AssemblyInterferenceResult interference)
+            {
+                if (interference.Count == 0) return Tr("Không phát hiện va chạm vật lý trong Assembly.", "No physical interference detected in the Assembly.");
+                string list = string.Join("\n", interference.Items.Take(12).Select(i => $"• #{i.Index}: {string.Join(" ↔ ", i.Components)} | {i.VolumeMm3:0.###} mm³"));
+                return Tr($"Phát hiện {interference.Count} vùng va chạm:\n{list}", $"Detected {interference.Count} interference(s):\n{list}");
+            }
+            if (intent == "ReadMaterial")
+            {
+                var value = data as string;
+                return Tr("Vật liệu: " + (string.IsNullOrWhiteSpace(value) ? "chưa được chỉ định" : value),
+                          "Material: " + (string.IsNullOrWhiteSpace(value) ? "not specified" : value));
+            }
+            if (intent == "ReadBoundingBox" && data is BoundingBoxInfo box)
+                return Tr("Kích thước tổng thể: " + box, "Overall size: " + box);
+            if (intent == "ReadMassProperties" && data is MassPropertiesInfo mass)
+                return Tr($"Khối lượng: {mass.MassKg:0.###} kg\nThể tích: {mass.VolumeMm3:0.###} mm³\nDiện tích bề mặt: {mass.SurfaceAreaMm2:0.###} mm²",
+                          $"Mass: {mass.MassKg:0.###} kg\nVolume: {mass.VolumeMm3:0.###} mm³\nSurface area: {mass.SurfaceAreaMm2:0.###} mm²");
+            if ((intent == "ReadFeatures" || intent == "ReadFeatureTree" || intent == "ReadSketches") && data is List<FeatureInfo> features)
+            {
+                string list = string.Join(", ", features.Take(12).Select(f => f.Name + " [" + f.TypeName + "]"));
+                if (features.Count > 12) list += Tr($" … và {features.Count - 12} mục khác", $" … and {features.Count - 12} more");
+                return Tr($"Tìm thấy {features.Count} mục: {list}", $"Found {features.Count} item(s): {list}");
+            }
+            if (intent == "ReadFeatureDependencies" && data is List<FeatureDependencyInfo> dependencies)
+            {
+                var linked = dependencies.Where(x => x.Parents.Count > 0 || x.Children.Count > 0).Take(16).ToList();
+                string list = string.Join("\n", linked.Select(x =>
+                    $"• {x.Name} [{x.TypeName}]  ← {(x.Parents.Count == 0 ? "—" : string.Join(", ", x.Parents))}  → {(x.Children.Count == 0 ? "—" : string.Join(", ", x.Children))}"));
+                int relations = dependencies.Sum(x => x.Children.Count);
+                return Tr($"Đồ thị phụ thuộc: {dependencies.Count} feature, {relations} quan hệ trực tiếp:\n{list}",
+                          $"Dependency graph: {dependencies.Count} features, {relations} direct relation(s):\n{list}");
+            }
+            if (intent == "AnalyzeFeatureImpact" && data is FeatureImpactInfo impact)
+            {
+                string direct = impact.DirectChildren.Count == 0 ? "—" : string.Join(", ", impact.DirectChildren);
+                string all = impact.AffectedFeatures.Count == 0 ? "—" : string.Join(", ", impact.AffectedFeatures);
+                return Tr(
+                    $"Feature phân tích: {impact.TargetFeature} [{impact.TargetTypeName}]\nPhụ thuộc trực tiếp phía sau: {direct}\nCó thể bị ảnh hưởng khi thay đổi ({impact.AffectedFeatures.Count}): {all}",
+                    $"Analyzed feature: {impact.TargetFeature} [{impact.TargetTypeName}]\nDirect downstream dependencies: {direct}\nPotentially affected by a change ({impact.AffectedFeatures.Count}): {all}");
+            }
+            if (intent == "ReadDimensions" && data is List<DimensionInfo> dimensions)
+            {
+                string list = string.Join("\n", dimensions.Take(12).Select(d => $"• {d.FullName}: {d.ValueMm:0.###} mm"));
+                return Tr($"Có {dimensions.Count} kích thước:\n{list}", $"{dimensions.Count} dimension(s):\n{list}");
+            }
+            if (intent == "ReadCustomProperties" && data is List<CustomPropertyInfo> props)
+            {
+                string list = string.Join("\n", props.Take(12).Select(x => $"• {x.Name}: {x.ResolvedValue}"));
+                return Tr($"Có {props.Count} thuộc tính tùy chỉnh:\n{list}", $"{props.Count} custom propertie(s):\n{list}");
+            }
+            if (intent == "ReadSelectedObject" && data is List<SelectedObjectInfo> selected)
+            {
+                if (selected.Count == 0) return Tr("Hiện không có đối tượng nào được chọn.", "No object is currently selected.");
+                string list = string.Join("\n", selected.Select(x => $"• {x.TypeName}: {x.Name}"));
+                return Tr($"Đang chọn {selected.Count} đối tượng:\n{list}", $"{selected.Count} selected object(s):\n{list}");
+            }
+            return Tr("Đã đọc dữ liệu model thành công.", "Model data read successfully.");
+        }
+
+        private void ReportManualSuccess(string vi, string en)
+        {
+            AgentStageText = "Completed";
+            LastRunSucceeded = true;
+            LastResultText = Tr("✅ Đã hoàn thành.\n" + vi, "✅ Completed.\n" + en);
+            StatusText = Tr(vi, en);
         }
 
         private void AddLog(string message)

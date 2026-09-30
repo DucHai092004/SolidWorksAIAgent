@@ -1,423 +1,320 @@
 <UserControl x:Class="SwMateAI.UI.TaskPaneControl"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             mc:Ignorable="d"
-             d:DesignHeight="600" d:DesignWidth="280"
-             Background="#1A1A2E"
-             FontFamily="Segoe UI">
-
-    <UserControl.Resources>
-
-        <!-- ── Colours ──────────────────────────────────────────── -->
-        <SolidColorBrush x:Key="BackgroundBrush"      Color="#1A1A2E"/>
-        <SolidColorBrush x:Key="SurfaceBrush"         Color="#16213E"/>
-        <SolidColorBrush x:Key="AccentBrush"          Color="#0F3460"/>
-        <SolidColorBrush x:Key="HighlightBrush"       Color="#E94560"/>
-        <SolidColorBrush x:Key="TextPrimaryBrush"     Color="#EAEAEA"/>
-        <SolidColorBrush x:Key="TextSecondaryBrush"   Color="#8892A4"/>
-        <SolidColorBrush x:Key="ConsoleBgBrush"       Color="#0D1117"/>
-        <SolidColorBrush x:Key="ConsoleTextBrush"     Color="#58A6FF"/>
-        <SolidColorBrush x:Key="DividerBrush"         Color="#2A2A4A"/>
-
-        <!-- ── Converters ────────────────────────────────────────── -->
-        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
-
-        <!-- ── Section Label Style ───────────────────────────────── -->
-        <Style x:Key="SectionLabel" TargetType="TextBlock">
-            <Setter Property="Foreground"  Value="{StaticResource TextSecondaryBrush}"/>
-            <Setter Property="FontSize"    Value="10"/>
-            <Setter Property="FontWeight"  Value="SemiBold"/>
-            <Setter Property="Margin"      Value="0,0,0,4"/>
-        </Style>
-
-        <!-- ── Value Label Style ─────────────────────────────────── -->
-        <Style x:Key="ValueLabel" TargetType="TextBlock">
-            <Setter Property="Foreground"  Value="{StaticResource TextPrimaryBrush}"/>
-            <Setter Property="FontSize"    Value="12"/>
-            <Setter Property="TextWrapping" Value="Wrap"/>
-        </Style>
-
-        <!-- ── Card Style ────────────────────────────────────────── -->
-        <Style x:Key="Card" TargetType="Border">
-            <Setter Property="Background"     Value="{StaticResource SurfaceBrush}"/>
-            <Setter Property="CornerRadius"   Value="6"/>
-            <Setter Property="Padding"        Value="12,10"/>
-            <Setter Property="Margin"         Value="8,4"/>
-        </Style>
-
-        <!-- ── Refresh Button Style ──────────────────────────────── -->
-        <Style x:Key="RefreshButton" TargetType="Button">
-            <Setter Property="Background"    Value="{StaticResource HighlightBrush}"/>
-            <Setter Property="Foreground"    Value="White"/>
-            <Setter Property="FontSize"      Value="12"/>
-            <Setter Property="FontWeight"    Value="SemiBold"/>
-            <Setter Property="Padding"       Value="16,8"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor"        Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                CornerRadius="4"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#C73652"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Background" Value="#3A3A5A"/>
-                                <Setter Property="Foreground" Value="#666688"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-    </UserControl.Resources>
-
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>  <!-- Header -->
-            <RowDefinition Height="*"/>     <!-- Scrollable body -->
-        </Grid.RowDefinitions>
-
-        <!-- ══════════════════════════════════════════════════════ -->
-        <!-- HEADER                                                 -->
-        <!-- ══════════════════════════════════════════════════════ -->
-        <Border Grid.Row="0"
-                Background="{StaticResource AccentBrush}"
-                Padding="12,10">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock Text="SW-MATE AI"
-                               Foreground="White"
-                               FontSize="15"
-                               FontWeight="Bold"/>
-                    <TextBlock Text="SOLIDWORKS Design Assistant"
-                               Foreground="#8892A4"
-                               FontSize="10"
-                               Margin="0,2,0,0"/>
-                </StackPanel>
-
-                <!-- Connection indicator dot -->
-                <Ellipse Grid.Column="1"
-                         Width="10" Height="10"
-                         VerticalAlignment="Center">
-                    <Ellipse.Fill>
-                        <SolidColorBrush Color="{Binding ConnectionColor}"/>
-                    </Ellipse.Fill>
-                </Ellipse>
-            </Grid>
-        </Border>
-
-        <!-- ══════════════════════════════════════════════════════ -->
-        <!-- SCROLLABLE BODY                                        -->
-        <!-- ══════════════════════════════════════════════════════ -->
-        <ScrollViewer Grid.Row="1"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Margin="0,4,0,8">
-
-                <!-- ── Connection Status Card ────────────────────── -->
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="CONNECTION STATUS"
-                                   Style="{StaticResource SectionLabel}"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Ellipse Grid.Column="0"
-                                     Width="8" Height="8"
-                                     Margin="0,0,8,0"
-                                     VerticalAlignment="Center">
-                                <Ellipse.Fill>
-                                    <SolidColorBrush Color="{Binding ConnectionColor}"/>
-                                </Ellipse.Fill>
-                            </Ellipse>
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding StatusText}"
-                                       Style="{StaticResource ValueLabel}"
-                                       VerticalAlignment="Center"/>
-                        </Grid>
-                    </StackPanel>
-                </Border>
-
-                <!-- ── Active Document Card ──────────────────────── -->
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="ACTIVE DOCUMENT"
-                                   Style="{StaticResource SectionLabel}"/>
-
-                        <!-- No document open: visible only when HasActiveDoc = False -->
-                        <TextBlock Text="No active document"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   FontSize="12"
-                                   FontStyle="Italic">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <!-- Default: visible (no active doc) -->
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                    <Style.Triggers>
-                                        <!-- Hide when a document IS active -->
-                                        <DataTrigger Binding="{Binding HasActiveDoc}" Value="True">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-
-                        <!-- Document info (only when active doc exists) -->
-                        <StackPanel Visibility="{Binding HasActiveDoc,
-                                                 Converter={StaticResource BoolToVis}}">
-
-                            <!-- Type row -->
-                            <Grid Margin="0,0,0,6">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0"
-                                           Text="Type"
-                                           Style="{StaticResource SectionLabel}"
-                                           VerticalAlignment="Center"
-                                           Margin="0"/>
-                                <StackPanel Grid.Column="1"
-                                            Orientation="Horizontal"
-                                            VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding DocTypeIcon}"
-                                               Foreground="{StaticResource HighlightBrush}"
-                                               FontSize="14"
-                                               Margin="0,0,6,0"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding DocumentType}"
-                                               Style="{StaticResource ValueLabel}"
-                                               FontWeight="SemiBold"
-                                               VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Grid>
-
-                            <!-- Title row -->
-                            <Grid Margin="0,0,0,6">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0"
-                                           Text="Name"
-                                           Style="{StaticResource SectionLabel}"
-                                           VerticalAlignment="Top"
-                                           Margin="0"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding DocumentTitle}"
-                                           Style="{StaticResource ValueLabel}"
-                                           FontWeight="SemiBold"/>
-                            </Grid>
-
-                            <!-- Path row -->
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0"
-                                           Text="Path"
-                                           Style="{StaticResource SectionLabel}"
-                                           VerticalAlignment="Top"
-                                           Margin="0"/>
-                                <TextBlock Grid.Column="1"
-                                           TextWrapping="Wrap">
-                                    <!-- Inline Style not allowed when TextBlock.Style element is used.
-                                         Style with BasedOn and DataTrigger handles all rendering. -->
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock" BasedOn="{StaticResource ValueLabel}">
-                                            <Setter Property="Text"       Value="{Binding FilePath}"/>
-                                            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-                                            <Setter Property="FontSize"   Value="10"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsSaved}" Value="False">
-                                                    <Setter Property="Text"      Value="(unsaved document)"/>
-                                                    <Setter Property="FontStyle" Value="Italic"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </Grid>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <!-- ── Refresh Button ─────────────────────────────── -->
-                <Button Content="⟳  Refresh Info"
-                        Command="{Binding RefreshInfoCommand}"
-                        Style="{StaticResource RefreshButton}"
-                        Margin="8,4"
-                        HorizontalAlignment="Stretch"/>
-
-                <!-- ── Phase 2B CAD Actions ───────────────────────── -->
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="CAD ACTIONS"
-                                   Style="{StaticResource SectionLabel}"/>
-                        <Button Content="+  Create New Part"
-                                Command="{Binding CreatePartCommand}"
-                                Style="{StaticResource RefreshButton}"
-                                HorizontalAlignment="Stretch"
-                                Margin="0,0,0,6"/>
-                        <Button Content="✎  Create Sketch"
-                                Command="{Binding CreateSketchCommand}"
-                                Style="{StaticResource RefreshButton}"
-                                HorizontalAlignment="Stretch"
-                                Margin="0,0,0,8"/>
-
-                        <TextBlock Text="BOX DIMENSIONS (mm)"
-                                   Style="{StaticResource SectionLabel}"/>
-                        <Grid Margin="0,0,0,6">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="8"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Width" Style="{StaticResource SectionLabel}"/>
-                                <TextBox Text="{Binding RectangleWidth, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Height" Style="{StaticResource SectionLabel}"/>
-                                <TextBox Text="{Binding RectangleHeight, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
-                            </StackPanel>
-                        </Grid>
-                        <Button Content="▭  Create Rectangle"
-                                Command="{Binding CreateRectangleCommand}"
-                                Style="{StaticResource RefreshButton}"
-                                HorizontalAlignment="Stretch"
-                                Margin="0,0,0,6"/>
-                        <StackPanel Margin="0,0,0,6">
-                            <TextBlock Text="Extrude Depth (mm)" Style="{StaticResource SectionLabel}"/>
-                            <TextBox Text="{Binding ExtrudeDepth, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
-                        </StackPanel>
-                        <Button Content="⬆  Extrude"
-                                Command="{Binding ExtrudeCommand}"
-                                Style="{StaticResource RefreshButton}"
-                                HorizontalAlignment="Stretch"
-                                Margin="0,0,0,10"/>
-
-                        <TextBlock Text="HOLE / CUT (mm)" Style="{StaticResource SectionLabel}"/>
-                        <Grid Margin="0,0,0,6">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="6"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="6"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Diameter" Style="{StaticResource SectionLabel}"/>
-                                <TextBox Text="{Binding CircleDiameter, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="X" Style="{StaticResource SectionLabel}"/>
-                                <TextBox Text="{Binding CircleX, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="4">
-                                <TextBlock Text="Y" Style="{StaticResource SectionLabel}"/>
-                                <TextBox Text="{Binding CircleY, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
-                            </StackPanel>
-                        </Grid>
-                        <Button Content="○  Create Circle"
-                                Command="{Binding CreateCircleCommand}"
-                                Style="{StaticResource RefreshButton}"
-                                HorizontalAlignment="Stretch"
-                                Margin="0,0,0,6"/>
-                        <StackPanel Margin="0,0,0,6">
-                            <TextBlock Text="Cut Depth" Style="{StaticResource SectionLabel}"/>
-                            <TextBox Text="{Binding CutDepth, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
-                        </StackPanel>
-                        <Button Content="✂  Cut Extrude"
-                                Command="{Binding CutExtrudeCommand}"
-                                Style="{StaticResource RefreshButton}"
-                                HorizontalAlignment="Stretch"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- ── One-click CAD workflow ─────────────────────── -->
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="AUTO WORKFLOW" Style="{StaticResource SectionLabel}"/>
-                        <TextBlock Text="Plate with centered hole" Style="{StaticResource ValueLabel}" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                        <Grid Margin="0,0,0,6">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/><ColumnDefinition Width="5"/>
-                                <ColumnDefinition Width="*"/><ColumnDefinition Width="5"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0"><TextBlock Text="Width" Style="{StaticResource SectionLabel}"/><TextBox Text="{Binding PlateWidth, UpdateSourceTrigger=PropertyChanged}" Padding="4"/></StackPanel>
-                            <StackPanel Grid.Column="2"><TextBlock Text="Height" Style="{StaticResource SectionLabel}"/><TextBox Text="{Binding PlateHeight, UpdateSourceTrigger=PropertyChanged}" Padding="4"/></StackPanel>
-                            <StackPanel Grid.Column="4"><TextBlock Text="Thick." Style="{StaticResource SectionLabel}"/><TextBox Text="{Binding PlateThickness, UpdateSourceTrigger=PropertyChanged}" Padding="4"/></StackPanel>
-                        </Grid>
-                        <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0"><TextBlock Text="Hole Ø" Style="{StaticResource SectionLabel}"/><TextBox Text="{Binding PlateHoleDiameter, UpdateSourceTrigger=PropertyChanged}" Padding="4"/></StackPanel>
-                            <StackPanel Grid.Column="2"><TextBlock Text="Hole Depth" Style="{StaticResource SectionLabel}"/><TextBox Text="{Binding PlateHoleDepth, UpdateSourceTrigger=PropertyChanged}" Padding="4"/></StackPanel>
-                        </Grid>
-                        <Button Content="⚡  AUTO CREATE PLATE + HOLE"
-                                Command="{Binding CreatePlateWithHoleCommand}"
-                                Style="{StaticResource RefreshButton}"
-                                HorizontalAlignment="Stretch"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- ── Agent Console Card ─────────────────────────── -->
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="AGENT CONSOLE"
-                                   Style="{StaticResource SectionLabel}"/>
-                        <Border Background="{StaticResource ConsoleBgBrush}"
-                                CornerRadius="4"
-                                Padding="8"
-                                Height="160">
-                            <ScrollViewer x:Name="ConsoleScroller"
-                                          VerticalScrollBarVisibility="Auto"
-                                          HorizontalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding ConsoleLog}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding}"
-                                                       Foreground="{StaticResource ConsoleTextBrush}"
-                                                       FontFamily="Consolas"
-                                                       FontSize="10"
-                                                       Margin="0,1"/>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                        </Border>
-                    </StackPanel>
-                </Border>
-
-                <!-- ── Version footer ────────────────────────────── -->
-                <TextBlock Text="SW-MATE AI  ·  Phase 2C  ·  v0.3.1"
-                           HorizontalAlignment="Center"
-                           Foreground="{StaticResource TextSecondaryBrush}"
-                           FontSize="9"
-                           Margin="0,8,0,4"/>
-
-            </StackPanel>
-        </ScrollViewer>
-
-    </Grid>
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ mc:Ignorable="d" d:DesignWidth="340" d:DesignHeight="760"
+ Background="#0B1220" FontFamily="Segoe UI">
+ <UserControl.Resources>
+  <ResourceDictionary>
+   <ResourceDictionary.MergedDictionaries>
+   <ResourceDictionary Source="/SwMateAI.UI;component/Localization/Strings.vi-VN.xaml"/>
+  </ResourceDictionary.MergedDictionaries>
+  <SolidColorBrush x:Key="Bg" Color="#0B1220"/>
+  <SolidColorBrush x:Key="Surface" Color="#111C2E"/>
+  <SolidColorBrush x:Key="Surface2" Color="#16243A"/>
+  <SolidColorBrush x:Key="Border" Color="#26364F"/>
+  <SolidColorBrush x:Key="Accent" Color="#2563EB"/>
+  <SolidColorBrush x:Key="Text" Color="#E5E7EB"/>
+  <SolidColorBrush x:Key="Muted" Color="#94A3B8"/>
+  <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+  <Style x:Key="Card" TargetType="Border">
+   <Setter Property="Background" Value="{StaticResource Surface}"/>
+   <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
+   <Setter Property="BorderThickness" Value="1"/>
+   <Setter Property="CornerRadius" Value="8"/>
+   <Setter Property="Padding" Value="12"/>
+   <Setter Property="Margin" Value="10,5"/>
+  </Style>
+  <Style x:Key="SectionTitle" TargetType="TextBlock">
+   <Setter Property="Foreground" Value="{StaticResource Text}"/>
+   <Setter Property="FontSize" Value="12"/>
+   <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style x:Key="Caption" TargetType="TextBlock">
+   <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+   <Setter Property="FontSize" Value="10"/>
+  </Style>
+  <Style x:Key="Input" TargetType="TextBox">
+   <Setter Property="Background" Value="#0F172A"/>
+   <Setter Property="Foreground" Value="{StaticResource Text}"/>
+   <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
+   <Setter Property="BorderThickness" Value="1"/>
+   <Setter Property="Padding" Value="8,6"/>
+   <Setter Property="CaretBrush" Value="White"/>
+   <Setter Property="SelectionBrush" Value="#315EA8"/>
+  </Style>
+  <Style x:Key="PrimaryButton" TargetType="Button">
+   <Setter Property="Background" Value="{StaticResource Accent}"/>
+   <Setter Property="Foreground" Value="White"/>
+   <Setter Property="BorderThickness" Value="0"/>
+   <Setter Property="FontWeight" Value="SemiBold"/>
+   <Setter Property="Padding" Value="10,8"/>
+   <Setter Property="Cursor" Value="Hand"/>
+   <Setter Property="Template">
+    <Setter.Value><ControlTemplate TargetType="Button">
+     <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+      <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+     </Border>
+     <ControlTemplate.Triggers>
+      <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#1D4ED8"/></Trigger>
+      <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+     </ControlTemplate.Triggers>
+    </ControlTemplate></Setter.Value>
+   </Setter>
+  </Style>
+  <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+   <Setter Property="Background" Value="#1E293B"/>
+  </Style>
+  </ResourceDictionary>
+ </UserControl.Resources>
+ <Grid>
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+  <Border Grid.Row="0" Background="#0F1B2D" BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="14,12">
+   <Grid>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <StackPanel>
+     <TextBlock Text="SW-MATE AI" Foreground="White" FontSize="16" FontWeight="Bold"/>
+     <TextBlock Text="{DynamicResource AppSubtitle}" Foreground="{StaticResource Muted}" FontSize="10" Margin="0,2,0,0"/>
+    </StackPanel>
+    <StackPanel Grid.Column="1" Margin="0,0,8,0" VerticalAlignment="Center">
+     <TextBlock Text="{DynamicResource LanguageLabel}" Foreground="{StaticResource Muted}" FontSize="8" Margin="2,0,0,2"/>
+     <ComboBox x:Name="LanguageCombo" Width="92" Height="25" SelectionChanged="LanguageCombo_SelectionChanged" Background="#16243A" Foreground="White" BorderBrush="{StaticResource Border}" Padding="4,1">
+      <ComboBoxItem Content="Tiếng Việt" Tag="vi-VN" IsSelected="True"/>
+      <ComboBoxItem Content="English" Tag="en-US"/>
+     </ComboBox>
+    </StackPanel>
+    <Border Grid.Column="2" Background="#132238" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12" Padding="9,4" VerticalAlignment="Center">
+     <StackPanel Orientation="Horizontal">
+      <Ellipse Width="7" Height="7" Margin="0,0,6,0" VerticalAlignment="Center"><Ellipse.Fill><SolidColorBrush Color="{Binding AgentStageColor}"/></Ellipse.Fill></Ellipse>
+      <TextBlock Text="{Binding AgentStageDisplay}" Foreground="{StaticResource Text}" FontSize="10" FontWeight="SemiBold"/>
+     </StackPanel>
+    </Border>
+   </Grid>
+  </Border>
+  <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+   <StackPanel Margin="0,5,0,12">
+    <Border Style="{StaticResource Card}">
+     <StackPanel>
+      <Grid Margin="0,0,0,10">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <StackPanel>
+        <TextBlock Text="{DynamicResource ContextTitle}" Style="{StaticResource SectionTitle}"/>
+        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+         <Ellipse Width="7" Height="7" Margin="0,0,6,0" VerticalAlignment="Center"><Ellipse.Fill><SolidColorBrush Color="{Binding ConnectionColor}"/></Ellipse.Fill></Ellipse>
+         <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource Muted}" FontSize="10"/>
+        </StackPanel>
+       </StackPanel>
+       <Button Grid.Column="1" Content="↻" Command="{Binding RefreshInfoCommand}" Style="{StaticResource SecondaryButton}" Padding="9,5" ToolTip="{DynamicResource RefreshTooltip}"/>
+      </Grid>
+      <Grid>
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <StackPanel Grid.Column="0" Margin="0,0,8,0">
+        <TextBlock Text="{DynamicResource DocumentLabel}" Style="{StaticResource Caption}"/>
+        <TextBlock Text="{Binding DocumentTitle}" Foreground="{StaticResource Text}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+        <TextBlock Text="{Binding DocumentType}" Foreground="#60A5FA" FontSize="10"/>
+       </StackPanel>
+       <StackPanel Grid.Column="1">
+        <TextBlock Text="{DynamicResource ConfigurationLabel}" Style="{StaticResource Caption}"/>
+        <TextBlock Text="{Binding ActiveConfiguration}" Foreground="{StaticResource Text}" FontWeight="SemiBold"/>
+        <TextBlock Text="{Binding SelectionSummary}" Foreground="{StaticResource Muted}" FontSize="10"/>
+       </StackPanel>
+      </Grid>
+     </StackPanel>
+    </Border>
+    <Border Style="{StaticResource Card}">
+     <StackPanel>
+      <Grid Margin="0,0,0,7">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <StackPanel>
+        <TextBlock Text="{DynamicResource ModelInspectorTitle}" Style="{StaticResource SectionTitle}"/>
+        <TextBlock Text="{DynamicResource ModelInspectorDescription}" Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+       </StackPanel>
+       <Button Grid.Column="1" Content="{DynamicResource ReadModel}" Command="{Binding InspectModelCommand}" Style="{StaticResource SecondaryButton}"/>
+      </Grid>
+      <Border Background="{StaticResource Surface2}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6" Padding="8">
+       <TextBlock Text="{Binding ModelSummary}" Foreground="{StaticResource Text}" FontSize="10" TextWrapping="Wrap"/>
+      </Border>
+     </StackPanel>
+    </Border>
+    <Border Style="{StaticResource Card}">
+     <StackPanel>
+      <TextBlock Text="{DynamicResource AiCommandTitle}" Style="{StaticResource SectionTitle}"/>
+      <TextBlock Text="{DynamicResource AiCommandDescription}" Style="{StaticResource Caption}" Margin="0,3,0,8"/>
+      <TextBox Text="{Binding NaturalLanguageCommand, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" VerticalScrollBarVisibility="Auto"/>
+      <Button Content="{DynamicResource RunAgentPlan}" Command="{Binding ExecuteNaturalLanguageCommand}" Style="{StaticResource PrimaryButton}" Margin="0,10,0,0"/>
+     </StackPanel>
+    </Border>
+    <Border Style="{StaticResource Card}" Visibility="{Binding HasPlan, Converter={StaticResource BoolToVis}}">
+     <StackPanel>
+      <Grid Margin="0,0,0,8">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <StackPanel>
+        <TextBlock Text="{DynamicResource TaskPlanTitle}" Style="{StaticResource SectionTitle}"/>
+        <TextBlock Text="{Binding PlanGoal}" Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+       </StackPanel>
+       <TextBlock Grid.Column="1" Text="{Binding AgentStageDisplay}" Foreground="#60A5FA" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
+      </Grid>
+      <ItemsControl ItemsSource="{Binding CurrentPlanSteps}">
+       <ItemsControl.ItemTemplate>
+        <DataTemplate>
+         <Border Background="{StaticResource Surface2}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,6">
+          <Grid>
+           <Grid.ColumnDefinitions><ColumnDefinition Width="26"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+           <Border Width="22" Height="22" CornerRadius="11" Background="#1D4ED8" VerticalAlignment="Top"><TextBlock Text="{Binding Index}" Foreground="White" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+           <StackPanel Grid.Column="1" Margin="7,0,7,0"><TextBlock Text="{Binding SkillName}" Foreground="{StaticResource Text}" FontWeight="SemiBold" FontSize="11"/><TextBlock Text="{Binding Description}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap"/></StackPanel>
+           <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+            <TextBlock Text="{Binding Status}" Foreground="#7DD3FC" FontSize="9" HorizontalAlignment="Right"/>
+            <TextBlock Text="{DynamicResource VerifiedText}" Foreground="#34D399" FontSize="8" FontWeight="SemiBold" HorizontalAlignment="Right" Visibility="{Binding IsVerified, Converter={StaticResource BoolToVis}}"/>
+           </StackPanel>
+          </Grid>
+         </Border>
+        </DataTemplate>
+       </ItemsControl.ItemTemplate>
+      </ItemsControl>
+     </StackPanel>
+    </Border>
+    <Border Style="{StaticResource Card}" Visibility="{Binding HasPendingConfirmation, Converter={StaticResource BoolToVis}}" BorderBrush="#F59E0B">
+     <StackPanel>
+      <TextBlock Text="{DynamicResource ConfirmationTitle}" Foreground="#FBBF24" FontSize="12" FontWeight="Bold"/>
+      <TextBlock Text="{DynamicResource ConfirmationDescription}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,3,0,8"/>
+      <Border Background="#1F2937" BorderBrush="#92400E" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,8">
+       <TextBlock Text="{Binding ConfirmationSummary}" Foreground="{StaticResource Text}" FontSize="10" TextWrapping="Wrap"/>
+      </Border>
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <Button Grid.Column="0" Content="{DynamicResource ConfirmExecute}" Command="{Binding ConfirmPlanCommand}" Style="{StaticResource PrimaryButton}"/>
+       <Button Grid.Column="2" Content="{DynamicResource CancelPlan}" Command="{Binding CancelPlanCommand}" Style="{StaticResource SecondaryButton}"/>
+      </Grid>
+     </StackPanel>
+    </Border>
+    <Border Style="{StaticResource Card}">
+     <StackPanel>
+      <TextBlock Text="{DynamicResource LastResultTitle}" Style="{StaticResource SectionTitle}"/>
+      <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
+       <Ellipse Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Top"><Ellipse.Fill><SolidColorBrush Color="{Binding ResultColor}"/></Ellipse.Fill></Ellipse>
+       <TextBlock Text="{Binding LastResultText}" Foreground="{StaticResource Text}" FontSize="10" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Button Content="{DynamicResource UndoLastAction}" Command="{Binding UndoLastActionCommand}" Style="{StaticResource SecondaryButton}" Margin="0,9,0,0"/>
+     </StackPanel>
+    </Border>
+    <Expander Margin="10,5" Foreground="{StaticResource Text}" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="10">
+     <Expander.Header>
+      <StackPanel><TextBlock Text="{DynamicResource GuideTitle}" FontWeight="SemiBold" FontSize="11"/><TextBlock Text="{DynamicResource GuideDescription}" Foreground="{StaticResource Muted}" FontSize="9"/></StackPanel>
+     </Expander.Header>
+     <StackPanel Margin="0,10,0,0">
+      <TextBlock Text="{DynamicResource GuideStep1}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep2}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep3}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep4}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep5}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep6}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep7}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep8}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep9}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep10}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep11}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep12}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep13}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep14}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/>
+      <TextBlock Text="{DynamicResource GuideStep15}" Foreground="{StaticResource Text}" FontSize="9" TextWrapping="Wrap" Margin="0,2,0,8"/>
+      <TextBlock Text="{DynamicResource GuideExamples}" Foreground="#7DD3FC" FontSize="9" FontWeight="SemiBold" Margin="0,2,0,3"/>
+      <TextBlock Text="{DynamicResource GuideExample1}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample2}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample3}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample4}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample5}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample6}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample7}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample8}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample9}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample10}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample11}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample12}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample13}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample14}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample15}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample16}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample17}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample18}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample19}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample20}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1"/>
+      <TextBlock Text="{DynamicResource GuideExample21}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,1,0,7"/>
+      <Border Background="#0F172A" CornerRadius="5" Padding="7"><TextBlock Text="{DynamicResource GuideTip}" Foreground="#A5B4FC" FontSize="9" TextWrapping="Wrap"/></Border>
+     </StackPanel>
+    </Expander>
+    <Expander Margin="10,5" Foreground="{StaticResource Text}" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="10">
+     <Expander.Header>
+      <StackPanel><TextBlock Text="{DynamicResource ManualToolsTitle}" FontWeight="SemiBold" FontSize="11"/><TextBlock Text="{DynamicResource ManualToolsDescription}" Foreground="{StaticResource Muted}" FontSize="9"/></StackPanel>
+     </Expander.Header>
+     <StackPanel Margin="0,10,0,0">
+      <Grid Margin="0,0,0,8">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <Button Grid.Column="0" Content="{DynamicResource NewPart}" Command="{Binding CreatePartCommand}" Style="{StaticResource SecondaryButton}"/>
+       <Button Grid.Column="2" Content="{DynamicResource CreateSketch}" Command="{Binding CreateSketchCommand}" Style="{StaticResource SecondaryButton}"/>
+      </Grid>
+      <TextBlock Text="{DynamicResource RectangleExtrude}" Style="{StaticResource Caption}" Margin="0,2,0,5"/>
+      <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <TextBox Grid.Column="0" Text="{Binding RectangleWidth, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
+       <TextBox Grid.Column="2" Text="{Binding RectangleHeight, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
+      </Grid>
+      <Button Content="{DynamicResource CreateRectangle}" Command="{Binding CreateRectangleCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,6"/>
+      <TextBox Text="{Binding ExtrudeDepth, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
+      <Button Content="{DynamicResource Extrude}" Command="{Binding ExtrudeCommand}" Style="{StaticResource SecondaryButton}" Margin="0,6,0,10"/>
+      <TextBlock Text="{DynamicResource HoleCut}" Style="{StaticResource Caption}" Margin="0,2,0,5"/>
+      <Grid Margin="0,0,0,6">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <TextBox Grid.Column="0" Text="{Binding CircleDiameter, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
+       <TextBox Grid.Column="2" Text="{Binding CircleX, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
+       <TextBox Grid.Column="4" Text="{Binding CircleY, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
+      </Grid>
+      <Button Content="{DynamicResource CreateCircle}" Command="{Binding CreateCircleCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,6"/>
+      <TextBox Text="{Binding CutDepth, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
+      <Button Content="{DynamicResource CutExtrude}" Command="{Binding CutExtrudeCommand}" Style="{StaticResource SecondaryButton}" Margin="0,6,0,10"/>
+      <TextBlock Text="{DynamicResource Dimensions}" Style="{StaticResource Caption}" Margin="0,2,0,5"/>
+      <TextBlock Text="{DynamicResource DimensionHint}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,0,0,5"/>
+      <Grid Margin="0,0,0,6">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <TextBox Grid.Column="0" Text="{Binding DimensionName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}" ToolTip="{DynamicResource DimensionNameTooltip}"/>
+       <TextBox Grid.Column="2" Text="{Binding DimensionValue, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}" ToolTip="{DynamicResource DimensionValueTooltip}"/>
+      </Grid>
+      <Grid Margin="0,0,0,10">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <Button Grid.Column="0" Content="{DynamicResource AddToSelection}" Command="{Binding AddDimensionCommand}" Style="{StaticResource SecondaryButton}"/>
+       <Button Grid.Column="2" Content="{DynamicResource ModifyDimension}" Command="{Binding ModifyDimensionCommand}" Style="{StaticResource SecondaryButton}"/>
+      </Grid>
+      <TextBlock Text="{DynamicResource QuickWorkflow}" Style="{StaticResource Caption}" Margin="0,2,0,5"/>
+      <Grid Margin="0,0,0,6">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <TextBox Grid.Column="0" Text="{Binding PlateWidth, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
+       <TextBox Grid.Column="2" Text="{Binding PlateHeight, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
+       <TextBox Grid.Column="4" Text="{Binding PlateThickness, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
+      </Grid>
+      <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <TextBox Grid.Column="0" Text="{Binding PlateHoleDiameter, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
+       <TextBox Grid.Column="2" Text="{Binding PlateHoleDepth, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}"/>
+      </Grid>
+      <Button Content="{DynamicResource CreatePlateHole}" Command="{Binding CreatePlateWithHoleCommand}" Style="{StaticResource SecondaryButton}"/>
+     </StackPanel>
+    </Expander>
+    <Expander Margin="10,5" Foreground="{StaticResource Text}" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="10">
+     <Expander.Header>
+      <StackPanel><TextBlock Text="{DynamicResource ActivityHistoryTitle}" FontWeight="SemiBold" FontSize="11"/><TextBlock Text="{DynamicResource ActivityHistoryDescription}" Foreground="{StaticResource Muted}" FontSize="9"/></StackPanel>
+     </Expander.Header>
+     <StackPanel Margin="0,10,0,0">
+      <TextBlock Text="{DynamicResource RecentCommands}" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
+      <Border Background="#0F172A" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6" Padding="7" MaxHeight="100">
+       <ScrollViewer VerticalScrollBarVisibility="Auto"><ItemsControl ItemsSource="{Binding CommandHistory}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" Foreground="{StaticResource Muted}" FontSize="9" TextWrapping="Wrap" Margin="0,2"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+      </Border>
+      <TextBlock Text="{DynamicResource AgentConsole}" Style="{StaticResource Caption}" Margin="0,10,0,5"/>
+      <Border Background="#080D16" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6" Padding="7" Height="150">
+       <ScrollViewer x:Name="ConsoleScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding ConsoleLog}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" Foreground="#7DD3FC" FontFamily="Consolas" FontSize="9" Margin="0,1"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+       </ScrollViewer>
+      </Border>
+     </StackPanel>
+    </Expander>
+    <TextBlock Text="{DynamicResource FooterText}" HorizontalAlignment="Center" Foreground="{StaticResource Muted}" FontSize="9" Margin="0,8,0,4"/>
+   </StackPanel>
+  </ScrollViewer>
+ </Grid>
 </UserControl>
