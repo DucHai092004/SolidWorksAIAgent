@@ -1,7 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
  xmlns:sys="clr-namespace:System;assembly=mscorlib">
- <sys:String x:Key="AppSubtitle">Mechanical CAD Agent · V1</sys:String>
+ <sys:String x:Key="AppSubtitle">Mechanical CAD Agent · V1 RC1</sys:String>
  <sys:String x:Key="ContextTitle">SOLIDWORKS CONTEXT</sys:String>
  <sys:String x:Key="DocumentLabel">DOCUMENT</sys:String>
  <sys:String x:Key="ConfigurationLabel">CONFIGURATION</sys:String>
@@ -41,7 +41,7 @@
  <sys:String x:Key="ActivityHistoryDescription">Recent commands and agent diagnostics</sys:String>
  <sys:String x:Key="RecentCommands">RECENT COMMANDS</sys:String>
  <sys:String x:Key="AgentConsole">AGENT CONSOLE</sys:String>
- <sys:String x:Key="FooterText">SW-MATE AI  ·  Phase 5 · BOM Complete  ·  v1.8.0</sys:String>
+ <sys:String x:Key="FooterText">SW-MATE AI · Version 1 RC1 · Extraction &amp; Export</sys:String>
  <sys:String x:Key="LanguageLabel">Language</sys:String>
  <sys:String x:Key="RefreshTooltip">Refresh SolidWorks context</sys:String>
  <sys:String x:Key="StatusIdle">Idle</sys:String>
