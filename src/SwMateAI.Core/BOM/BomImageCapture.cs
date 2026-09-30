@@ -7,7 +7,8 @@ namespace SwMateAI.Core.BOM
 {
     /// <summary>
     /// Captures an isometric preview for one representative BOM component.
-    /// Lightweight/unloaded source documents are resolved or opened temporarily and restored afterwards.
+    /// Lightweight/unloaded source documents are opened invisibly and closed afterwards.
+    /// Loaded documents that were hidden are restored to their hidden state.
     /// </summary>
     public class BomImageCapture
     {
@@ -31,30 +32,12 @@ namespace SwMateAI.Core.BOM
                 : assembly.GetComponentByName(item.RepresentativeComponentName);
             var componentModel = component?.GetModelDoc2() as IModelDoc2;
             bool openedTemporarily = false;
-            bool resolvedTemporarily = false;
-            int originalSuppression = -1;
+            bool wasVisible = componentModel != null && componentModel.Visible;
             string assemblyTitle = assemblyModel.GetTitle() ?? string.Empty;
             int activateErrors = 0;
 
             try
             {
-                if (componentModel == null && component != null)
-                {
-                    try
-                    {
-                        originalSuppression = component.GetSuppression();
-                        component.SetSuppression2((int)swComponentSuppressionState_e.swComponentResolved);
-                        componentModel = component.GetModelDoc2() as IModelDoc2;
-                        resolvedTemporarily = componentModel != null &&
-                            (originalSuppression == (int)swComponentSuppressionState_e.swComponentLightweight ||
-                             originalSuppression == (int)swComponentSuppressionState_e.swComponentFullyLightweight);
-                    }
-                    catch
-                    {
-                        componentModel = null;
-                    }
-                }
-
                 if (componentModel == null)
                 {
                     if (string.IsNullOrWhiteSpace(item.SourcePath) || !File.Exists(item.SourcePath))
@@ -66,19 +49,27 @@ namespace SwMateAI.Core.BOM
 
                     int openErrors = 0;
                     int openWarnings = 0;
-                    componentModel = _swApp.OpenDoc6(
-                        item.SourcePath,
-                        documentType,
-                        (int)(swOpenDocOptions_e.swOpenDocOptions_Silent |
-                              swOpenDocOptions_e.swOpenDocOptions_ReadOnly),
-                        item.Configuration ?? string.Empty,
-                        ref openErrors,
-                        ref openWarnings) as IModelDoc2;
-                    openedTemporarily = componentModel != null;
+                    try
+                    {
+                        _swApp.DocumentVisible(false, documentType);
+                        componentModel = _swApp.OpenDoc6(
+                            item.SourcePath,
+                            documentType,
+                            (int)swOpenDocOptions_e.swOpenDocOptions_Silent,
+                            item.Configuration ?? string.Empty,
+                            ref openErrors,
+                            ref openWarnings) as IModelDoc2;
+                        openedTemporarily = componentModel != null;
+                    }
+                    finally
+                    {
+                        try { _swApp.DocumentVisible(true, documentType); } catch { }
+                    }
                 }
 
                 if (componentModel == null) return string.Empty;
 
+                try { componentModel.Visible = true; } catch { }
                 Directory.CreateDirectory(folder);
                 string shortName = SafeFileName(string.IsNullOrWhiteSpace(item.PartNumber)
                     ? "item"
@@ -116,13 +107,9 @@ namespace SwMateAI.Core.BOM
                     try { _swApp.CloseDoc(componentModel.GetTitle()); }
                     catch { }
                 }
-                else if (resolvedTemporarily && component != null)
+                else if (componentModel != null && !wasVisible)
                 {
-                    try
-                    {
-                        component.SetSuppression2((int)swComponentSuppressionState_e.swComponentLightweight);
-                    }
-                    catch { }
+                    try { componentModel.Visible = false; } catch { }
                 }
             }
         }
