@@ -4,19 +4,26 @@ using System.Text;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using A = DocumentFormat.OpenXml.Drawing;
+using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
 namespace SwMateAI.Core.BOM
 {
     /// <summary>
     /// Fast BOM exporter that writes XLSX directly with OpenXML.
-    /// It intentionally does not launch Excel or embed preview images.
+    /// It never launches Excel. If preview images are available on BOM items,
+    /// they are embedded directly into column A.
     /// </summary>
     public class BomFastExcelExporter
     {
+        private const long ImageWidthEmu = 914400L;
+        private const long ImageHeightEmu = 685800L;
+
         public string Export(BomResult result, string path)
         {
             if (result == null) throw new ArgumentNullException(nameof(result));
-            if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("Output path is required.", nameof(path));
+            if (string.IsNullOrWhiteSpace(path))
+                throw new ArgumentException("Output path is required.", nameof(path));
 
             string directory = Path.GetDirectoryName(path);
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
@@ -43,6 +50,8 @@ namespace SwMateAI.Core.BOM
 
                 uint lastRow = (uint)Math.Max(1, result.Items.Count + 1);
                 worksheet.Append(new AutoFilter { Reference = "A1:H" + lastRow });
+
+                AddImages(worksheetPart, result);
                 worksheetPart.Worksheet.Save();
 
                 var sheets = workbookPart.Workbook.AppendChild(new Sheets());
@@ -56,6 +65,90 @@ namespace SwMateAI.Core.BOM
             }
 
             return path;
+        }
+
+        private static void AddImages(WorksheetPart worksheetPart, BomResult result)
+        {
+            bool hasImages = false;
+            foreach (var item in result.Items)
+            {
+                if (!string.IsNullOrWhiteSpace(item.ImagePath) && File.Exists(item.ImagePath))
+                {
+                    hasImages = true;
+                    break;
+                }
+            }
+            if (!hasImages) return;
+
+            var drawingsPart = worksheetPart.AddNewPart<DrawingsPart>();
+            drawingsPart.WorksheetDrawing = new Xdr.WorksheetDrawing();
+
+            uint pictureId = 1;
+            int dataIndex = 0;
+            foreach (var item in result.Items)
+            {
+                string imagePath = item.ImagePath ?? string.Empty;
+                if (File.Exists(imagePath))
+                {
+                    var imagePart = drawingsPart.AddImagePart(ImagePartType.Png);
+                    using (var stream = File.OpenRead(imagePath))
+                        imagePart.FeedData(stream);
+
+                    string relationshipId = drawingsPart.GetIdOfPart(imagePart);
+                    drawingsPart.WorksheetDrawing.Append(
+                        BuildImageAnchor(relationshipId, pictureId++, dataIndex + 1));
+                }
+                dataIndex++;
+            }
+
+            drawingsPart.WorksheetDrawing.Save();
+            worksheetPart.Worksheet.Append(
+                new Drawing { Id = worksheetPart.GetIdOfPart(drawingsPart) });
+        }
+
+        private static Xdr.OneCellAnchor BuildImageAnchor(
+            string relationshipId,
+            uint pictureId,
+            int zeroBasedExcelRow)
+        {
+            var nonVisual = new Xdr.NonVisualPictureProperties(
+                new Xdr.NonVisualDrawingProperties
+                {
+                    Id = pictureId,
+                    Name = "BOM Preview " + pictureId
+                },
+                new Xdr.NonVisualPictureDrawingProperties(
+                    new A.PictureLocks { NoChangeAspect = true }));
+
+            var blipFill = new Xdr.BlipFill(
+                new A.Blip
+                {
+                    Embed = relationshipId,
+                    CompressionState = A.BlipCompressionValues.Print
+                },
+                new A.Stretch(new A.FillRectangle()));
+
+            var shapeProperties = new Xdr.ShapeProperties(
+                new A.Transform2D(
+                    new A.Offset { X = 0L, Y = 0L },
+                    new A.Extents { Cx = ImageWidthEmu, Cy = ImageHeightEmu }),
+                new A.PresetGeometry(new A.AdjustValueList())
+                {
+                    Preset = A.ShapeTypeValues.Rectangle
+                });
+
+            var picture = new Xdr.Picture(nonVisual, blipFill, shapeProperties);
+            var marker = new Xdr.FromMarker(
+                new Xdr.ColumnId("0"),
+                new Xdr.ColumnOffset("0"),
+                new Xdr.RowId(zeroBasedExcelRow.ToString()),
+                new Xdr.RowOffset("0"));
+
+            return new Xdr.OneCellAnchor(
+                marker,
+                new Xdr.Extent { Cx = ImageWidthEmu, Cy = ImageHeightEmu },
+                picture,
+                new Xdr.ClientData());
         }
 
         private static Row BuildHeaderRow()
@@ -74,7 +167,11 @@ namespace SwMateAI.Core.BOM
 
         private static Row BuildDataRow(BomItem item)
         {
-            var row = new Row();
+            var row = new Row
+            {
+                Height = 58D,
+                CustomHeight = true
+            };
             row.Append(TextCell(string.Empty));
             row.Append(NumberCell(item.ItemNumber));
 
@@ -97,7 +194,8 @@ namespace SwMateAI.Core.BOM
             {
                 DataType = CellValues.InlineString,
                 StyleIndex = styleIndex,
-                InlineString = new InlineString(new Text(Clean(value)) { Space = SpaceProcessingModeValues.Preserve })
+                InlineString = new InlineString(
+                    new Text(Clean(value)) { Space = SpaceProcessingModeValues.Preserve })
             };
         }
 
@@ -106,14 +204,15 @@ namespace SwMateAI.Core.BOM
             return new Cell
             {
                 DataType = CellValues.Number,
-                CellValue = new CellValue(value.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                CellValue = new CellValue(
+                    value.ToString(System.Globalization.CultureInfo.InvariantCulture))
             };
         }
 
         private static Columns BuildColumns()
         {
             return new Columns(
-                new Column { Min = 1, Max = 1, Width = 10, CustomWidth = true },
+                new Column { Min = 1, Max = 1, Width = 16, CustomWidth = true },
                 new Column { Min = 2, Max = 2, Width = 8, CustomWidth = true },
                 new Column { Min = 3, Max = 3, Width = 28, CustomWidth = true },
                 new Column { Min = 4, Max = 4, Width = 40, CustomWidth = true },
