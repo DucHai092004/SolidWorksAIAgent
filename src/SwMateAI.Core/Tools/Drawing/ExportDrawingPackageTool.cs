@@ -36,9 +36,9 @@ namespace SwMateAI.Core.Tools.Drawing
 
             string template = SwApp.GetUserPreferenceStringValue(
                 (int)swUserPreferenceStringValue_e.swDefaultTemplateDrawing);
-            if (string.IsNullOrWhiteSpace(template))
+            if (string.IsNullOrWhiteSpace(template) || !File.Exists(template))
             {
-                reason = "No default Drawing template is configured in SOLIDWORKS.";
+                reason = "No valid default Drawing template is configured in SOLIDWORKS.";
                 return false;
             }
 
@@ -54,7 +54,7 @@ namespace SwMateAI.Core.Tools.Drawing
             bool saveDrawing = Bool(parameters, "SaveDrawing", true);
             bool exportPdf = Bool(parameters, "ExportPdf", true);
             bool previewOnly = Bool(parameters, "PreviewOnly", false);
-            int pauseMilliseconds = Int(parameters, "PauseMilliseconds", batch ? 200 : 0, 0, 3000);
+            int pauseMilliseconds = Int(parameters, "PauseMilliseconds", batch ? 300 : 150, 0, 3000);
             string projection = Text(parameters, "Projection");
             if (string.IsNullOrWhiteSpace(projection)) projection = "Third";
 
@@ -64,11 +64,15 @@ namespace SwMateAI.Core.Tools.Drawing
 
             string template = SwApp.GetUserPreferenceStringValue(
                 (int)swUserPreferenceStringValue_e.swDefaultTemplateDrawing);
-            var sourcePaths = ResolveSourcePaths(activeModel, batch);
+            if (string.IsNullOrWhiteSpace(template) || !File.Exists(template))
+                return ToolResult.Error("Default Drawing template is missing or invalid.");
+
+            SourceResolution resolution = ResolveSourcePaths(activeModel, batch);
+            var sourcePaths = resolution.Paths;
             if (sourcePaths.Count == 0)
             {
                 return ToolResult.Error(batch
-                    ? "No saved Part files were found in the active Assembly."
+                    ? "No valid saved Part files were found in the active Assembly."
                     : "The active model must be saved before a drawing can be generated.");
             }
 
@@ -84,6 +88,9 @@ namespace SwMateAI.Core.Tools.Drawing
                     ["ExportPdf"] = exportPdf,
                     ["SourceFiles"] = sourcePaths.ToArray(),
                     ["SourceCount"] = sourcePaths.Count,
+                    ["SuppressedSkipped"] = resolution.SuppressedSkipped,
+                    ["MissingSkipped"] = resolution.MissingSkipped,
+                    ["UnsupportedSkipped"] = resolution.UnsupportedSkipped,
                     ["PauseMilliseconds"] = pauseMilliseconds
                 });
             }
@@ -127,7 +134,10 @@ namespace SwMateAI.Core.Tools.Drawing
                 ["Failed"] = failed.Count,
                 ["SucceededFiles"] = succeeded.ToArray(),
                 ["Errors"] = failed.ToArray(),
-                ["LogPath"] = logPath
+                ["LogPath"] = logPath,
+                ["SuppressedSkipped"] = resolution.SuppressedSkipped,
+                ["MissingSkipped"] = resolution.MissingSkipped,
+                ["UnsupportedSkipped"] = resolution.UnsupportedSkipped
             };
 
             if (succeeded.Count == 0)
@@ -166,7 +176,7 @@ namespace SwMateAI.Core.Tools.Drawing
 
                 drawingModel.ForceRebuild3(false);
                 drawingModel.GraphicsRedraw2();
-                Thread.Sleep(120);
+                Thread.Sleep(150);
                 string baseName = SafeBaseName(sourcePath);
 
                 if (saveDrawing)
@@ -201,48 +211,88 @@ namespace SwMateAI.Core.Tools.Drawing
         {
             var data = SwApp.GetExportFileData((int)swExportDataFileType_e.swExportPdfData) as IExportPdfData;
             if (data == null) throw new InvalidOperationException("SOLIDWORKS did not provide PDF export data.");
-            data.ViewPdfAfterSaving = false;
-            data.SetSheets((int)swExportDataSheetsToExport_e.swExportData_ExportAllSheets, null);
+            try
+            {
+                data.ViewPdfAfterSaving = false;
+                data.SetSheets((int)swExportDataSheetsToExport_e.swExportData_ExportAllSheets, null);
 
-            int errors = 0, warnings = 0;
-            bool ok = drawingModel.Extension.SaveAs(
-                path,
-                (int)swSaveAsVersion_e.swSaveAsCurrentVersion,
-                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
-                data,
-                ref errors,
-                ref warnings);
-            if (!ok || errors != 0 || !File.Exists(path))
-                throw new IOException("PDF export failed. Errors=" + errors + ", Warnings=" + warnings + ".");
+                int errors = 0, warnings = 0;
+                bool ok = drawingModel.Extension.SaveAs(
+                    path,
+                    (int)swSaveAsVersion_e.swSaveAsCurrentVersion,
+                    (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                    data,
+                    ref errors,
+                    ref warnings);
+                if (!ok || errors != 0 || !File.Exists(path))
+                    throw new IOException("PDF export failed. Errors=" + errors + ", Warnings=" + warnings + ".");
+            }
+            finally
+            {
+                if (data != null && Marshal.IsComObject(data))
+                {
+                    try { Marshal.FinalReleaseComObject(data); } catch { }
+                }
+            }
         }
 
-        private static List<string> ResolveSourcePaths(IModelDoc2 activeModel, bool batch)
+        private static SourceResolution ResolveSourcePaths(IModelDoc2 activeModel, bool batch)
         {
+            var result = new SourceResolution();
             string activePath = activeModel.GetPathName() ?? string.Empty;
             if (!batch)
-                return string.IsNullOrWhiteSpace(activePath) ? new List<string>() : new List<string> { activePath };
+            {
+                if (!string.IsNullOrWhiteSpace(activePath) && File.Exists(activePath))
+                    result.Paths.Add(activePath);
+                else
+                    result.MissingSkipped++;
+                return result;
+            }
 
             if (activeModel.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY)
-                return new List<string>();
+                return result;
 
             var assembly = activeModel as IAssemblyDoc;
-            object raw = assembly?.GetComponents(false);
-            var components = raw as object[];
-            if (components == null) return new List<string>();
+            var components = assembly?.GetComponents(false) as object[];
+            if (components == null) return result;
 
             var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (object item in components)
             {
                 var component = item as IComponent2;
                 if (component == null) continue;
+
+                try
+                {
+                    if (component.IsSuppressed())
+                    {
+                        result.SuppressedSkipped++;
+                        continue;
+                    }
+                }
+                catch { }
+
                 string path = component.GetPathName() ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(path)) continue;
-                if (!path.EndsWith(".sldprt", StringComparison.OrdinalIgnoreCase)) continue;
-                if (!File.Exists(path)) continue;
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    result.MissingSkipped++;
+                    continue;
+                }
+                if (!path.EndsWith(".sldprt", StringComparison.OrdinalIgnoreCase))
+                {
+                    result.UnsupportedSkipped++;
+                    continue;
+                }
+                if (!File.Exists(path))
+                {
+                    result.MissingSkipped++;
+                    continue;
+                }
                 paths.Add(path);
             }
 
-            return paths.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
+            result.Paths.AddRange(paths.OrderBy(path => path, StringComparer.OrdinalIgnoreCase));
+            return result;
         }
 
         private void Reactivate(string title)
@@ -326,6 +376,14 @@ namespace SwMateAI.Core.Tools.Drawing
                 if (!File.Exists(candidate)) return candidate;
             }
             throw new IOException("Could not allocate a unique output file name for " + path);
+        }
+
+        private sealed class SourceResolution
+        {
+            public List<string> Paths { get; } = new List<string>();
+            public int SuppressedSkipped { get; set; }
+            public int MissingSkipped { get; set; }
+            public int UnsupportedSkipped { get; set; }
         }
     }
 }
