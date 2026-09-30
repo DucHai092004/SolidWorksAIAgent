@@ -103,7 +103,10 @@ namespace SwMateAI.Core.BOM
 
             drawingsPart.WorksheetDrawing.Save();
             worksheetPart.Worksheet.Append(
-                new Drawing { Id = worksheetPart.GetIdOfPart(drawingsPart) });
+                new DocumentFormat.OpenXml.Spreadsheet.Drawing
+                {
+                    Id = worksheetPart.GetIdOfPart(drawingsPart)
+                });
         }
 
         private static Xdr.OneCellAnchor BuildImageAnchor(
