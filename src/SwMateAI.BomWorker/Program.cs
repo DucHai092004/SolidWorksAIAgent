@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using System.Threading;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SwMateAI.Core.BOM;
@@ -16,28 +20,30 @@ namespace SwMateAI.BomWorker
         {
             ISldWorks isolated = null;
             IModelDoc2 isolatedModel = null;
+            Process isolatedProcess = null;
             try
             {
-                string outputFolder = ParseOutputFolder(args);
-                string assemblyPath;
-                string configuration;
-                if (!TryReadSourceAssembly(out assemblyPath, out configuration, out var sourceError))
-                    return Fail(sourceError);
+                string assemblyPath = ParseArgument(args, "--source");
+                string configuration = ParseArgument(args, "--configuration");
+                string outputFolder = ParseArgument(args, "--output");
+
+                if (string.IsNullOrWhiteSpace(assemblyPath) || !File.Exists(assemblyPath))
+                    return Fail("A saved source Assembly is required.");
 
                 Console.WriteLine("PROGRESS|SOURCE|" + Escape(assemblyPath));
                 Console.WriteLine("PROGRESS|INSTANCE|STARTING");
                 Console.Out.Flush();
 
-                Type swType = Type.GetTypeFromProgID("SldWorks.Application");
-                if (swType == null)
-                    return Fail("SOLIDWORKS COM server is unavailable.");
+                isolatedProcess = StartIsolatedSolidWorks();
+                if (isolatedProcess == null)
+                    return Fail("Could not start a second SOLIDWORKS process.");
 
-                isolated = Activator.CreateInstance(swType) as ISldWorks;
+                isolated = WaitForSolidWorksCom(isolatedProcess.Id, 30000);
                 if (isolated == null)
-                    return Fail("Could not start isolated SOLIDWORKS instance.");
+                    return Fail("Second SOLIDWORKS process started, but its COM object did not become available.");
 
                 isolated.Visible = false;
-                Console.WriteLine("PROGRESS|INSTANCE|READY");
+                Console.WriteLine("PROGRESS|INSTANCE|READY|PID=" + isolatedProcess.Id);
                 Console.Out.Flush();
 
                 int openErrors = 0;
@@ -55,7 +61,7 @@ namespace SwMateAI.BomWorker
                     ref openWarnings) as IModelDoc2;
 
                 if (isolatedModel == null)
-                    return Fail("Could not open Assembly in isolated SOLIDWORKS. Errors=" + openErrors + ", Warnings=" + openWarnings + ".");
+                    return Fail("Could not open Assembly in background SOLIDWORKS. Errors=" + openErrors + ", Warnings=" + openWarnings + ".");
 
                 var parameters = new Dictionary<string, object>
                 {
@@ -87,7 +93,8 @@ namespace SwMateAI.BomWorker
                     "RESULT|OK|" + Escape(bom.ExcelPath) +
                     "|ITEMS=" + bom.Items.Count +
                     "|IMAGES=" + bom.CapturedImageCount +
-                    "|MS=" + clock.ElapsedMilliseconds);
+                    "|MS=" + clock.ElapsedMilliseconds +
+                    "|PID=" + isolatedProcess.Id);
                 return 0;
             }
             catch (Exception ex)
@@ -109,74 +116,147 @@ namespace SwMateAI.BomWorker
 
                 ReleaseCom(isolatedModel);
                 ReleaseCom(isolated);
+
+                if (isolatedProcess != null)
+                {
+                    try
+                    {
+                        if (!isolatedProcess.WaitForExit(5000) && !isolatedProcess.HasExited)
+                            isolatedProcess.Kill();
+                    }
+                    catch { }
+                    try { isolatedProcess.Dispose(); } catch { }
+                }
             }
         }
 
-        private static bool TryReadSourceAssembly(
-            out string assemblyPath,
-            out string configuration,
-            out string error)
+        private static Process StartIsolatedSolidWorks()
         {
-            assemblyPath = string.Empty;
-            configuration = string.Empty;
-            error = string.Empty;
-            object appObject = null;
-            object modelObject = null;
+            var before = new HashSet<int>(
+                Process.GetProcessesByName("SLDWORKS").Select(process => process.Id));
 
+            string executable = ResolveSolidWorksExecutable();
+            if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))
+                return null;
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = executable,
+                Arguments = "/b",
+                UseShellExecute = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+
+            var clock = Stopwatch.StartNew();
+            while (clock.ElapsedMilliseconds < 30000)
+            {
+                Process candidate = Process.GetProcessesByName("SLDWORKS")
+                    .Where(process => !before.Contains(process.Id))
+                    .OrderByDescending(process => SafeStartTime(process))
+                    .FirstOrDefault();
+                if (candidate != null)
+                    return candidate;
+                Thread.Sleep(250);
+            }
+
+            return null;
+        }
+
+        private static DateTime SafeStartTime(Process process)
+        {
+            try { return process.StartTime; }
+            catch { return DateTime.MinValue; }
+        }
+
+        private static string ResolveSolidWorksExecutable()
+        {
             try
             {
-                appObject = Marshal.GetActiveObject("SldWorks.Application");
-                var sw = appObject as ISldWorks;
-                var model = sw?.ActiveDoc as IModelDoc2;
-                modelObject = model;
-
-                if (model == null)
-                {
-                    error = "No active SOLIDWORKS document.";
-                    return false;
-                }
-                if (model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY)
-                {
-                    error = "The active document must be an Assembly.";
-                    return false;
-                }
-
-                assemblyPath = model.GetPathName() ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(assemblyPath))
-                {
-                    error = "Save the active Assembly before exporting BOM with images.";
-                    return false;
-                }
-
-                try
-                {
-                    var manager = model.ConfigurationManager;
-                    configuration = manager?.ActiveConfiguration?.Name ?? string.Empty;
-                }
-                catch { configuration = string.Empty; }
-
-                return true;
+                Process existing = Process.GetProcessesByName("SLDWORKS").FirstOrDefault();
+                string path = existing?.MainModule?.FileName;
+                if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                    return path;
             }
-            catch (Exception ex)
+            catch { }
+
+            string fallback = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                "SOLIDWORKS Corp",
+                "SOLIDWORKS",
+                "SLDWORKS.exe");
+            return fallback;
+        }
+
+        private static ISldWorks WaitForSolidWorksCom(int processId, int timeoutMilliseconds)
+        {
+            string monikerName = "SolidWorks_PID_" + processId;
+            var clock = Stopwatch.StartNew();
+            while (clock.ElapsedMilliseconds < timeoutMilliseconds)
             {
-                error = "Could not read active Assembly: " + ex.Message;
-                return false;
+                object value = TryGetRotObject(monikerName);
+                if (value is ISldWorks app)
+                    return app;
+                ReleaseCom(value);
+                Thread.Sleep(250);
+            }
+            return null;
+        }
+
+        private static object TryGetRotObject(string targetName)
+        {
+            IRunningObjectTable rot = null;
+            IEnumMoniker enumerator = null;
+            IBindCtx bindContext = null;
+            try
+            {
+                if (GetRunningObjectTable(0, out rot) != 0 || rot == null)
+                    return null;
+
+                rot.EnumRunning(out enumerator);
+                if (enumerator == null) return null;
+
+                var monikers = new IMoniker[1];
+                while (enumerator.Next(1, monikers, IntPtr.Zero) == 0)
+                {
+                    IMoniker moniker = monikers[0];
+                    try
+                    {
+                        if (CreateBindCtx(0, out bindContext) != 0 || bindContext == null)
+                            continue;
+
+                        string displayName = string.Empty;
+                        try { moniker.GetDisplayName(bindContext, null, out displayName); }
+                        catch { displayName = string.Empty; }
+
+                        if (string.Equals(displayName, targetName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            rot.GetObject(moniker, out object value);
+                            return value;
+                        }
+                    }
+                    finally
+                    {
+                        ReleaseCom(bindContext);
+                        bindContext = null;
+                        ReleaseCom(moniker);
+                    }
+                }
+                return null;
             }
             finally
             {
-                ReleaseCom(modelObject);
-                ReleaseCom(appObject);
+                ReleaseCom(bindContext);
+                ReleaseCom(enumerator);
+                ReleaseCom(rot);
             }
         }
 
-        private static string ParseOutputFolder(string[] args)
+        private static string ParseArgument(string[] args, string key)
         {
             if (args == null) return string.Empty;
             for (int i = 0; i < args.Length - 1; i++)
-            {
-                if (string.Equals(args[i], "--output", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(args[i], key, StringComparison.OrdinalIgnoreCase))
                     return args[i + 1]?.Trim() ?? string.Empty;
-            }
             return string.Empty;
         }
 
@@ -199,5 +279,15 @@ namespace SwMateAI.BomWorker
             if (value == null || !Marshal.IsComObject(value)) return;
             try { Marshal.FinalReleaseComObject(value); } catch { }
         }
+
+        [DllImport("ole32.dll")]
+        private static extern int GetRunningObjectTable(
+            int reserved,
+            out IRunningObjectTable runningObjectTable);
+
+        [DllImport("ole32.dll")]
+        private static extern int CreateBindCtx(
+            int reserved,
+            out IBindCtx bindContext);
     }
 }
