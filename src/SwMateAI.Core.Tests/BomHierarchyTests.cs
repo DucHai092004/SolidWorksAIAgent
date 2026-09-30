@@ -1,5 +1,4 @@
 using System.Linq;
-using SolidWorks.Interop.swconst;
 using SwMateAI.Core.BOM;
 
 namespace SwMateAI.Core.Tests;
@@ -56,12 +55,12 @@ public class BomHierarchyTests
     }
 
     [DataTestMethod]
-    [DataRow((int)swComponentSuppressionState_e.swComponentSuppressed, true)]
-    [DataRow((int)swComponentSuppressionState_e.swComponentLightweight, false)]
-    [DataRow((int)swComponentSuppressionState_e.swComponentFullyResolved, false)]
-    [DataRow((int)swComponentSuppressionState_e.swComponentResolved, false)]
-    [DataRow((int)swComponentSuppressionState_e.swComponentFullyLightweight, false)]
-    [DataRow((int)swComponentSuppressionState_e.swComponentInternalIdMismatch, false)]
+    [DataRow(0, true)]  // swComponentSuppressed
+    [DataRow(1, false)] // swComponentLightweight
+    [DataRow(2, false)] // swComponentFullyResolved
+    [DataRow(3, false)] // swComponentResolved
+    [DataRow(4, false)] // swComponentFullyLightweight
+    [DataRow(5, false)] // swComponentInternalIdMismatch
     public void SuppressionPolicy_OnlySkipsActuallySuppressedComponents(int state, bool expectedSkip)
     {
         Assert.AreEqual(expectedSkip, BomSuppressionPolicy.ShouldSkip(state));
