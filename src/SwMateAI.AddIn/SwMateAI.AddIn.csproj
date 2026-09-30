@@ -10,24 +10,33 @@
     <LangVersion>8.0</LangVersion>
     <Configurations>Debug;Release</Configurations>
     <Platforms>x64</Platforms>
-
-    <!--
-      Disable auto-generated AssemblyInfo.
-      Properties\AssemblyInfo.cs handles all assembly attributes manually,
-      including [assembly: ComVisible(false)] at assembly level.
-    -->
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 
-  <!-- xCAD.NET 0.8.3 — latest stable, supports SOLIDWORKS 2018-2024 -->
   <ItemGroup>
     <PackageReference Include="Xarial.XCad.SolidWorks" Version="0.8.3" />
   </ItemGroup>
 
-  <!-- Project references: AddIn depends on both Core and UI -->
   <ItemGroup>
     <ProjectReference Include="..\SwMateAI.Core\SwMateAI.Core.csproj" />
     <ProjectReference Include="..\SwMateAI.UI\SwMateAI.UI.csproj" />
   </ItemGroup>
+
+  <Target Name="BuildBomWorker" BeforeTargets="Build">
+    <MSBuild
+      Projects="$(MSBuildProjectDirectory)\..\SwMateAI.BomWorker\SwMateAI.BomWorker.csproj"
+      Targets="Build"
+      Properties="Configuration=$(Configuration);Platform=x64" />
+  </Target>
+
+  <Target Name="CopyBomWorker" AfterTargets="Build">
+    <ItemGroup>
+      <BomWorkerFiles Include="$(MSBuildProjectDirectory)\..\SwMateAI.BomWorker\bin\x64\$(Configuration)\net48\*.*" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(BomWorkerFiles)"
+      DestinationFolder="$(OutDir)"
+      SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>
