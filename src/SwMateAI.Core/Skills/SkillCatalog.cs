@@ -66,6 +66,7 @@ namespace SwMateAI.Core.Skills
                 case SkillNames.FillTitleBlock: Configure(m, SkillNames.FillTitleBlock, "Drawing.TitleBlock", SkillRiskLevel.Medium, document: true, confirm: true); break;
                 case SkillNames.ExportPDF: Configure(m, SkillNames.ExportPDF, "Drawing.Export", SkillRiskLevel.Low, document: true); break;
                 case SkillNames.ExportDXF: Configure(m, SkillNames.ExportDXF, "Drawing.Export", SkillRiskLevel.Low, document: true); break;
+                case SkillNames.ExportDrawingPackage: Configure(m, SkillNames.ExportDrawingPackage, "Drawing.Export", SkillRiskLevel.Low, document: true); break;
                 case SkillNames.ReadDrawing: Configure(m, SkillNames.ReadDrawing, "Drawing.Reader", SkillRiskLevel.ReadOnly, document: true); break;
                 case SkillNames.AnalyzeDrawingSource: Configure(m, SkillNames.AnalyzeDrawingSource, "Drawing.ExternalReader", SkillRiskLevel.ReadOnly); break;
                 default: m.Name = tool.Name; break;
