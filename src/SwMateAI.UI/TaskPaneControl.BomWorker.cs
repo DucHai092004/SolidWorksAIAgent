@@ -42,10 +42,17 @@ namespace SwMateAI.UI
             }
 
             string baseDirectory = Path.GetDirectoryName(typeof(TaskPaneControl).Assembly.Location) ?? string.Empty;
-            string workerPath = Path.Combine(baseDirectory, "SwMateAI.BomWorker.exe");
+            string workerDirectory = Path.Combine(baseDirectory, "BomWorker");
+            string workerPath = Path.Combine(workerDirectory, "SwMateAI.BomWorker.exe");
             if (!File.Exists(workerPath))
             {
-                SetBomStatus(status, "[LỖI] Thiếu SwMateAI.BomWorker.exe. Hãy build lại AddIn.", 248, 113, 113);
+                workerDirectory = baseDirectory;
+                workerPath = Path.Combine(workerDirectory, "SwMateAI.BomWorker.exe");
+            }
+
+            if (!File.Exists(workerPath))
+            {
+                SetBomStatus(status, "[LỖI] Thiếu BomWorker\\SwMateAI.BomWorker.exe. Hãy build/deploy lại AddIn.", 248, 113, 113);
                 return;
             }
 
@@ -63,7 +70,7 @@ namespace SwMateAI.UI
             var startInfo = new ProcessStartInfo
             {
                 FileName = workerPath,
-                WorkingDirectory = baseDirectory,
+                WorkingDirectory = workerDirectory,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
