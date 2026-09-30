@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -18,20 +19,15 @@ namespace SwMateAI.UI
         private void InstallExtractionExportTab()
         {
             if (_extractionTabInstalled) return;
-
             var root = Content as Grid;
             if (root == null) return;
 
-            var tabs = root.Children
-                .OfType<TabControl>()
-                .FirstOrDefault(child => Grid.GetRow(child) == 1);
+            var tabs = root.Children.OfType<TabControl>().FirstOrDefault(child => Grid.GetRow(child) == 1);
             if (tabs == null) return;
-
             var agent = TryGetAgentCore();
             if (agent == null) return;
 
             NormalizeTabHeaders(tabs);
-
             tabs.Items.Add(new TabItem
             {
                 Header = BuildTabHeader("Bóc tách & Xuất"),
@@ -39,22 +35,18 @@ namespace SwMateAI.UI
                 Background = new SolidColorBrush(Color.FromRgb(22, 36, 58)),
                 Content = BuildExtractionExportPanel(agent)
             });
-
             _extractionTabInstalled = true;
         }
 
         private static void NormalizeTabHeaders(TabControl tabs)
         {
             if (tabs == null) return;
-
             foreach (object rawItem in tabs.Items)
             {
                 var tab = rawItem as TabItem;
                 if (tab == null || tab.Header is Border) continue;
-
                 string text = Convert.ToString(tab.Header);
-                if (string.IsNullOrWhiteSpace(text)) continue;
-                tab.Header = BuildTabHeader(text);
+                if (!string.IsNullOrWhiteSpace(text)) tab.Header = BuildTabHeader(text);
             }
         }
 
@@ -82,7 +74,6 @@ namespace SwMateAI.UI
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 Background = new SolidColorBrush(Color.FromRgb(11, 18, 32))
             };
-
             var panel = new StackPanel { Margin = new Thickness(10) };
             scroll.Content = panel;
 
@@ -95,7 +86,7 @@ namespace SwMateAI.UI
             });
             panel.Children.Add(new TextBlock
             {
-                Text = "BOM, bảng phôi, bản vẽ chi tiết và PDF — chạy trực tiếp từ model đang mở.",
+                Text = "Ưu tiên ổn định: tác vụ nặng chạy tuần tự; BOM và Drawing/PDF batch được tách khỏi phiên SolidWorks chính.",
                 Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
                 FontSize = 9,
                 TextWrapping = TextWrapping.Wrap,
@@ -109,12 +100,11 @@ namespace SwMateAI.UI
                 BorderBrush = new SolidColorBrush(Color.FromRgb(38, 54, 79)),
                 Padding = new Thickness(7, 5, 7, 5),
                 FontSize = 9,
-                ToolTip = "Để trống để SW-MATE AI tự tạo thư mục SW-MATE_AI_Output cạnh model."
+                ToolTip = "Để trống để tự tạo SW-MATE_AI_Output cạnh model đang mở."
             };
-
             panel.Children.Add(BuildSection(
                 "THƯ MỤC ĐẦU RA",
-                "Để trống = dùng thư mục đầu ra tự động cạnh file SolidWorks.",
+                "Để trống = tự lưu cạnh model. File trùng tên sẽ tự thêm hậu tố, không ghi đè.",
                 outputBox));
 
             var status = new TextBlock
@@ -126,92 +116,101 @@ namespace SwMateAI.UI
             };
 
             var bomButtons = new WrapPanel();
-            bomButtons.Children.Add(BuildActionButton("XUẤT BOM EXCEL", delegate
+            bomButtons.Children.Add(BuildActionButton("BOM EXCEL + ẢNH", delegate
             {
                 StartBomExcelWorker(agent, outputBox.Text, status);
             }));
-
-            bomButtons.Children.Add(BuildActionButton("XUẤT BẢNG PHÔI", delegate
+            bomButtons.Children.Add(BuildActionButton("BẢNG PHÔI EXCEL", delegate
             {
-                string folder = PrepareOutputFolder(outputBox.Text);
-                var parameters = new Dictionary<string, object>();
-                if (!string.IsNullOrWhiteSpace(folder))
+                try
                 {
-                    parameters["OutputPath"] = Path.Combine(
-                        folder,
-                        "StockMaterial_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xlsx");
+                    string folder = PrepareOutputFolder(outputBox.Text);
+                    var parameters = new Dictionary<string, object>();
+                    if (!string.IsNullOrWhiteSpace(folder))
+                        parameters["OutputPath"] = Path.Combine(folder, "StockMaterial_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xlsx");
+                    RunExtractionTool(agent, "ExportManufacturingBreakdown", parameters, status, "Bảng phôi Excel");
                 }
-                RunExtractionTool(agent, "ExportManufacturingBreakdown", parameters, status, "Bảng phôi");
+                catch (Exception ex)
+                {
+                    SetBomStatus(status, "[LỖI] Bảng phôi: " + ex.Message, 248, 113, 113);
+                }
             }));
-
             panel.Children.Add(BuildSection(
                 "BOM & BẢNG PHÔI",
-                "Xuất BOM Excel hoặc bảng phôi/vật liệu từ Assembly đang mở.",
+                "BOM có ảnh chạy worker riêng. Bảng phôi dùng OpenXML, không mở Excel; ảnh chỉ lấy preview an toàn, không đổi Part đang làm việc.",
                 bomButtons));
 
             var drawingButtons = new WrapPanel();
-            drawingButtons.Children.Add(BuildActionButton("BẢN VẼ 1 CHI TIẾT", delegate
+            drawingButtons.Children.Add(BuildActionButton("DRAWING 1 CHI TIẾT", delegate
             {
-                RunDrawingPackage(agent, outputBox.Text, false, true, false, status, "Bản vẽ đơn");
+                RunDrawingPackage(agent, outputBox.Text, false, true, false, status, "Drawing đơn");
             }));
-
-            drawingButtons.Children.Add(BuildActionButton("BẢN VẼ HÀNG LOẠT", delegate
+            drawingButtons.Children.Add(BuildActionButton("DRAWING HÀNG LOẠT", delegate
             {
-                if (!ConfirmBatch()) return;
-                RunDrawingPackage(agent, outputBox.Text, true, true, false, status, "Bản vẽ hàng loạt");
+                RunDrawingPackage(agent, outputBox.Text, true, true, false, status, "Drawing hàng loạt");
             }));
-
             panel.Children.Add(BuildSection(
                 "XUẤT BẢN VẼ TỰ ĐỘNG",
-                "Tạo standard views và lưu SLDDRW. Hàng loạt sẽ xử lý các Part duy nhất trong Assembly.",
+                "Tạo standard views và SLDDRW. Batch chạy tuần tự ở SolidWorks nền riêng; lỗi một Part không dừng cả lô.",
                 drawingButtons));
 
             var pdfButtons = new WrapPanel();
             pdfButtons.Children.Add(BuildActionButton("PDF DRAWING HIỆN TẠI", delegate
             {
-                string folder = PrepareOutputFolder(outputBox.Text);
-                var parameters = new Dictionary<string, object>();
-                if (!string.IsNullOrWhiteSpace(folder))
+                try
                 {
-                    parameters["OutputPath"] = Path.Combine(
-                        folder,
-                        "Drawing_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".pdf");
+                    string folder = PrepareOutputFolder(outputBox.Text);
+                    var parameters = new Dictionary<string, object>();
+                    if (!string.IsNullOrWhiteSpace(folder))
+                        parameters["OutputPath"] = Path.Combine(folder, "Drawing_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".pdf");
+                    RunExtractionTool(agent, "ExportPDF", parameters, status, "PDF Drawing hiện tại");
                 }
-                RunExtractionTool(agent, "ExportPDF", parameters, status, "PDF Drawing hiện tại");
+                catch (Exception ex)
+                {
+                    SetBomStatus(status, "[LỖI] PDF: " + ex.Message, 248, 113, 113);
+                }
             }));
-
-            pdfButtons.Children.Add(BuildActionButton("TẠO + PDF 1 CHI TIẾT", delegate
+            pdfButtons.Children.Add(BuildActionButton("DRAWING + PDF 1 CHI TIẾT", delegate
             {
-                RunDrawingPackage(agent, outputBox.Text, false, true, true, status, "SLDDRW + PDF đơn");
+                RunDrawingPackage(agent, outputBox.Text, false, true, true, status, "Drawing + PDF đơn");
             }));
-
-            pdfButtons.Children.Add(BuildActionButton("TẠO + PDF HÀNG LOẠT", delegate
+            pdfButtons.Children.Add(BuildActionButton("DRAWING + PDF HÀNG LOẠT", delegate
             {
-                if (!ConfirmBatch()) return;
-                RunDrawingPackage(agent, outputBox.Text, true, true, true, status, "SLDDRW + PDF hàng loạt");
+                RunDrawingPackage(agent, outputBox.Text, true, true, true, status, "Drawing + PDF hàng loạt");
             }));
-
             panel.Children.Add(BuildSection(
                 "PDF",
-                "Xuất Drawing đang mở sang PDF hoặc tự tạo Drawing + PDF từ Part/Assembly.",
+                "PDF Drawing hiện tại chạy trực tiếp. Tạo Drawing + PDF dùng worker riêng để bảo vệ phiên SolidWorks chính.",
                 pdfButtons));
 
-            var refreshButton = BuildActionButton("LÀM MỚI NGỮ CẢNH", delegate
+            var utilityButtons = new WrapPanel();
+            utilityButtons.Children.Add(BuildActionButton("LÀM MỚI NGỮ CẢNH", delegate
             {
                 var viewModel = DataContext as TaskPaneViewModel;
                 if (viewModel != null && viewModel.RefreshInfoCommand.CanExecute(null))
                 {
                     viewModel.RefreshInfoCommand.Execute(null);
-                    status.Text = "[OK] Đã làm mới ngữ cảnh SolidWorks.";
-                    status.Foreground = new SolidColorBrush(Color.FromRgb(52, 211, 153));
+                    SetBomStatus(status, "[OK] Đã làm mới ngữ cảnh SolidWorks.", 52, 211, 153);
                 }
-            });
-
+            }));
+            utilityButtons.Children.Add(BuildSecondaryButton("MỞ THƯ MỤC ĐẦU RA", delegate
+            {
+                try
+                {
+                    string folder = ResolveOutputFolder(agent, outputBox.Text);
+                    Directory.CreateDirectory(folder);
+                    Process.Start(new ProcessStartInfo { FileName = folder, UseShellExecute = true });
+                }
+                catch (Exception ex)
+                {
+                    SetBomStatus(status, "[LỖI] Không mở được thư mục: " + ex.Message, 248, 113, 113);
+                }
+            }));
             panel.Children.Add(BuildSection(
                 "TRẠNG THÁI",
-                "Kết quả thao tác gần nhất.",
+                "Kết quả và tiến trình gần nhất. Batch sẽ cập nhật từng file khi worker xử lý.",
                 status,
-                refreshButton));
+                utilityButtons));
 
             return scroll;
         }
@@ -227,16 +226,9 @@ namespace SwMateAI.UI
                 Padding = new Thickness(9),
                 Margin = new Thickness(0, 0, 0, 9)
             };
-
             var panel = new StackPanel();
             border.Child = panel;
-            panel.Children.Add(new TextBlock
-            {
-                Text = title,
-                Foreground = Brushes.White,
-                FontWeight = FontWeights.Bold,
-                FontSize = 10
-            });
+            panel.Children.Add(new TextBlock { Text = title, Foreground = Brushes.White, FontWeight = FontWeights.Bold, FontSize = 10 });
             panel.Children.Add(new TextBlock
             {
                 Text = description,
@@ -245,16 +237,13 @@ namespace SwMateAI.UI
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 2, 0, 7)
             });
-
             foreach (UIElement child in children)
             {
                 if (child == null) continue;
                 panel.Children.Add(child);
-                FrameworkElement element = child as FrameworkElement;
-                if (element != null && element.Margin == new Thickness(0))
-                    element.Margin = new Thickness(0, 0, 0, 5);
+                var element = child as FrameworkElement;
+                if (element != null && element.Margin == new Thickness(0)) element.Margin = new Thickness(0, 0, 0, 5);
             }
-
             return border;
         }
 
@@ -270,9 +259,16 @@ namespace SwMateAI.UI
                 FontSize = 9,
                 Padding = new Thickness(8, 6, 8, 6),
                 Margin = new Thickness(0, 0, 6, 6),
-                MinWidth = 125
+                MinWidth = 135
             };
             button.Click += click;
+            return button;
+        }
+
+        private static Button BuildSecondaryButton(string text, RoutedEventHandler click)
+        {
+            var button = BuildActionButton(text, click);
+            button.Background = new SolidColorBrush(Color.FromRgb(51, 65, 85));
             return button;
         }
 
@@ -285,19 +281,7 @@ namespace SwMateAI.UI
             TextBlock status,
             string label)
         {
-            RunExtractionTool(
-                agent,
-                "ExportDrawingPackage",
-                new Dictionary<string, object>
-                {
-                    ["Batch"] = batch,
-                    ["SaveDrawing"] = saveDrawing,
-                    ["ExportPdf"] = exportPdf,
-                    ["Projection"] = "Third",
-                    ["OutputFolder"] = PrepareOutputFolder(outputText)
-                },
-                status,
-                label);
+            StartDrawingExportWorker(agent, outputText, batch, saveDrawing, exportPdf, status, label);
         }
 
         private void RunExtractionTool(
@@ -307,31 +291,22 @@ namespace SwMateAI.UI
             TextBlock status,
             string label)
         {
-            status.Text = "[RUN] " + label + "...";
-            status.Foreground = new SolidColorBrush(Color.FromRgb(125, 211, 252));
-
+            SetBomStatus(status, "[RUN] " + label + "...", 125, 211, 252);
             try
             {
                 ToolResult result = agent.ExecuteTool(toolName, parameters);
                 if (result.IsSuccess)
                 {
-                    status.Text = "[OK] " + label + " hoàn tất. " + FormatToolData(result.Data);
-                    status.Foreground = new SolidColorBrush(Color.FromRgb(52, 211, 153));
-
+                    SetBomStatus(status, "[OK] " + label + " hoàn tất. " + FormatToolData(result.Data), 52, 211, 153);
                     var viewModel = DataContext as TaskPaneViewModel;
-                    if (viewModel != null && viewModel.RefreshInfoCommand.CanExecute(null))
-                        viewModel.RefreshInfoCommand.Execute(null);
+                    if (viewModel != null && viewModel.RefreshInfoCommand.CanExecute(null)) viewModel.RefreshInfoCommand.Execute(null);
                 }
                 else
-                {
-                    status.Text = "[LỖI] " + label + ": " + result.ErrorMessage;
-                    status.Foreground = new SolidColorBrush(Color.FromRgb(248, 113, 113));
-                }
+                    SetBomStatus(status, "[LỖI] " + label + ": " + result.ErrorMessage, 248, 113, 113);
             }
             catch (Exception ex)
             {
-                status.Text = "[EXCEPTION] " + label + ": " + ex.Message;
-                status.Foreground = new SolidColorBrush(Color.FromRgb(248, 113, 113));
+                SetBomStatus(status, "[EXCEPTION] " + label + ": " + ex.Message, 248, 113, 113);
             }
         }
 
@@ -340,17 +315,15 @@ namespace SwMateAI.UI
             var map = data as IDictionary<string, object>;
             if (map != null)
             {
-                object succeeded;
-                object failed;
-                object folder;
-                map.TryGetValue("Succeeded", out succeeded);
-                map.TryGetValue("Failed", out failed);
-                map.TryGetValue("OutputFolder", out folder);
+                map.TryGetValue("Succeeded", out object succeeded);
+                map.TryGetValue("Failed", out object failed);
+                map.TryGetValue("OutputFolder", out object folder);
+                map.TryGetValue("LogPath", out object log);
                 return "Thành công=" + Convert.ToString(succeeded) +
                        ", lỗi=" + Convert.ToString(failed) +
-                       (folder == null ? string.Empty : ", thư mục=" + Convert.ToString(folder));
+                       (folder == null ? string.Empty : ", thư mục=" + Convert.ToString(folder)) +
+                       (log == null ? string.Empty : ", log=" + Convert.ToString(log));
             }
-
             string text = Convert.ToString(data);
             return string.IsNullOrWhiteSpace(text) ? string.Empty : text;
         }
@@ -363,13 +336,16 @@ namespace SwMateAI.UI
             return folder;
         }
 
-        private static bool ConfirmBatch()
+        private static string ResolveOutputFolder(AgentCore agent, string raw)
         {
-            return MessageBox.Show(
-                "Thao tác này sẽ tạo file cho nhiều chi tiết trong Assembly.\n\nTiếp tục?",
-                "SW-MATE AI - Xuất hàng loạt",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question) == MessageBoxResult.Yes;
+            string requested = (raw ?? string.Empty).Trim().Trim('"');
+            if (!string.IsNullOrWhiteSpace(requested)) return requested;
+            AgentContext context = agent.ObserveContext();
+            string documentPath = context.DocumentPath ?? string.Empty;
+            string root = !string.IsNullOrWhiteSpace(documentPath)
+                ? Path.GetDirectoryName(documentPath)
+                : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            return Path.Combine(root ?? string.Empty, "SW-MATE_AI_Output");
         }
     }
 }
