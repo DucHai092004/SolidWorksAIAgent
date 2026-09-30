@@ -28,7 +28,18 @@ namespace SwMateAI.Core.BOM
             {
                 var component = obj as IComponent2;
                 if (component == null) continue;
-                if (component.IsSuppressed()) { result.SuppressedSkipped++; continue; }
+
+                // IComponent2.IsSuppressed() is not reliable for distinguishing
+                // true suppression from lightweight component states in large
+                // assemblies. SOLIDWORKS exposes the exact state through
+                // GetSuppression(): only state 0 is actually suppressed.
+                int suppressionState = component.GetSuppression();
+                if (suppressionState == (int)swComponentSuppressionState_e.swComponentSuppressed)
+                {
+                    result.SuppressedSkipped++;
+                    continue;
+                }
+
                 occurrences.Add(ToRecord(component));
             }
             result.TotalOccurrences = occurrences.Count;
@@ -142,7 +153,6 @@ namespace SwMateAI.Core.BOM
             } while (removed && !string.IsNullOrWhiteSpace(name));
             return name;
         }
-
 
         private sealed class ComponentRecord
         {
