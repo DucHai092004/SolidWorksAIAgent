@@ -126,6 +126,55 @@ namespace SwMateAI.BomHierarchy.IntegrationRunner
                 Check("Legacy BOM remains available",
                     legacy.IsSuccess && legacy.Data is BomResult,
                     legacy.ErrorMessage ?? "Legacy result missing");
+
+                // Regression for real large assemblies: Lightweight components are valid BOM
+                // occurrences and must not be counted as suppressed.
+                if (subModel != null)
+                {
+                    try { sw.CloseDoc(subModel.GetTitle()); } catch { }
+                }
+                int setLightweightStatus = topSub == null
+                    ? -1
+                    : topSub.SetSuppression2((int)swComponentSuppressionState_e.swComponentLightweight);
+                int actualSuppression = topSub == null ? -1 : topSub.GetSuppression();
+                bool isLightweight =
+                    actualSuppression == (int)swComponentSuppressionState_e.swComponentLightweight ||
+                    actualSuppression == (int)swComponentSuppressionState_e.swComponentFullyLightweight;
+                Check("Set top Subassembly Lightweight",
+                    topSub != null && isLightweight,
+                    "SetStatus=" + setLightweightStatus + ", State=" + actualSuppression);
+
+                ToolResult lightweightExport = agent.ExecuteTool("CreateBOM", new Dictionary<string, object>
+                {
+                    ["Mode"] = BomMode.LegacyFlat.ToString(),
+                    ["ExportExcel"] = true,
+                    ["OutputFolder"] = root
+                });
+                var lightweightBom = lightweightExport.Data as BomResult;
+                Check("Legacy BOM includes Lightweight component",
+                    lightweightExport.IsSuccess && lightweightBom != null &&
+                    lightweightBom.TotalOccurrences > 0 &&
+                    lightweightBom.Items.Count > 0 &&
+                    lightweightBom.SuppressedSkipped == 0,
+                    lightweightExport.ErrorMessage ??
+                    (lightweightBom == null
+                        ? "BOM result missing"
+                        : "Occurrences=" + lightweightBom.TotalOccurrences +
+                          ", Items=" + lightweightBom.Items.Count +
+                          ", Suppressed=" + lightweightBom.SuppressedSkipped));
+                Check("Lightweight BOM Excel exists",
+                    lightweightBom != null &&
+                    !string.IsNullOrWhiteSpace(lightweightBom.ExcelPath) &&
+                    File.Exists(lightweightBom.ExcelPath),
+                    lightweightBom?.ExcelPath ?? "Excel path missing");
+                Check("Lightweight BOM image captured",
+                    lightweightBom != null &&
+                    lightweightBom.Items.Count > 0 &&
+                    lightweightBom.CapturedImageCount == lightweightBom.Items.Count,
+                    lightweightBom == null
+                        ? "BOM result missing"
+                        : "Captured=" + lightweightBom.CapturedImageCount +
+                          "/" + lightweightBom.Items.Count);
             }
             catch (Exception ex)
             {
