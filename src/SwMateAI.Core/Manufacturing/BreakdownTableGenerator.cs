@@ -14,6 +14,7 @@ namespace SwMateAI.Core.Manufacturing
                 "Hình ảnh", "Part Number", "Tên chi tiết", "Số lượng",
                 "Vật liệu CAD", "Vật liệu phôi", "Kích thước thành phẩm",
                 "Loại phôi", "Kích thước phôi", "Khối lượng phôi",
+                "Công nghệ gia công", "Nhà gia công",
                 "Nguồn vật liệu phôi", "Vị trí nguồn", "Trạng thái"
             });
             if (result == null) return table;
@@ -24,7 +25,6 @@ namespace SwMateAI.Core.Manufacturing
                 .ThenBy(x => x.StockSize ?? string.Empty, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(x => x.PartNumber ?? string.Empty, StringComparer.OrdinalIgnoreCase))
             {
-
                 table.Rows.Add(new List<object>
                 {
                     item.ImagePath,
@@ -37,6 +37,8 @@ namespace SwMateAI.Core.Manufacturing
                     item.StockType,
                     item.StockSize,
                     item.StockWeightKg > 0 ? (object)item.StockWeightKg : string.Empty,
+                    item.ManufacturingTechnology,
+                    item.Supplier,
                     item.StockMaterialSource,
                     item.StockMaterialSourceLocation,
                     item.StockMaterialNeedsReview ? "Cần kiểm tra" : "OK"
