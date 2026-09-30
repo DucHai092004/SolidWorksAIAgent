@@ -7,7 +7,7 @@ namespace SwMateAI.Core.BOM
 {
     /// <summary>
     /// Captures an isometric preview for one representative BOM component.
-    /// Lightweight/unloaded source documents are opened temporarily and closed after capture.
+    /// Lightweight/unloaded source documents are resolved or opened temporarily and restored afterwards.
     /// </summary>
     public class BomImageCapture
     {
@@ -31,11 +31,30 @@ namespace SwMateAI.Core.BOM
                 : assembly.GetComponentByName(item.RepresentativeComponentName);
             var componentModel = component?.GetModelDoc2() as IModelDoc2;
             bool openedTemporarily = false;
+            bool resolvedTemporarily = false;
+            int originalSuppression = -1;
             string assemblyTitle = assemblyModel.GetTitle() ?? string.Empty;
             int activateErrors = 0;
 
             try
             {
+                if (componentModel == null && component != null)
+                {
+                    try
+                    {
+                        originalSuppression = component.GetSuppression();
+                        component.SetSuppression2((int)swComponentSuppressionState_e.swComponentResolved);
+                        componentModel = component.GetModelDoc2() as IModelDoc2;
+                        resolvedTemporarily = componentModel != null &&
+                            (originalSuppression == (int)swComponentSuppressionState_e.swComponentLightweight ||
+                             originalSuppression == (int)swComponentSuppressionState_e.swComponentFullyLightweight);
+                    }
+                    catch
+                    {
+                        componentModel = null;
+                    }
+                }
+
                 if (componentModel == null)
                 {
                     if (string.IsNullOrWhiteSpace(item.SourcePath) || !File.Exists(item.SourcePath))
@@ -95,6 +114,14 @@ namespace SwMateAI.Core.BOM
                 if (openedTemporarily && componentModel != null)
                 {
                     try { _swApp.CloseDoc(componentModel.GetTitle()); }
+                    catch { }
+                }
+                else if (resolvedTemporarily && component != null)
+                {
+                    try
+                    {
+                        component.SetSuppression2((int)swComponentSuppressionState_e.swComponentLightweight);
+                    }
                     catch { }
                 }
             }
