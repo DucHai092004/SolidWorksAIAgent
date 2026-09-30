@@ -77,7 +77,9 @@ namespace SwMateAI.Core.BOM
         private BomHierarchyNode BuildNode(IComponent2 component, BomResult result)
         {
             if (component == null) return null;
-            if (component.IsSuppressed())
+
+            int suppressionState = component.GetSuppression();
+            if (suppressionState == (int)swComponentSuppressionState_e.swComponentSuppressed)
             {
                 result.SuppressedSkipped++;
                 return null;
