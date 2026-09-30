@@ -1,7 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
  xmlns:sys="clr-namespace:System;assembly=mscorlib">
- <sys:String x:Key="AppSubtitle">Trợ lý CAD cơ khí · V1</sys:String>
+ <sys:String x:Key="AppSubtitle">Trợ lý CAD cơ khí · V1 RC1</sys:String>
  <sys:String x:Key="ContextTitle">NGỮ CẢNH SOLIDWORKS</sys:String>
  <sys:String x:Key="DocumentLabel">TÀI LIỆU</sys:String>
  <sys:String x:Key="ConfigurationLabel">CẤU HÌNH</sys:String>
@@ -41,7 +41,7 @@
  <sys:String x:Key="ActivityHistoryDescription">Lệnh gần đây và chẩn đoán Agent</sys:String>
  <sys:String x:Key="RecentCommands">LỆNH GẦN ĐÂY</sys:String>
  <sys:String x:Key="AgentConsole">BẢNG ĐIỀU KHIỂN AGENT</sys:String>
- <sys:String x:Key="FooterText">SW-MATE AI  ·  Giai đoạn 5 · BOM hoàn chỉnh  ·  v1.8.0</sys:String>
+ <sys:String x:Key="FooterText">SW-MATE AI · Version 1 RC1 · Bóc tách &amp; Xuất</sys:String>
  <sys:String x:Key="LanguageLabel">Ngôn ngữ</sys:String>
  <sys:String x:Key="RefreshTooltip">Làm mới ngữ cảnh SolidWorks</sys:String>
  <sys:String x:Key="StatusIdle">Sẵn sàng</sys:String>
