@@ -7,7 +7,8 @@ namespace SwMateAI.Core.BOM
 {
     /// <summary>
     /// Captures an isometric preview for one representative BOM component.
-    /// Lightweight/unloaded source documents are opened invisibly and closed afterwards.
+    /// Source documents are resolved by path first so nested components can be captured reliably.
+    /// Lightweight/unloaded files are opened invisibly and closed afterwards.
     /// Loaded documents that were hidden are restored to their hidden state.
     /// </summary>
     public class BomImageCapture
@@ -27,10 +28,23 @@ namespace SwMateAI.Core.BOM
             var assembly = assemblyModel as IAssemblyDoc;
             if (assemblyModel == null || assembly == null) return string.Empty;
 
-            var component = string.IsNullOrWhiteSpace(item.RepresentativeComponentName)
-                ? null
-                : assembly.GetComponentByName(item.RepresentativeComponentName);
-            var componentModel = component?.GetModelDoc2() as IModelDoc2;
+            IModelDoc2 componentModel = null;
+            if (!string.IsNullOrWhiteSpace(item.SourcePath))
+            {
+                try { componentModel = _swApp.GetOpenDocumentByName(item.SourcePath) as IModelDoc2; }
+                catch { }
+            }
+
+            if (componentModel == null && !string.IsNullOrWhiteSpace(item.RepresentativeComponentName))
+            {
+                try
+                {
+                    var component = assembly.GetComponentByName(item.RepresentativeComponentName);
+                    componentModel = component?.GetModelDoc2() as IModelDoc2;
+                }
+                catch { }
+            }
+
             bool openedTemporarily = false;
             bool wasVisible = componentModel != null && componentModel.Visible;
             string assemblyTitle = assemblyModel.GetTitle() ?? string.Empty;
