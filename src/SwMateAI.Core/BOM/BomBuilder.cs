@@ -29,12 +29,8 @@ namespace SwMateAI.Core.BOM
                 var component = obj as IComponent2;
                 if (component == null) continue;
 
-                // IComponent2.IsSuppressed() is not reliable for distinguishing
-                // true suppression from lightweight component states in large
-                // assemblies. SOLIDWORKS exposes the exact state through
-                // GetSuppression(): only state 0 is actually suppressed.
                 int suppressionState = component.GetSuppression();
-                if (suppressionState == (int)swComponentSuppressionState_e.swComponentSuppressed)
+                if (BomSuppressionPolicy.ShouldSkip(suppressionState))
                 {
                     result.SuppressedSkipped++;
                     continue;
