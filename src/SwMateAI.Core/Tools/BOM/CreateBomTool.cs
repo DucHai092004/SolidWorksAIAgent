@@ -35,6 +35,7 @@ namespace SwMateAI.Core.Tools.BOM
 
             bool excel = Bool(parameters, "ExportExcel");
             bool csv = Bool(parameters, "ExportCsv");
+            bool captureImages = Bool(parameters, "CaptureImages", false);
             string folder = Text(parameters, "OutputFolder");
             if ((excel || csv) && string.IsNullOrWhiteSpace(folder))
                 folder = DefaultFolder(SwApp.ActiveDoc as IModelDoc2);
@@ -46,21 +47,29 @@ namespace SwMateAI.Core.Tools.BOM
             {
                 if (excel)
                 {
-                    tempImageFolder = Path.Combine(
-                        Path.GetTempPath(),
-                        "SW-MATE_AI",
-                        "BOM_Images",
-                        Guid.NewGuid().ToString("N"));
-
-                    var capture = new BomImageCapture(SwApp);
-                    foreach (var item in result.Items)
-                    {
-                        string image = capture.Capture(item, tempImageFolder);
-                        if (!string.IsNullOrWhiteSpace(image)) result.CapturedImageCount++;
-                    }
-
                     string path = UniquePath(Path.Combine(folder, baseName + "_BOM.xlsx"));
-                    result.ExcelPath = new BomExcelExporter().Export(result, path);
+
+                    if (captureImages)
+                    {
+                        tempImageFolder = Path.Combine(
+                            Path.GetTempPath(),
+                            "SW-MATE_AI",
+                            "BOM_Images",
+                            Guid.NewGuid().ToString("N"));
+
+                        var capture = new BomImageCapture(SwApp);
+                        foreach (var item in result.Items)
+                        {
+                            string image = capture.Capture(item, tempImageFolder);
+                            if (!string.IsNullOrWhiteSpace(image)) result.CapturedImageCount++;
+                        }
+
+                        result.ExcelPath = new BomExcelExporter().Export(result, path);
+                    }
+                    else
+                    {
+                        result.ExcelPath = new BomFastExcelExporter().Export(result, path);
+                    }
                 }
 
                 if (csv)
