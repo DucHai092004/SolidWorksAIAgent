@@ -79,7 +79,7 @@ namespace SwMateAI.Core.BOM
             if (component == null) return null;
 
             int suppressionState = component.GetSuppression();
-            if (suppressionState == (int)swComponentSuppressionState_e.swComponentSuppressed)
+            if (BomSuppressionPolicy.ShouldSkip(suppressionState))
             {
                 result.SuppressedSkipped++;
                 return null;
