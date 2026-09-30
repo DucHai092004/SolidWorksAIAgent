@@ -35,7 +35,7 @@ namespace SwMateAI.Core.Tools.BOM
 
             bool excel = Bool(parameters, "ExportExcel");
             bool csv = Bool(parameters, "ExportCsv");
-            bool captureImages = Bool(parameters, "CaptureImages", false);
+            bool captureImages = Bool(parameters, "CaptureImages", true);
             string folder = Text(parameters, "OutputFolder");
             if ((excel || csv) && string.IsNullOrWhiteSpace(folder))
                 folder = DefaultFolder(SwApp.ActiveDoc as IModelDoc2);
@@ -54,22 +54,19 @@ namespace SwMateAI.Core.Tools.BOM
                         tempImageFolder = Path.Combine(
                             Path.GetTempPath(),
                             "SW-MATE_AI",
-                            "BOM_Images",
+                            "BOM_Previews",
                             Guid.NewGuid().ToString("N"));
 
-                        var capture = new BomImageCapture(SwApp);
+                        var capture = new BomPreviewImageCapture(SwApp);
                         foreach (var item in result.Items)
                         {
                             string image = capture.Capture(item, tempImageFolder);
-                            if (!string.IsNullOrWhiteSpace(image)) result.CapturedImageCount++;
+                            if (!string.IsNullOrWhiteSpace(image))
+                                result.CapturedImageCount++;
                         }
+                    }
 
-                        result.ExcelPath = new BomExcelExporter().Export(result, path);
-                    }
-                    else
-                    {
-                        result.ExcelPath = new BomFastExcelExporter().Export(result, path);
-                    }
+                    result.ExcelPath = new BomFastExcelExporter().Export(result, path);
                 }
 
                 if (csv)
