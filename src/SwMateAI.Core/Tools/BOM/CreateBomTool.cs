@@ -35,7 +35,8 @@ namespace SwMateAI.Core.Tools.BOM
 
             bool excel = Bool(parameters, "ExportExcel");
             bool csv = Bool(parameters, "ExportCsv");
-            bool captureImages = Bool(parameters, "CaptureImages", true);
+            bool captureImages = Bool(parameters, "CaptureImages", false);
+            string captureMode = Text(parameters, "ImageCaptureMode");
             string folder = Text(parameters, "OutputFolder");
             if ((excel || csv) && string.IsNullOrWhiteSpace(folder))
                 folder = DefaultFolder(SwApp.ActiveDoc as IModelDoc2);
@@ -54,15 +55,28 @@ namespace SwMateAI.Core.Tools.BOM
                         tempImageFolder = Path.Combine(
                             Path.GetTempPath(),
                             "SW-MATE_AI",
-                            "BOM_Previews",
+                            "BOM_Images",
                             Guid.NewGuid().ToString("N"));
 
-                        var capture = new BomPreviewImageCapture(SwApp);
-                        foreach (var item in result.Items)
+                        if (string.Equals(captureMode, "Render", StringComparison.OrdinalIgnoreCase))
                         {
-                            string image = capture.Capture(item, tempImageFolder);
-                            if (!string.IsNullOrWhiteSpace(image))
-                                result.CapturedImageCount++;
+                            var capture = new BomImageCapture(SwApp);
+                            foreach (var item in result.Items)
+                            {
+                                string image = capture.Capture(item, tempImageFolder);
+                                if (!string.IsNullOrWhiteSpace(image))
+                                    result.CapturedImageCount++;
+                            }
+                        }
+                        else
+                        {
+                            var capture = new BomPreviewImageCapture(SwApp);
+                            foreach (var item in result.Items)
+                            {
+                                string image = capture.Capture(item, tempImageFolder);
+                                if (!string.IsNullOrWhiteSpace(image))
+                                    result.CapturedImageCount++;
+                            }
                         }
                     }
 
