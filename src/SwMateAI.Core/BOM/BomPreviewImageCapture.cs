@@ -9,11 +9,6 @@ using SolidWorks.Interop.swconst;
 
 namespace SwMateAI.Core.BOM
 {
-    /// <summary>
-    /// Lightweight BOM preview capture. It prefers the preview already stored in
-    /// each SOLIDWORKS file. A render fallback is permitted only for local copies
-    /// staged inside the isolated BOM worker temp folder, never for production files.
-    /// </summary>
     public sealed class BomPreviewImageCapture
     {
         private readonly ISldWorks _swApp;
@@ -39,10 +34,7 @@ namespace SwMateAI.Core.BOM
                 if ((attributes & FileAttributes.Offline) == FileAttributes.Offline)
                     return string.Empty;
             }
-            catch
-            {
-                return string.Empty;
-            }
+            catch { return string.Empty; }
 
             string configuration = item.Configuration ?? string.Empty;
             string key = sourcePath + "|" + configuration;
@@ -82,17 +74,10 @@ namespace SwMateAI.Core.BOM
                 _cache[key] = pngPath;
                 return pngPath;
             }
-            catch
-            {
-                return string.Empty;
-            }
+            catch { return string.Empty; }
             finally
             {
-                try
-                {
-                    if (File.Exists(bitmapPath)) File.Delete(bitmapPath);
-                }
-                catch { }
+                try { if (File.Exists(bitmapPath)) File.Delete(bitmapPath); } catch { }
             }
         }
 
@@ -101,15 +86,9 @@ namespace SwMateAI.Core.BOM
             try
             {
                 if (File.Exists(bitmapPath)) File.Delete(bitmapPath);
-                return _swApp.GetPreviewBitmapFile(
-                    sourcePath,
-                    configuration ?? string.Empty,
-                    bitmapPath);
+                return _swApp.GetPreviewBitmapFile(sourcePath, configuration ?? string.Empty, bitmapPath);
             }
-            catch
-            {
-                return false;
-            }
+            catch { return false; }
         }
 
         private bool TryRenderWorkerCopy(string sourcePath, string configuration, string pngPath)
@@ -121,6 +100,8 @@ namespace SwMateAI.Core.BOM
             string title = string.Empty;
             try
             {
+                PrepareWorkerRenderWindow();
+
                 int errors = 0;
                 int warnings = 0;
                 int options =
@@ -151,10 +132,14 @@ namespace SwMateAI.Core.BOM
                 if (model == null) return false;
                 title = model.GetTitle() ?? string.Empty;
 
+                int activateErrors = 0;
+                try { _swApp.ActivateDoc3(title, false, 0, ref activateErrors); } catch { }
                 try { model.Visible = true; } catch { }
+                try { model.ForceRebuild3(false); } catch { }
                 model.ShowNamedView2("*Isometric", (int)swStandardViews_e.swIsometricView);
                 model.ViewZoomtofit2();
-                Thread.Sleep(120);
+                try { model.GraphicsRedraw2(); } catch { }
+                Thread.Sleep(500);
 
                 int saveErrors = 0;
                 int saveWarnings = 0;
@@ -168,17 +153,32 @@ namespace SwMateAI.Core.BOM
 
                 return saved && saveErrors == 0 && File.Exists(pngPath);
             }
-            catch
-            {
-                return false;
-            }
+            catch { return false; }
             finally
             {
                 if (!string.IsNullOrWhiteSpace(title))
                 {
                     try { _swApp.CloseDoc(title); } catch { }
                 }
-                Thread.Sleep(120);
+                Thread.Sleep(200);
+            }
+        }
+
+        private void PrepareWorkerRenderWindow()
+        {
+            try
+            {
+                _swApp.FrameState = (int)swWindowState_e.swWindowNormal;
+                _swApp.FrameLeft = -30000;
+                _swApp.FrameTop = -30000;
+                _swApp.FrameWidth = 1024;
+                _swApp.FrameHeight = 768;
+                _swApp.Visible = true;
+                Thread.Sleep(150);
+            }
+            catch
+            {
+                try { _swApp.Visible = true; } catch { }
             }
         }
 
@@ -192,10 +192,7 @@ namespace SwMateAI.Core.BOM
                                 Path.DirectorySeparatorChar;
                 return fullPath.IndexOf(marker, StringComparison.OrdinalIgnoreCase) >= 0;
             }
-            catch
-            {
-                return false;
-            }
+            catch { return false; }
         }
 
         private static int ResolveDocumentType(string path)
