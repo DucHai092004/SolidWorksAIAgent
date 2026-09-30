@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 using SolidWorks.Interop.sldworks;
 using SwMateAI.Core.BOM;
+using Environment = System.Environment;
 
 namespace SwMateAI.BomWorker
 {
@@ -109,7 +110,6 @@ namespace SwMateAI.BomWorker
                         "|OK=" + captured + "|SKIP=" + skipped);
                     Console.Out.Flush();
 
-                    // Deliberately moderate pace for COM stability.
                     Thread.Sleep(150);
                 }
 
