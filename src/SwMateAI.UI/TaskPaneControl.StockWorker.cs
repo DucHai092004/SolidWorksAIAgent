@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Windows.Controls;
 using SwMateAI.Core.Agent;
 
@@ -10,6 +11,7 @@ namespace SwMateAI.UI
 {
     public partial class TaskPaneControl
     {
+        private const int StockWorkerNoProgressTimeoutSeconds = 300;
         private bool _stockWorkerRunning;
 
         private void StartStockExportWorker(AgentCore agent, string outputText, TextBlock status)
@@ -22,6 +24,7 @@ namespace SwMateAI.UI
             if (!TryBeginExtractionTask("Bảng phôi Excel", status)) return;
 
             bool handedOffToWorker = false;
+            Timer watchdogTimer = null;
             try
             {
                 AgentContext context = agent.ObserveContext();
@@ -62,6 +65,12 @@ namespace SwMateAI.UI
 
                 var stdout = new StringBuilder();
                 var stderr = new StringBuilder();
+                long lastProgressTicks = DateTime.UtcNow.Ticks;
+                int childSolidWorksPid = 0;
+                int timeoutTriggered = 0;
+                string lastPhase = "Khởi động worker";
+                object phaseSync = new object();
+
                 var process = new Process
                 {
                     StartInfo = new ProcessStartInfo
@@ -73,7 +82,8 @@ namespace SwMateAI.UI
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
                         Arguments = "--source " + QuoteArgument(context.DocumentPath) +
-                                    " --output " + QuoteArgument(outputPath)
+                                    " --output " + QuoteArgument(outputPath) +
+                                    " --watchdog-seconds " + StockWorkerNoProgressTimeoutSeconds
                     },
                     EnableRaisingEvents = true
                 };
@@ -81,10 +91,23 @@ namespace SwMateAI.UI
                 process.OutputDataReceived += delegate(object sender, DataReceivedEventArgs e)
                 {
                     if (e.Data == null) return;
+                    Interlocked.Exchange(ref lastProgressTicks, DateTime.UtcNow.Ticks);
                     lock (stdout) stdout.AppendLine(e.Data);
+                    lock (phaseSync) lastPhase = e.Data;
 
                     if (e.Data.StartsWith("PROGRESS|INSTANCE|", StringComparison.OrdinalIgnoreCase))
                     {
+                        string[] instanceParts = e.Data.Split('|');
+                        if (e.Data.StartsWith("PROGRESS|INSTANCE|READY|", StringComparison.OrdinalIgnoreCase))
+                        {
+                            int parsedPid = FindProgressInt(instanceParts, "PID");
+                            if (parsedPid > 0) Interlocked.Exchange(ref childSolidWorksPid, parsedPid);
+                        }
+                        else if (e.Data.StartsWith("PROGRESS|INSTANCE|STARTING|", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Interlocked.Exchange(ref childSolidWorksPid, 0);
+                        }
+
                         UpdateExtractionProgress(0, 0, "Bảng phôi — đang chuẩn bị SolidWorks nền...");
                         return;
                     }
@@ -126,20 +149,39 @@ namespace SwMateAI.UI
                 process.ErrorDataReceived += delegate(object sender, DataReceivedEventArgs e)
                 {
                     if (e.Data == null) return;
+                    Interlocked.Exchange(ref lastProgressTicks, DateTime.UtcNow.Ticks);
                     lock (stderr) stderr.AppendLine(e.Data);
                 };
+
                 process.Exited += delegate
                 {
+                    try { watchdogTimer?.Dispose(); } catch { }
                     int exitCode = -1;
                     try { process.WaitForExit(); exitCode = process.ExitCode; } catch { }
                     string outText; string errText;
                     lock (stdout) outText = stdout.ToString();
                     lock (stderr) errText = stderr.ToString();
+                    bool timedOut = Interlocked.CompareExchange(ref timeoutTriggered, 0, 0) != 0;
+
                     Dispatcher.BeginInvoke(new Action(delegate
                     {
                         _stockWorkerRunning = false;
-                        ApplyStockWorkerResult(status, exitCode, outText, errText);
-                        bool success = exitCode == 0 && outText.IndexOf("RESULT|OK|", StringComparison.OrdinalIgnoreCase) >= 0;
+                        if (timedOut)
+                        {
+                            string phase;
+                            lock (phaseSync) phase = lastPhase;
+                            SetBomStatus(status,
+                                "[LỖI] Bảng phôi đã được dừng an toàn vì worker không có tiến triển trong " +
+                                StockWorkerNoProgressTimeoutSeconds + " giây. Phase cuối: " + phase,
+                                248, 113, 113);
+                        }
+                        else
+                        {
+                            ApplyStockWorkerResult(status, exitCode, outText, errText);
+                        }
+
+                        bool success = !timedOut && exitCode == 0 &&
+                                       outText.IndexOf("RESULT|OK|", StringComparison.OrdinalIgnoreCase) >= 0;
                         EndExtractionTask(success
                             ? "Bảng phôi Excel — hoàn tất."
                             : "Bảng phôi Excel — kết thúc có lỗi.");
@@ -155,10 +197,35 @@ namespace SwMateAI.UI
                 process.Start();
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
+
+                watchdogTimer = new Timer(delegate
+                {
+                    if (Interlocked.CompareExchange(ref timeoutTriggered, 0, 0) != 0) return;
+                    long ticks = Interlocked.Read(ref lastProgressTicks);
+                    double idleSeconds = TimeSpan.FromTicks(Math.Max(0, DateTime.UtcNow.Ticks - ticks)).TotalSeconds;
+                    if (idleSeconds <= StockWorkerNoProgressTimeoutSeconds) return;
+                    if (Interlocked.Exchange(ref timeoutTriggered, 1) != 0) return;
+
+                    int swPid = Interlocked.CompareExchange(ref childSolidWorksPid, 0, 0);
+                    KillProcessSafe(swPid);
+                    int workerPid = 0;
+                    try { workerPid = process.Id; } catch { }
+                    KillProcessSafe(workerPid);
+
+                    Dispatcher.BeginInvoke(new Action(delegate
+                    {
+                        SetBomStatus(status,
+                            "[CẢNH BÁO] Worker Bảng phôi không có tiến triển nên đã được dừng để bảo vệ SolidWorks.",
+                            251, 191, 36);
+                        UpdateExtractionProgress(0, 1, "Bảng phôi — watchdog đã dừng worker bị treo.");
+                    }));
+                }, null, 5000, 5000);
+
                 handedOffToWorker = true;
             }
             catch (Exception ex)
             {
+                try { watchdogTimer?.Dispose(); } catch { }
                 _stockWorkerRunning = false;
                 SetBomStatus(status, "[LỖI] Không khởi động được Stock worker: " + ex.Message, 248, 113, 113);
             }
@@ -166,17 +233,41 @@ namespace SwMateAI.UI
             {
                 if (!handedOffToWorker)
                 {
+                    try { watchdogTimer?.Dispose(); } catch { }
                     _stockWorkerRunning = false;
                     EndExtractionTask("Bảng phôi Excel — không chạy.");
                 }
             }
         }
 
+        private static int FindProgressInt(string[] parts, string key)
+        {
+            string prefix = key + "=";
+            foreach (string part in parts ?? Array.Empty<string>())
+            {
+                if (!part.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+                if (int.TryParse(part.Substring(prefix.Length), out int value)) return value;
+            }
+            return 0;
+        }
+
+        private static void KillProcessSafe(int pid)
+        {
+            if (pid <= 0) return;
+            try
+            {
+                var target = Process.GetProcessById(pid);
+                if (!target.HasExited) target.Kill();
+                target.Dispose();
+            }
+            catch { }
+        }
+
         private static string DescribeStockStage(string stage)
         {
             switch ((stage ?? string.Empty).ToUpperInvariant())
             {
-                case "OPEN": return "đang mở Assembly";
+                case "OPEN": return "đang mở Assembly (lightweight)";
                 case "RESOLVE": return "đang resolve component";
                 case "BUILD": return "đang đọc vật liệu và tính phôi";
                 case "IMAGES": return "đang chuẩn bị ảnh chi tiết";
@@ -199,6 +290,9 @@ namespace SwMateAI.UI
                     "[OK] Bảng phôi hoàn tất. Dòng=" + FindWorkerValue(parts, "ITEMS") +
                     ", ảnh=" + FindWorkerValue(parts, "IMAGES") +
                     ", bỏ qua=" + FindWorkerValue(parts, "SKIPPED") +
+                    ", unloaded=" + FindWorkerValue(parts, "UNLOADED") +
+                    ", cần rà vật liệu=" + FindWorkerValue(parts, "REVIEW") +
+                    ", phiên nền=" + FindWorkerValue(parts, "SESSIONS") +
                     ", thời gian=" + FindWorkerValue(parts, "MS") + " ms. File=" + path +
                     ". Log=" + FindWorkerValue(parts, "LOG"),
                     52, 211, 153);
