@@ -114,10 +114,36 @@ namespace SwMateAI.DrawingWorker
             if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
                 throw new FileNotFoundException("Source model was not found.", sourcePath);
 
+            int sourceType = ResolveDocumentType(sourcePath);
+            if (sourceType == (int)swDocumentTypes_e.swDocNONE)
+                throw new InvalidOperationException("Unsupported source type: " + Path.GetExtension(sourcePath));
+
+            IModelDoc2 sourceModel = null;
             IModelDoc2 drawingModel = null;
+            string sourceTitle = string.Empty;
             string drawingTitle = string.Empty;
             try
             {
+                int openErrors = 0, openWarnings = 0;
+                int openOptions = (int)swOpenDocOptions_e.swOpenDocOptions_Silent |
+                                  (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly;
+                sourceModel = swApp.OpenDoc6(
+                    sourcePath,
+                    sourceType,
+                    openOptions,
+                    string.Empty,
+                    ref openErrors,
+                    ref openWarnings) as IModelDoc2;
+                if (sourceModel == null)
+                    throw new InvalidOperationException(
+                        "Could not open source model. Errors=" + openErrors + ", Warnings=" + openWarnings + ".");
+
+                sourceTitle = sourceModel.GetTitle() ?? string.Empty;
+                int activateErrors = 0;
+                swApp.ActivateDoc3(sourceTitle, false, 0, ref activateErrors);
+                try { sourceModel.ForceRebuild3(false); } catch { }
+                Thread.Sleep(120);
+
                 drawingModel = swApp.NewDocument(job.TemplatePath, 0, 0, 0) as IModelDoc2;
                 var drawing = drawingModel as IDrawingDoc;
                 if (drawingModel == null || drawing == null)
@@ -127,11 +153,12 @@ namespace SwMateAI.DrawingWorker
                 bool created = IsFirstAngle(job.Projection)
                     ? drawing.Create1stAngleViews2(sourcePath)
                     : drawing.Create3rdAngleViews2(sourcePath);
-                if (!created) throw new InvalidOperationException("Could not create standard drawing views.");
+                if (!created)
+                    throw new InvalidOperationException("Could not create standard drawing views.");
 
                 drawingModel.ForceRebuild3(false);
                 drawingModel.GraphicsRedraw2();
-                Thread.Sleep(180);
+                Thread.Sleep(220);
                 string baseName = SafeBaseName(sourcePath);
 
                 if (job.SaveDrawing)
@@ -146,7 +173,22 @@ namespace SwMateAI.DrawingWorker
                     try { swApp.CloseDoc(drawingTitle); } catch { }
                 }
                 ReleaseCom(drawingModel);
+
+                if (!string.IsNullOrWhiteSpace(sourceTitle))
+                {
+                    try { swApp.CloseDoc(sourceTitle); } catch { }
+                }
+                ReleaseCom(sourceModel);
             }
+        }
+
+        private static int ResolveDocumentType(string path)
+        {
+            if (path.EndsWith(".SLDPRT", StringComparison.OrdinalIgnoreCase))
+                return (int)swDocumentTypes_e.swDocPART;
+            if (path.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase))
+                return (int)swDocumentTypes_e.swDocASSEMBLY;
+            return (int)swDocumentTypes_e.swDocNONE;
         }
 
         private static void SaveDrawing(IModelDoc2 model, string path)
@@ -164,16 +206,22 @@ namespace SwMateAI.DrawingWorker
         {
             var data = swApp.GetExportFileData((int)swExportDataFileType_e.swExportPdfData) as IExportPdfData;
             if (data == null) throw new InvalidOperationException("PDF export data is unavailable.");
-            data.ViewPdfAfterSaving = false;
-            data.SetSheets((int)swExportDataSheetsToExport_e.swExportData_ExportAllSheets, null);
-            int errors = 0, warnings = 0;
-            bool ok = model.Extension.SaveAs(path,
-                (int)swSaveAsVersion_e.swSaveAsCurrentVersion,
-                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
-                data, ref errors, ref warnings);
-            ReleaseCom(data);
-            if (!ok || errors != 0 || !File.Exists(path))
-                throw new IOException("PDF export failed. Errors=" + errors + ", Warnings=" + warnings + ".");
+            try
+            {
+                data.ViewPdfAfterSaving = false;
+                data.SetSheets((int)swExportDataSheetsToExport_e.swExportData_ExportAllSheets, null);
+                int errors = 0, warnings = 0;
+                bool ok = model.Extension.SaveAs(path,
+                    (int)swSaveAsVersion_e.swSaveAsCurrentVersion,
+                    (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                    data, ref errors, ref warnings);
+                if (!ok || errors != 0 || !File.Exists(path))
+                    throw new IOException("PDF export failed. Errors=" + errors + ", Warnings=" + warnings + ".");
+            }
+            finally
+            {
+                ReleaseCom(data);
+            }
         }
 
         private static Job ReadManifest(string path)
@@ -222,12 +270,20 @@ namespace SwMateAI.DrawingWorker
             var before = new HashSet<int>(Process.GetProcessesByName("SLDWORKS").Select(p => p.Id));
             string exe = ResolveSolidWorksExecutable();
             if (string.IsNullOrWhiteSpace(exe) || !File.Exists(exe)) return null;
-            Process.Start(new ProcessStartInfo { FileName = exe, Arguments = "/b", UseShellExecute = true, WindowStyle = ProcessWindowStyle.Hidden });
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = exe,
+                Arguments = "/b",
+                UseShellExecute = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
             var clock = Stopwatch.StartNew();
             while (clock.ElapsedMilliseconds < 45000)
             {
                 Process candidate = Process.GetProcessesByName("SLDWORKS")
-                    .Where(p => !before.Contains(p.Id)).OrderByDescending(SafeStartTime).FirstOrDefault();
+                    .Where(p => !before.Contains(p.Id))
+                    .OrderByDescending(SafeStartTime)
+                    .FirstOrDefault();
                 if (candidate != null) return candidate;
                 Thread.Sleep(500);
             }
@@ -243,7 +299,11 @@ namespace SwMateAI.DrawingWorker
                 if (!string.IsNullOrWhiteSpace(path) && File.Exists(path)) return path;
             }
             catch { }
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "SOLIDWORKS Corp", "SOLIDWORKS", "SLDWORKS.exe");
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                "SOLIDWORKS Corp",
+                "SOLIDWORKS",
+                "SLDWORKS.exe");
         }
 
         private static void ConfigureOffscreen(ISldWorks swApp)
@@ -301,26 +361,83 @@ namespace SwMateAI.DrawingWorker
                     }
                     finally
                     {
-                        ReleaseCom(bindContext); bindContext = null; ReleaseCom(moniker);
+                        ReleaseCom(bindContext);
+                        bindContext = null;
+                        ReleaseCom(moniker);
                     }
                 }
                 return null;
             }
             finally
             {
-                ReleaseCom(bindContext); ReleaseCom(enumerator); ReleaseCom(rot);
+                ReleaseCom(bindContext);
+                ReleaseCom(enumerator);
+                ReleaseCom(rot);
             }
         }
 
-        private static DateTime SafeStartTime(Process process) { try { return process.StartTime; } catch { return DateTime.MinValue; } }
-        private static bool IsFirstAngle(string value) { string v = (value ?? string.Empty).Trim().ToLowerInvariant(); return v == "first" || v == "first angle" || v == "1"; }
-        private static string SafeBaseName(string path) { string n = Path.GetFileNameWithoutExtension(path ?? string.Empty); foreach (char c in Path.GetInvalidFileNameChars()) n = n.Replace(c, '_'); return string.IsNullOrWhiteSpace(n) ? "Drawing" : n; }
-        private static string UniquePath(string path) { if (!File.Exists(path)) return path; string d = Path.GetDirectoryName(path) ?? string.Empty; string n = Path.GetFileNameWithoutExtension(path); string e = Path.GetExtension(path); for (int i = 1; i < 10000; i++) { string c = Path.Combine(d, n + "_" + i + e); if (!File.Exists(c)) return c; } throw new IOException("Could not allocate output path."); }
-        private static string Arg(string[] args, string key) { for (int i = 0; args != null && i < args.Length - 1; i++) if (string.Equals(args[i], key, StringComparison.OrdinalIgnoreCase)) return args[i + 1] ?? string.Empty; return string.Empty; }
-        private static string Decode(string value) { try { return Encoding.UTF8.GetString(Convert.FromBase64String(value ?? string.Empty)); } catch { return string.Empty; } }
-        private static string Escape(string value) { return (value ?? string.Empty).Replace("\r", " ").Replace("\n", " ").Replace("|", "/"); }
-        private static int Fail(string message) { Console.WriteLine("RESULT|ERROR|" + Escape(message)); return 1; }
-        private static void ReleaseCom(object value) { if (value == null || !Marshal.IsComObject(value)) return; try { Marshal.FinalReleaseComObject(value); } catch { } }
+        private static DateTime SafeStartTime(Process process)
+        {
+            try { return process.StartTime; } catch { return DateTime.MinValue; }
+        }
+
+        private static bool IsFirstAngle(string value)
+        {
+            string v = (value ?? string.Empty).Trim().ToLowerInvariant();
+            return v == "first" || v == "first angle" || v == "1";
+        }
+
+        private static string SafeBaseName(string path)
+        {
+            string name = Path.GetFileNameWithoutExtension(path ?? string.Empty);
+            foreach (char c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
+            return string.IsNullOrWhiteSpace(name) ? "Drawing" : name;
+        }
+
+        private static string UniquePath(string path)
+        {
+            if (!File.Exists(path)) return path;
+            string directory = Path.GetDirectoryName(path) ?? string.Empty;
+            string name = Path.GetFileNameWithoutExtension(path);
+            string extension = Path.GetExtension(path);
+            for (int i = 1; i < 10000; i++)
+            {
+                string candidate = Path.Combine(directory, name + "_" + i + extension);
+                if (!File.Exists(candidate)) return candidate;
+            }
+            throw new IOException("Could not allocate output path.");
+        }
+
+        private static string Arg(string[] args, string key)
+        {
+            for (int i = 0; args != null && i < args.Length - 1; i++)
+                if (string.Equals(args[i], key, StringComparison.OrdinalIgnoreCase))
+                    return args[i + 1] ?? string.Empty;
+            return string.Empty;
+        }
+
+        private static string Decode(string value)
+        {
+            try { return Encoding.UTF8.GetString(Convert.FromBase64String(value ?? string.Empty)); }
+            catch { return string.Empty; }
+        }
+
+        private static string Escape(string value)
+        {
+            return (value ?? string.Empty).Replace("\r", " ").Replace("\n", " ").Replace("|", "/");
+        }
+
+        private static int Fail(string message)
+        {
+            Console.WriteLine("RESULT|ERROR|" + Escape(message));
+            return 1;
+        }
+
+        private static void ReleaseCom(object value)
+        {
+            if (value == null || !Marshal.IsComObject(value)) return;
+            try { Marshal.FinalReleaseComObject(value); } catch { }
+        }
 
         private sealed class Job
         {
@@ -335,6 +452,7 @@ namespace SwMateAI.DrawingWorker
 
         [DllImport("ole32.dll")]
         private static extern int GetRunningObjectTable(int reserved, out IRunningObjectTable runningObjectTable);
+
         [DllImport("ole32.dll")]
         private static extern int CreateBindCtx(int reserved, out IBindCtx bindContext);
     }
