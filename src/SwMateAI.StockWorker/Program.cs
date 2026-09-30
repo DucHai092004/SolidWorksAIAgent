@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
+using System.Text;
 using System.Threading;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
@@ -15,11 +16,17 @@ namespace SwMateAI.StockWorker
 {
     internal static class Program
     {
+        private const int ImageSessionBatchSize = 20;
+
         private static int Main(string[] args)
         {
             ISldWorks swApp = null;
             IModelDoc2 model = null;
             Process swProcess = null;
+            string tempRoot = null;
+            int sessionCount = 0;
+            int imagesInSession = 0;
+
             try
             {
                 string source = Arg(args, "--source");
@@ -30,19 +37,30 @@ namespace SwMateAI.StockWorker
                 if (string.IsNullOrWhiteSpace(output))
                 {
                     string root = Path.GetDirectoryName(source) ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                    string name = Path.GetFileNameWithoutExtension(source);
+                    string name = SafeFileName(Path.GetFileNameWithoutExtension(source));
                     output = Path.Combine(root, "SW-MATE_AI_Output", name + "_StockMaterial.xlsx");
                 }
-                Directory.CreateDirectory(Path.GetDirectoryName(output) ?? ".");
+                output = EnsureUniquePath(output);
+                string outputFolder = Path.GetDirectoryName(output) ?? ".";
+                Directory.CreateDirectory(outputFolder);
+                string logFolder = Path.Combine(outputFolder, "Logs");
+                Directory.CreateDirectory(logFolder);
 
-                Console.WriteLine("PROGRESS|INSTANCE|STARTING");
-                Console.Out.Flush();
-                swProcess = StartIsolatedSolidWorks();
-                if (swProcess == null) return Fail("Could not start isolated SOLIDWORKS process.");
-                swApp = WaitForSolidWorksCom(swProcess.Id, 45000);
-                if (swApp == null) return Fail("Isolated SOLIDWORKS process did not become available.");
-                try { swApp.Visible = false; } catch { }
-                Console.WriteLine("PROGRESS|INSTANCE|READY|PID=" + swProcess.Id);
+                tempRoot = Path.Combine(
+                    Path.GetTempPath(),
+                    "SW-MATE_AI",
+                    "Stock_Worker",
+                    Guid.NewGuid().ToString("N"));
+                string localSourceFolder = Path.Combine(tempRoot, "source");
+                string imageFolder = Path.Combine(tempRoot, "images");
+                Directory.CreateDirectory(localSourceFolder);
+                Directory.CreateDirectory(imageFolder);
+
+                var clock = Stopwatch.StartNew();
+                if (!StartSession(ref swApp, ref swProcess, ++sessionCount))
+                    return Fail("Could not start isolated SOLIDWORKS process.");
+
+                Console.WriteLine("PROGRESS|STOCK|OPEN|" + Escape(Path.GetFileName(source)));
                 Console.Out.Flush();
 
                 int errors = 0, warnings = 0;
@@ -58,6 +76,12 @@ namespace SwMateAI.StockWorker
                 if (model == null)
                     return Fail("Could not open Assembly. Errors=" + errors + ", Warnings=" + warnings + ".");
 
+                string modelTitle = model.GetTitle() ?? string.Empty;
+                int activateErrors = 0;
+                try { swApp.ActivateDoc3(modelTitle, false, 0, ref activateErrors); } catch { }
+
+                Console.WriteLine("PROGRESS|STOCK|RESOLVE|Lightweight components");
+                Console.Out.Flush();
                 try
                 {
                     var assembly = model as IAssemblyDoc;
@@ -66,22 +90,138 @@ namespace SwMateAI.StockWorker
                 }
                 catch { }
 
-                Console.WriteLine("PROGRESS|STOCK|BUILDING");
+                Console.WriteLine("PROGRESS|STOCK|BUILD|Material + stock calculation");
                 Console.Out.Flush();
-                var clock = Stopwatch.StartNew();
-                string imageFolder = Path.Combine(Path.GetDirectoryName(output) ?? string.Empty, "PartImages");
-                var result = new ManufacturingBreakdownExporter(swApp).Export(
-                    output,
-                    imageFolder,
-                    new StockCalculationOptions());
+                BreakdownResult breakdown = new ManufacturingBreakdownBuilder(swApp, new StockCalculationOptions()).Build();
+                if (breakdown == null || breakdown.Items.Count == 0)
+                    return Fail("Manufacturing breakdown contains no Part items.");
+
+                try { swApp.CloseDoc(modelTitle); } catch { }
+                ReleaseCom(model);
+                model = null;
+                Thread.Sleep(250);
+
+                Console.WriteLine("PROGRESS|STOCK|IMAGES|" + breakdown.Items.Count + " items");
+                Console.Out.Flush();
+
+                var localCopies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                var skippedDetails = new List<string>();
+                PartImageCapture capture = new PartImageCapture(swApp);
+                int captured = 0;
+                int skipped = 0;
+                int consecutiveSessionFailures = 0;
+
+                for (int i = 0; i < breakdown.Items.Count; i++)
+                {
+                    BreakdownItem item = breakdown.Items[i];
+                    int index = i + 1;
+                    string originalSource = item.SourcePath;
+                    string localSource = LocalizeSource(originalSource, localSourceFolder, localCopies, index);
+
+                    if (string.IsNullOrWhiteSpace(localSource))
+                    {
+                        skipped++;
+                        skippedDetails.Add(ItemLabel(item) + "|SOURCE_COPY_FAILED|" + originalSource);
+                        EmitImageProgress(index, breakdown.Items.Count, captured, skipped);
+                        continue;
+                    }
+
+                    if (swApp == null || swProcess == null || imagesInSession >= ImageSessionBatchSize)
+                    {
+                        ShutdownSession(ref swApp, ref swProcess);
+                        imagesInSession = 0;
+
+                        if (!StartSession(ref swApp, ref swProcess, ++sessionCount))
+                        {
+                            consecutiveSessionFailures++;
+                            skipped++;
+                            skippedDetails.Add(ItemLabel(item) + "|SESSION_START_FAILED|" + originalSource);
+                            EmitImageProgress(index, breakdown.Items.Count, captured, skipped);
+                            if (consecutiveSessionFailures >= 2)
+                            {
+                                for (int r = i + 1; r < breakdown.Items.Count; r++)
+                                {
+                                    skipped++;
+                                    skippedDetails.Add(ItemLabel(breakdown.Items[r]) + "|SESSION_UNAVAILABLE|" + breakdown.Items[r].SourcePath);
+                                    EmitImageProgress(r + 1, breakdown.Items.Count, captured, skipped);
+                                }
+                                break;
+                            }
+                            continue;
+                        }
+
+                        consecutiveSessionFailures = 0;
+                        capture = new PartImageCapture(swApp);
+                    }
+
+                    try
+                    {
+                        item.SourcePath = localSource;
+                        string image = capture.Capture(item, imageFolder);
+                        imagesInSession++;
+                        if (!string.IsNullOrWhiteSpace(image) && File.Exists(image))
+                        {
+                            captured++;
+                        }
+                        else
+                        {
+                            skipped++;
+                            skippedDetails.Add(ItemLabel(item) + "|IMAGE_CAPTURE_FAILED|" + originalSource);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        skipped++;
+                        skippedDetails.Add(ItemLabel(item) + "|EXCEPTION=" + Escape(ex.Message) + "|" + originalSource);
+                        ShutdownSession(ref swApp, ref swProcess);
+                        imagesInSession = 0;
+                    }
+                    finally
+                    {
+                        item.SourcePath = originalSource;
+                    }
+
+                    EmitImageProgress(index, breakdown.Items.Count, captured, skipped);
+                    if ((index % 5) == 0)
+                    {
+                        try
+                        {
+                            GC.Collect();
+                            GC.WaitForPendingFinalizers();
+                        }
+                        catch { }
+                    }
+                    Thread.Sleep(160);
+                }
+
+                ShutdownSession(ref swApp, ref swProcess);
+
+                Console.WriteLine("PROGRESS|STOCK|EXPORT|OpenXML XLSX");
+                Console.Out.Flush();
+                BreakdownTable table = new BreakdownTableGenerator().Generate(breakdown);
+                ExportExcelWithRetry(table, output);
+                ValidateExcel(output);
                 clock.Stop();
 
+                string logPath = WriteLog(
+                    logFolder,
+                    breakdown,
+                    captured,
+                    skipped,
+                    sessionCount,
+                    clock.ElapsedMilliseconds,
+                    skippedDetails);
+
                 Console.WriteLine(
-                    "RESULT|OK|" + Escape(result.ExcelPath) +
-                    "|ITEMS=" + (result.Breakdown?.Items?.Count ?? 0) +
-                    "|IMAGES=" + result.CapturedImageCount +
+                    "RESULT|OK|" + Escape(output) +
+                    "|ITEMS=" + breakdown.Items.Count +
+                    "|IMAGES=" + captured +
+                    "|SKIPPED=" + skipped +
+                    "|UNLOADED=" + breakdown.UnloadedPartCount +
+                    "|REVIEW=" + breakdown.StockMaterialsNeedReview +
+                    "|SESSIONS=" + sessionCount +
                     "|MS=" + clock.ElapsedMilliseconds +
-                    "|PID=" + swProcess.Id);
+                    "|LOG=" + Escape(logPath));
                 return 0;
             }
             catch (Exception ex)
@@ -95,21 +235,195 @@ namespace SwMateAI.StockWorker
                     try { swApp.CloseDoc(model.GetTitle()); } catch { }
                 }
                 ReleaseCom(model);
-                if (swApp != null)
+                ShutdownSession(ref swApp, ref swProcess);
+
+                if (!string.IsNullOrWhiteSpace(tempRoot) && Directory.Exists(tempRoot))
                 {
-                    try { swApp.ExitApp(); } catch { }
-                }
-                ReleaseCom(swApp);
-                if (swProcess != null)
-                {
-                    try
-                    {
-                        if (!swProcess.WaitForExit(5000) && !swProcess.HasExited) swProcess.Kill();
-                    }
-                    catch { }
-                    try { swProcess.Dispose(); } catch { }
+                    try { Directory.Delete(tempRoot, true); } catch { }
                 }
             }
+        }
+
+        private static bool StartSession(ref ISldWorks swApp, ref Process swProcess, int sessionNumber)
+        {
+            Console.WriteLine("PROGRESS|INSTANCE|STARTING|SESSION=" + sessionNumber);
+            Console.Out.Flush();
+
+            swProcess = StartIsolatedSolidWorks();
+            if (swProcess == null) return false;
+            swApp = WaitForSolidWorksCom(swProcess.Id, 45000);
+            if (swApp == null)
+            {
+                ShutdownSession(ref swApp, ref swProcess);
+                return false;
+            }
+
+            ConfigureOffscreen(swApp);
+            Console.WriteLine("PROGRESS|INSTANCE|READY|SESSION=" + sessionNumber + "|PID=" + swProcess.Id);
+            Console.Out.Flush();
+            return true;
+        }
+
+        private static void ShutdownSession(ref ISldWorks swApp, ref Process swProcess)
+        {
+            if (swApp != null)
+            {
+                try { swApp.ExitApp(); } catch { }
+            }
+            ReleaseCom(swApp);
+            swApp = null;
+
+            if (swProcess != null)
+            {
+                try
+                {
+                    if (!swProcess.WaitForExit(5000) && !swProcess.HasExited)
+                        swProcess.Kill();
+                }
+                catch { }
+                try { swProcess.Dispose(); } catch { }
+            }
+            swProcess = null;
+        }
+
+        private static void ConfigureOffscreen(ISldWorks swApp)
+        {
+            try
+            {
+                swApp.Visible = true;
+                swApp.FrameState = (int)swWindowState_e.swWindowNormal;
+                swApp.FrameLeft = -30000;
+                swApp.FrameTop = -30000;
+                swApp.FrameWidth = 1024;
+                swApp.FrameHeight = 768;
+            }
+            catch { }
+        }
+
+        private static string LocalizeSource(
+            string sourcePath,
+            string localFolder,
+            Dictionary<string, string> cache,
+            int index)
+        {
+            if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+                return string.Empty;
+            if (cache.TryGetValue(sourcePath, out string cached) && File.Exists(cached))
+                return cached;
+
+            string extension = Path.GetExtension(sourcePath);
+            string destination = Path.Combine(localFolder, "source_" + index.ToString("D4") + extension);
+            try
+            {
+                File.Copy(sourcePath, destination, true);
+                cache[sourcePath] = destination;
+                return destination;
+            }
+            catch { return string.Empty; }
+        }
+
+        private static void EmitImageProgress(int index, int total, int captured, int skipped)
+        {
+            Console.WriteLine(
+                "PROGRESS|IMAGE|" + index + "/" + total +
+                "|OK=" + captured + "|SKIP=" + skipped);
+            Console.Out.Flush();
+        }
+
+        private static void ExportExcelWithRetry(BreakdownTable table, string output)
+        {
+            Exception last = null;
+            for (int attempt = 1; attempt <= 2; attempt++)
+            {
+                try
+                {
+                    new ExcelExporter().Export(table, output);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    last = ex;
+                    try { if (File.Exists(output)) File.Delete(output); } catch { }
+                    if (attempt < 2) Thread.Sleep(500);
+                }
+            }
+            throw new IOException("Excel export failed after retry: " + (last?.Message ?? "unknown error"), last);
+        }
+
+        private static void ValidateExcel(string path)
+        {
+            if (!File.Exists(path)) throw new IOException("Stock Excel was not created: " + path);
+            var info = new FileInfo(path);
+            if (info.Length < 1024) throw new IOException("Stock Excel is unexpectedly small: " + info.Length + " bytes.");
+            using (var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                int first = stream.ReadByte();
+                int second = stream.ReadByte();
+                if (first != 'P' || second != 'K')
+                    throw new IOException("Stock Excel does not have a valid XLSX/ZIP signature.");
+            }
+        }
+
+        private static string WriteLog(
+            string folder,
+            BreakdownResult breakdown,
+            int captured,
+            int skipped,
+            int sessions,
+            long elapsedMilliseconds,
+            IList<string> skippedDetails)
+        {
+            string path = Path.Combine(folder, "StockWorker_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".log");
+            using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
+            {
+                writer.WriteLine("SW-MATE AI Stock Worker");
+                writer.WriteLine("Time: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                writer.WriteLine("Items: " + (breakdown?.Items?.Count ?? 0));
+                writer.WriteLine("Occurrences: " + (breakdown?.TotalPartOccurrences ?? 0));
+                writer.WriteLine("SuppressedSkipped: " + (breakdown?.SuppressedSkipped ?? 0));
+                writer.WriteLine("UnloadedParts: " + (breakdown?.UnloadedPartCount ?? 0));
+                writer.WriteLine("Images: " + captured);
+                writer.WriteLine("ImageSkipped: " + skipped);
+                writer.WriteLine("MaterialNeedsReview: " + (breakdown?.StockMaterialsNeedReview ?? 0));
+                writer.WriteLine("MaterialImportErrors: " + (breakdown?.MaterialImportErrors ?? 0));
+                writer.WriteLine("Sessions: " + sessions);
+                writer.WriteLine("ElapsedMs: " + elapsedMilliseconds);
+                foreach (string detail in skippedDetails ?? Array.Empty<string>())
+                    writer.WriteLine("SKIP|" + detail);
+            }
+            return path;
+        }
+
+        private static string ItemLabel(BreakdownItem item)
+        {
+            if (item == null) return "Part";
+            return string.IsNullOrWhiteSpace(item.PartNumber)
+                ? Path.GetFileName(item.SourcePath)
+                : item.PartNumber;
+        }
+
+        private static string EnsureUniquePath(string requested)
+        {
+            string full = Path.GetFullPath(requested);
+            if (!Path.GetExtension(full).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
+                full = Path.ChangeExtension(full, ".xlsx");
+            if (!File.Exists(full)) return full;
+
+            string dir = Path.GetDirectoryName(full) ?? string.Empty;
+            string name = Path.GetFileNameWithoutExtension(full);
+            for (int i = 1; i < 10000; i++)
+            {
+                string candidate = Path.Combine(dir, name + "_" + i + ".xlsx");
+                if (!File.Exists(candidate)) return candidate;
+            }
+            throw new IOException("Could not allocate a unique stock Excel file name.");
+        }
+
+        private static string SafeFileName(string value)
+        {
+            string result = value ?? string.Empty;
+            foreach (char c in Path.GetInvalidFileNameChars()) result = result.Replace(c, '_');
+            return string.IsNullOrWhiteSpace(result) ? "Assembly" : result;
         }
 
         private static Process StartIsolatedSolidWorks()
@@ -211,7 +525,8 @@ namespace SwMateAI.StockWorker
 
         private static DateTime SafeStartTime(Process process)
         {
-            try { return process.StartTime; } catch { return DateTime.MinValue; }
+            try { return process.StartTime; }
+            catch { return DateTime.MinValue; }
         }
 
         private static string Arg(string[] args, string key)
