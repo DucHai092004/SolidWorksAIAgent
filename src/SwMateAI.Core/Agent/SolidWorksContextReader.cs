@@ -33,8 +33,6 @@ namespace SwMateAI.Core.Agent
                 ctx.SolidWorksVersion = string.Empty;
             }
 
-            // ActiveDoc is more reliable than IActiveDoc2 for imported/3D Interconnect
-            // documents in older SOLIDWORKS versions. Keep IActiveDoc2 only as fallback.
             var doc = _swApp.ActiveDoc as IModelDoc2;
             if (doc == null)
                 doc = _swApp.IActiveDoc2;
@@ -51,6 +49,15 @@ namespace SwMateAI.Core.Agent
             catch
             {
                 ctx.DocumentName = string.Empty;
+            }
+
+            try
+            {
+                ctx.DocumentPath = doc.GetPathName() ?? string.Empty;
+            }
+            catch
+            {
+                ctx.DocumentPath = string.Empty;
             }
 
             try
