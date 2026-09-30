@@ -286,7 +286,7 @@ namespace SwMateAI.Core.Tools.Drawing
             string path = model?.GetPathName() ?? string.Empty;
             string root = !string.IsNullOrWhiteSpace(path)
                 ? Path.GetDirectoryName(path)
-                : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                : System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
             return Path.Combine(root ?? string.Empty, "SW-MATE_AI_Output", "DrawingPackage");
         }
 
