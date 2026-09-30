@@ -51,8 +51,11 @@ namespace SwMateAI.Core.Manufacturing
                 string lastColumn = ColumnName(Math.Max(1, table.Headers.Count));
                 worksheet.Append(new AutoFilter { Reference = "A1:" + lastColumn + lastRow });
 
-                AddImages(worksheetPart, table);
+                // The Worksheet must exist on the part before AddImages appends the
+                // drawing relationship. Previously this assignment happened after
+                // AddImages, which caused a NullReferenceException whenever images existed.
                 worksheetPart.Worksheet = worksheet;
+                AddImages(worksheetPart, table);
                 worksheetPart.Worksheet.Save();
 
                 var sheets = workbookPart.Workbook.AppendChild(new Sheets());
