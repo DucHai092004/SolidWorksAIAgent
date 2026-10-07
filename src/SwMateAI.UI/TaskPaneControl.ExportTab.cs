@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
+using SwMateAI.Core.BOM;
 using SwMateAI.Core.Exporting;
 using SwMateAI.UI.ViewModels;
 
@@ -12,9 +14,13 @@ namespace SwMateAI.UI
     public partial class TaskPaneControl
     {
         private bool _exportTabInstalled;
+        private bool _exportBusy;
         private TextBox _exportOutputFolderBox;
         private TextBlock _exportOutputFolderStatus;
         private StackPanel _exportActionsPanel;
+        private CheckBox _exportBomIncludeHiddenCheck;
+        private TextBlock _exportBomStatus;
+        private Button _exportBomButton;
 
         protected override void OnInitialized(EventArgs e)
         {
@@ -80,6 +86,7 @@ namespace SwMateAI.UI
 
             panel.Children.Add(BuildOutputFolderCard());
             _exportActionsPanel = new StackPanel { Margin = new Thickness(0, 4, 0, 8) };
+            _exportActionsPanel.Children.Add(BuildBomExcelCard());
             panel.Children.Add(_exportActionsPanel);
             return scroll;
         }
@@ -142,6 +149,141 @@ namespace SwMateAI.UI
             };
             panel.Children.Add(_exportOutputFolderStatus);
             return border;
+        }
+
+        private UIElement BuildBomExcelCard()
+        {
+            var border = ExportCard();
+            var panel = new StackPanel();
+            border.Child = panel;
+
+            panel.Children.Add(new TextBlock
+            {
+                Text = "BOM EXCEL + ẢNH",
+                Foreground = Brushes.White,
+                FontWeight = FontWeights.SemiBold,
+                FontSize = 11
+            });
+            panel.Children.Add(new TextBlock
+            {
+                Text = "Xuất BOM phân cấp trực tiếp bằng OpenXML, kèm thumbnail từng dòng. Không cần Microsoft Excel.",
+                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+                FontSize = 9,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 3, 0, 5)
+            });
+
+            _exportBomIncludeHiddenCheck = new CheckBox
+            {
+                Content = "Bao gồm chi tiết đang ẩn",
+                IsChecked = true,
+                Foreground = Brushes.White,
+                FontSize = 9,
+                Margin = new Thickness(0, 2, 0, 5)
+            };
+            panel.Children.Add(_exportBomIncludeHiddenCheck);
+
+            _exportBomButton = new Button
+            {
+                Content = "XUẤT BOM EXCEL + ẢNH",
+                Background = new SolidColorBrush(Color.FromRgb(16, 185, 129)),
+                Foreground = Brushes.White,
+                BorderThickness = new Thickness(0),
+                FontWeight = FontWeights.SemiBold,
+                Padding = new Thickness(8, 6, 8, 6),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            _exportBomButton.Click += ExportBomExcel_Click;
+            panel.Children.Add(_exportBomButton);
+
+            _exportBomStatus = new TextBlock
+            {
+                Text = "Sẵn sàng.",
+                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+                FontSize = 9,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 6, 0, 0)
+            };
+            panel.Children.Add(_exportBomStatus);
+            return border;
+        }
+
+        private void ExportBomExcel_Click(object sender, RoutedEventArgs e)
+        {
+            if (_exportBusy) return;
+            _exportBusy = true;
+            if (_exportBomButton != null) _exportBomButton.IsEnabled = false;
+
+            try
+            {
+                SetBomStatus("Đang trích xuất BOM và ảnh...", Color.FromRgb(125, 211, 252));
+                Dispatcher.Invoke(new Action(() => { }), DispatcherPriority.Background);
+
+                var output = ResolveExportOutputPath("SW-MATE-AI-BOM", ".xlsx");
+                if (!output.Success)
+                {
+                    SetBomStatus("[FAIL] " + output.ErrorMessage, Color.FromRgb(248, 113, 113));
+                    return;
+                }
+
+                var agent = TryGetAgentCore();
+                if (agent == null)
+                {
+                    SetBomStatus("[FAIL] Không truy cập được AgentCore.", Color.FromRgb(248, 113, 113));
+                    return;
+                }
+
+                var parameters = new Dictionary<string, object>
+                {
+                    ["Mode"] = "Indented",
+                    ["RespectChildDisplay"] = true,
+                    ["IncludeHidden"] = _exportBomIncludeHiddenCheck == null || _exportBomIncludeHiddenCheck.IsChecked == true,
+                    ["ExportExcel"] = true,
+                    ["ExportCsv"] = false,
+                    ["OutputFolder"] = output.DirectoryPath
+                };
+
+                var toolResult = agent.ExecuteTool("CreateBOM", parameters);
+                if (!toolResult.IsSuccess)
+                {
+                    SetBomStatus("[FAIL] " + toolResult.ErrorMessage, Color.FromRgb(248, 113, 113));
+                    return;
+                }
+
+                var bom = toolResult.Data as BomResult;
+                if (bom == null || string.IsNullOrWhiteSpace(bom.ExcelPath))
+                {
+                    SetBomStatus("[FAIL] Skill CreateBOM không trả về file Excel hợp lệ.", Color.FromRgb(248, 113, 113));
+                    return;
+                }
+
+                string summary = "[PASS] " + bom.ExcelPath +
+                    "\nDòng BOM: " + bom.Items.Count +
+                    " | Ảnh: " + bom.CapturedImageCount +
+                    " | Suppressed bỏ qua: " + bom.SuppressedSkipped +
+                    " | Hidden bỏ qua: " + bom.HiddenSkipped +
+                    " | Missing bỏ qua: " + bom.MissingSkipped;
+                if (bom.Warnings.Count > 0)
+                    summary += "\nCảnh báo: " + bom.Warnings.Count + " (xem log/kết quả để kiểm tra chi tiết).";
+
+                SetBomStatus(summary, Color.FromRgb(52, 211, 153));
+            }
+            catch (Exception ex)
+            {
+                SetBomStatus("[EXCEPTION] " + ex.Message, Color.FromRgb(248, 113, 113));
+            }
+            finally
+            {
+                _exportBusy = false;
+                if (_exportBomButton != null) _exportBomButton.IsEnabled = true;
+            }
+        }
+
+        private void SetBomStatus(string text, Color color)
+        {
+            if (_exportBomStatus == null) return;
+            _exportBomStatus.Text = text ?? string.Empty;
+            _exportBomStatus.Foreground = new SolidColorBrush(color);
         }
 
         private void ValidateOutputFolder_Click(object sender, RoutedEventArgs e)
