@@ -41,7 +41,7 @@
   <Target Name="CopyExportWorkersToAddInOutput" AfterTargets="CopyFilesToOutputDirectory">
     <PropertyGroup>
       <BomWorkerOutputDir>$(MSBuildProjectDirectory)\..\SwMateAI.BomWorker\bin\$(Configuration)\net48</BomWorkerOutputDir>
-      <StockWorkerOutputDir>$(MSBuildProjectDirectory)\..\SwMateAI.StockWorker\bin\$(Platform)\$(Configuration)\net48</StockWorkerOutputDir>
+      <StockWorkerOutputDir>$(MSBuildProjectDirectory)\..\SwMateAI.StockWorker\bin\$(Configuration)\net48</StockWorkerOutputDir>
     </PropertyGroup>
     <ItemGroup>
       <ExportWorkerDeployFiles Include="$(BomWorkerOutputDir)\SwMateAI.BomWorker.exe" />
