@@ -14,9 +14,19 @@ namespace SwMateAI.P1Bom.StressRunner
 {
     internal static class Program
     {
-        private static int Main()
+        private static int Main(string[] args)
         {
             const int occurrenceCount = 510;
+
+            string workerExe = args != null && args.Length > 0
+                ? Path.GetFullPath(args[0])
+                : string.Empty;
+            if (string.IsNullOrWhiteSpace(workerExe) || !File.Exists(workerExe))
+            {
+                Console.WriteLine("[FAIL] Worker executable not found: " + workerExe);
+                return 2;
+            }
+
             string root = Path.Combine(
                 Path.GetTempPath(),
                 "SW_MATE_AI_P1_STRESS_" + DateTime.Now.ToString("yyyyMMdd_HHmmss"));
@@ -26,6 +36,7 @@ namespace SwMateAI.P1Bom.StressRunner
             ISldWorks sw = null;
             string partTitle = string.Empty;
             string assemblyTitle = string.Empty;
+            BomWorkerJob job = null;
 
             try
             {
@@ -103,44 +114,109 @@ namespace SwMateAI.P1Bom.StressRunner
                 string assemblyPath = Path.Combine(root, "TC012_StressAssembly.SLDASM");
                 if (!Save(assemblyModel, assemblyPath)) return 1;
 
-                var exportWatch = Stopwatch.StartNew();
-                ToolResult export = agent.ExecuteTool("CreateBOM", new Dictionary<string, object>
+                var bomWatch = Stopwatch.StartNew();
+                ToolResult readResult = agent.ExecuteTool("CreateBOM", new Dictionary<string, object>
                 {
                     ["Mode"] = "Indented",
                     ["RespectChildDisplay"] = true,
                     ["IncludeHidden"] = true,
-                    ["ExportExcel"] = true,
-                    ["ExportCsv"] = false,
-                    ["OutputFolder"] = root
+                    ["ExportExcel"] = false,
+                    ["ExportCsv"] = false
                 });
-                exportWatch.Stop();
+                bomWatch.Stop();
 
-                var bom = export.Data as BomResult;
-                bool ok = export.IsSuccess && bom != null &&
-                          bom.TotalOccurrences == occurrenceCount &&
-                          bom.Items.Count == 1 &&
-                          bom.Items[0].Quantity == occurrenceCount &&
-                          bom.CapturedImageCount == 1 &&
-                          File.Exists(bom.ExcelPath) &&
-                          new FileInfo(bom.ExcelPath).Length > 0;
+                var bom = readResult.Data as BomResult;
+                bool bomOk = readResult.IsSuccess && bom != null &&
+                             bom.TotalOccurrences == occurrenceCount &&
+                             bom.Items.Count == 1 &&
+                             bom.Items[0].Quantity == occurrenceCount;
 
-                Console.WriteLine("BOM export elapsed=" + exportWatch.ElapsedMilliseconds + " ms");
+                Console.WriteLine("BOM read elapsed=" + bomWatch.ElapsedMilliseconds + " ms");
                 Console.WriteLine(bom == null
                     ? "BomResult missing"
                     : "Occurrences=" + bom.TotalOccurrences +
                       " Rows=" + bom.Items.Count +
                       " Quantity=" + (bom.Items.Count == 0 ? 0 : bom.Items[0].Quantity) +
-                      " Images=" + bom.CapturedImageCount +
                       " Warnings=" + bom.Warnings.Count);
 
-                if (!ok)
+                if (!bomOk)
                 {
-                    Console.WriteLine("[FAIL] TC012 >500-component BOM stress :: " +
-                        (export.ErrorMessage ?? "Result mismatch"));
+                    Console.WriteLine("[FAIL] TC012 >500-component BOM read :: " +
+                        (readResult.ErrorMessage ?? "Result mismatch"));
+                    return 1;
+                }
+                Console.WriteLine("[PASS] TC012 BOM reader returned 510 occurrences as one grouped row.");
+
+                if (!string.IsNullOrWhiteSpace(assemblyTitle))
+                {
+                    try { sw.CloseDoc(assemblyTitle); } catch { }
+                    assemblyTitle = string.Empty;
+                }
+                try { sw.ExitApp(); } catch { }
+                try { Marshal.FinalReleaseComObject(sw); } catch { }
+                sw = null;
+
+                var jobBuilder = new BomWorkerJobBuilder();
+                job = jobBuilder.Create(bom, workerExe);
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = workerExe,
+                    Arguments = Quote(job.ManifestPath),
+                    WorkingDirectory = Path.GetDirectoryName(workerExe) ?? string.Empty,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+
+                var workerWatch = Stopwatch.StartNew();
+                using (Process worker = Process.Start(startInfo))
+                {
+                    if (worker == null)
+                    {
+                        Console.WriteLine("[FAIL] TC012 BOM worker could not start.");
+                        return 1;
+                    }
+
+                    if (!worker.WaitForExit(240000))
+                    {
+                        try { worker.Kill(); } catch { }
+                        Console.WriteLine("[FAIL] TC012 BOM worker timed out.");
+                        return 1;
+                    }
+                    workerWatch.Stop();
+
+                    BomWorkerManifest manifest = BomWorkerManifestSerializer.Read(job.ManifestPath);
+                    jobBuilder.Apply(bom, manifest);
+                    bool workerOk = worker.ExitCode == 0 &&
+                                    manifest.Finished &&
+                                    string.IsNullOrWhiteSpace(manifest.FatalError) &&
+                                    bom.CapturedImageCount == 1;
+                    Console.WriteLine("Worker elapsed=" + workerWatch.ElapsedMilliseconds +
+                                      " ms Images=" + bom.CapturedImageCount +
+                                      " Exit=" + worker.ExitCode);
+                    if (!workerOk)
+                    {
+                        Console.WriteLine("[FAIL] TC012 BOM worker did not complete safely: " +
+                            (manifest.FatalError ?? string.Empty));
+                        return 1;
+                    }
+                }
+
+                string xlsxPath = Path.Combine(root, "TC012_Stress_BOM.xlsx");
+                var excelWatch = Stopwatch.StartNew();
+                new BomExcelExporter().Export(bom, xlsxPath);
+                excelWatch.Stop();
+
+                bool excelOk = File.Exists(xlsxPath) && new FileInfo(xlsxPath).Length > 0;
+                Console.WriteLine("Excel elapsed=" + excelWatch.ElapsedMilliseconds +
+                                  " ms Path=" + xlsxPath);
+                if (!excelOk)
+                {
+                    Console.WriteLine("[FAIL] TC012 Excel output was not created.");
                     return 1;
                 }
 
-                Console.WriteLine("[PASS] TC012 >500-component BOM stress completed without abort/crash");
+                Console.WriteLine("[PASS] TC012 >500-component production BOM pipeline completed without abort/crash.");
                 return 0;
             }
             catch (Exception ex)
@@ -156,6 +232,11 @@ namespace SwMateAI.P1Bom.StressRunner
                     try { if (!string.IsNullOrWhiteSpace(partTitle)) sw.CloseDoc(partTitle); } catch { }
                     try { sw.ExitApp(); } catch { }
                     try { Marshal.FinalReleaseComObject(sw); } catch { }
+                }
+
+                if (job != null && !string.IsNullOrWhiteSpace(job.JobDirectory))
+                {
+                    try { if (Directory.Exists(job.JobDirectory)) Directory.Delete(job.JobDirectory, true); } catch { }
                 }
             }
         }
@@ -182,6 +263,11 @@ namespace SwMateAI.P1Bom.StressRunner
                 "Save " + Path.GetFileName(path) +
                 " Errors=" + errors + " Warnings=" + warnings);
             return ok && errors == 0;
+        }
+
+        private static string Quote(string value)
+        {
+            return "\"" + (value ?? string.Empty).Replace("\"", "\\\"") + "\"";
         }
 
         private static ISldWorks CreateDedicatedSolidWorks()
