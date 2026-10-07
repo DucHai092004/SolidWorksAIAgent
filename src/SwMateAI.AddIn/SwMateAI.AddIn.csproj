@@ -24,10 +24,29 @@
     <PackageReference Include="Xarial.XCad.SolidWorks" Version="0.8.3" />
   </ItemGroup>
 
-  <!-- Project references: AddIn depends on both Core and UI -->
+  <!-- Project references: AddIn depends on Core/UI. The BOM worker is a separate
+       process and is built as a dependency without being linked into the AddIn. -->
   <ItemGroup>
     <ProjectReference Include="..\SwMateAI.Core\SwMateAI.Core.csproj" />
     <ProjectReference Include="..\SwMateAI.UI\SwMateAI.UI.csproj" />
+    <ProjectReference Include="..\SwMateAI.BomWorker\SwMateAI.BomWorker.csproj"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
+
+  <!-- The export tab locates SwMateAI.BomWorker.exe beside the AddIn assembly.
+       Shared Core/OpenXML/Interop dependencies are already in the AddIn output. -->
+  <Target Name="CopyBomWorkerToAddInOutput" AfterTargets="Build">
+    <PropertyGroup>
+      <BomWorkerOutputDir>$(MSBuildProjectDirectory)\..\SwMateAI.BomWorker\bin\$(Platform)\$(Configuration)\net48</BomWorkerOutputDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <BomWorkerDeployFiles Include="$(BomWorkerOutputDir)\SwMateAI.BomWorker.exe" />
+      <BomWorkerDeployFiles Include="$(BomWorkerOutputDir)\SwMateAI.BomWorker.exe.config"
+                            Condition="Exists('$(BomWorkerOutputDir)\SwMateAI.BomWorker.exe.config')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(BomWorkerDeployFiles)"
+          DestinationFolder="$(TargetDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>
