@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SwMateAI.Core.Agent;
@@ -23,15 +24,16 @@ namespace SwMateAI.P1Bom.StressRunner
             Console.WriteLine("Stress temp: " + root);
 
             ISldWorks sw = null;
-            string originalTitle = string.Empty;
             string partTitle = string.Empty;
             string assemblyTitle = string.Empty;
 
             try
             {
-                sw = ConnectSolidWorks();
-                sw.Visible = true;
-                originalTitle = (sw.ActiveDoc as IModelDoc2)?.GetTitle() ?? string.Empty;
+                sw = CreateDedicatedSolidWorks();
+                sw.Visible = false;
+                Thread.Sleep(1500);
+                Console.WriteLine("[PASS] Dedicated SOLIDWORKS automation session created.");
+
                 var agent = new AgentCore(sw);
 
                 string partPath = Path.Combine(root, "TC012_StressPart.SLDPRT");
@@ -70,6 +72,9 @@ namespace SwMateAI.P1Bom.StressRunner
                     double y = (i / 30) * 0.03;
                     var component = assembly.AddComponent4(partPath, string.Empty, x, y, 0) as IComponent2;
                     if (component != null) inserted++;
+
+                    if ((i + 1) % 100 == 0)
+                        Console.WriteLine("Inserted progress=" + (i + 1) + "/" + occurrenceCount);
                 }
                 insertWatch.Stop();
                 Console.WriteLine("Inserted=" + inserted + " in " + insertWatch.ElapsedMilliseconds + " ms");
@@ -134,11 +139,8 @@ namespace SwMateAI.P1Bom.StressRunner
                 {
                     try { if (!string.IsNullOrWhiteSpace(assemblyTitle)) sw.CloseDoc(assemblyTitle); } catch { }
                     try { if (!string.IsNullOrWhiteSpace(partTitle)) sw.CloseDoc(partTitle); } catch { }
-                    if (!string.IsNullOrWhiteSpace(originalTitle))
-                    {
-                        int errors = 0;
-                        try { sw.ActivateDoc3(originalTitle, false, 0, ref errors); } catch { }
-                    }
+                    try { sw.ExitApp(); } catch { }
+                    try { Marshal.FinalReleaseComObject(sw); } catch { }
                 }
             }
         }
@@ -167,14 +169,10 @@ namespace SwMateAI.P1Bom.StressRunner
             return ok && errors == 0;
         }
 
-        private static ISldWorks ConnectSolidWorks()
+        private static ISldWorks CreateDedicatedSolidWorks()
         {
-            try { return (ISldWorks)Marshal.GetActiveObject("SldWorks.Application"); }
-            catch
-            {
-                var type = Type.GetTypeFromProgID("SldWorks.Application", true);
-                return (ISldWorks)Activator.CreateInstance(type);
-            }
+            Type type = Type.GetTypeFromProgID("SldWorks.Application", true);
+            return (ISldWorks)Activator.CreateInstance(type);
         }
     }
 }
