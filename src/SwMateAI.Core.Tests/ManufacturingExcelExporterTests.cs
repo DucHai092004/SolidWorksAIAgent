@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
+using DocumentFormat.OpenXml.Packaging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SwMateAI.Core.Manufacturing;
 
@@ -39,19 +39,19 @@ namespace SwMateAI.Core.Tests
                 Assert.IsTrue(File.Exists(exported));
                 Assert.IsTrue(new FileInfo(exported).Length > 0);
 
-                using (ZipArchive zip = ZipFile.OpenRead(exported))
+                using (SpreadsheetDocument document = SpreadsheetDocument.Open(exported, false))
                 {
-                    Assert.IsNotNull(zip.GetEntry("xl/worksheets/sheet1.xml"));
-                    Assert.IsNotNull(zip.GetEntry("xl/drawings/drawing1.xml"));
-                    Assert.IsTrue(zip.Entries.Any(x => x.FullName.StartsWith("xl/media/", StringComparison.OrdinalIgnoreCase)));
+                    WorkbookPart workbook = document.WorkbookPart;
+                    Assert.IsNotNull(workbook);
+                    WorksheetPart worksheet = workbook.WorksheetParts.Single();
+                    Assert.IsNotNull(worksheet);
+                    Assert.IsNotNull(worksheet.DrawingsPart);
+                    Assert.AreEqual(1, worksheet.DrawingsPart.ImageParts.Count());
 
-                    string sheetXml;
-                    using (var reader = new StreamReader(zip.GetEntry("xl/worksheets/sheet1.xml").Open()))
-                        sheetXml = reader.ReadToEnd();
-
-                    StringAssert.Contains(sheetXml, "SHAFT-001");
-                    StringAssert.Contains(sheetXml, "Round Bar");
-                    StringAssert.Contains(sheetXml, "Ø42 x 104 mm");
+                    string worksheetText = worksheet.Worksheet.InnerText;
+                    StringAssert.Contains(worksheetText, "SHAFT-001");
+                    StringAssert.Contains(worksheetText, "Round Bar");
+                    StringAssert.Contains(worksheetText, "Ø42 x 104 mm");
                 }
             }
             finally
