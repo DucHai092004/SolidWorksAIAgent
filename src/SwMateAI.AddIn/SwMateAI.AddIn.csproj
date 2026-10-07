@@ -38,7 +38,7 @@
        non-elevated CI/test shell cannot write COM registration keys. -->
   <Target Name="CopyBomWorkerToAddInOutput" AfterTargets="CopyFilesToOutputDirectory">
     <PropertyGroup>
-      <BomWorkerOutputDir>$(MSBuildProjectDirectory)\..\SwMateAI.BomWorker\bin\$(Platform)\$(Configuration)\net48</BomWorkerOutputDir>
+      <BomWorkerOutputDir>$(MSBuildProjectDirectory)\..\SwMateAI.BomWorker\bin\$(Configuration)\net48</BomWorkerOutputDir>
     </PropertyGroup>
     <ItemGroup>
       <BomWorkerDeployFiles Include="$(BomWorkerOutputDir)\SwMateAI.BomWorker.exe" />
