@@ -126,7 +126,7 @@ public class OutputPathResolverTests
         public bool DirectoryExistsValue { get; set; } = true;
         public string CreatedDirectory { get; private set; } = string.Empty;
         public bool WritableVerified { get; private set; }
-        public Exception WritableException { get; set; }
+        public Exception? WritableException { get; set; }
         public bool HasFreeSpaceInfo { get; set; } = true;
         public long AvailableFreeBytes { get; set; } = 1024L * 1024L * 1024L;
         public HashSet<string> ExistingFiles { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
