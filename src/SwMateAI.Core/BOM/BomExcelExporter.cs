@@ -65,14 +65,14 @@ namespace SwMateAI.Core.BOM
 
                     WriteHeader(sheetData);
 
-                    var imageRows = new List<Tuple<uint, string>>();
+                    var imageRows = new List<System.Tuple<uint, string>>();
                     for (int i = 0; i < result.Items.Count; i++)
                     {
                         BomItem item = result.Items[i];
                         uint rowIndex = (uint)(i + 2);
                         WriteItem(sheetData, item, rowIndex);
                         if (!string.IsNullOrWhiteSpace(item.ImagePath) && File.Exists(item.ImagePath))
-                            imageRows.Add(Tuple.Create(rowIndex, item.ImagePath));
+                            imageRows.Add(System.Tuple.Create(rowIndex, item.ImagePath));
                     }
 
                     if (imageRows.Count > 0)
@@ -175,13 +175,13 @@ namespace SwMateAI.Core.BOM
 
         private static void EmbedImages(
             WorksheetPart worksheetPart,
-            IEnumerable<Tuple<uint, string>> imageRows)
+            IEnumerable<System.Tuple<uint, string>> imageRows)
         {
             DrawingsPart drawingsPart = worksheetPart.AddNewPart<DrawingsPart>();
             drawingsPart.WorksheetDrawing = new Xdr.WorksheetDrawing();
 
             uint imageId = 1U;
-            foreach (Tuple<uint, string> entry in imageRows)
+            foreach (System.Tuple<uint, string> entry in imageRows)
             {
                 string imagePath = entry.Item2;
                 string contentType = ResolveImageContentType(imagePath);
@@ -199,7 +199,7 @@ namespace SwMateAI.Core.BOM
             }
 
             drawingsPart.WorksheetDrawing.Save();
-            worksheetPart.Worksheet.Append(new Drawing
+            worksheetPart.Worksheet.Append(new DocumentFormat.OpenXml.Spreadsheet.Drawing
             {
                 Id = worksheetPart.GetIdOfPart(drawingsPart)
             });
