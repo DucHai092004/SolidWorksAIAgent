@@ -1,90 +1,267 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Runtime.InteropServices;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
+using A = DocumentFormat.OpenXml.Drawing;
+using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
 namespace SwMateAI.Core.BOM
 {
+    /// <summary>
+    /// Writes the BOM directly as an .xlsx package. Microsoft Excel is not required.
+    /// Thumbnail files referenced by BomItem.ImagePath are embedded into column A.
+    /// </summary>
     public class BomExcelExporter
     {
+        private const long EmusPerPixel = 9525L;
+        private const int ThumbnailWidthPx = 76;
+        private const int ThumbnailHeightPx = 56;
+
         public string Export(BomResult result, string path)
         {
             if (result == null) throw new ArgumentNullException(nameof(result));
-            string dir = Path.GetDirectoryName(path);
-            if (!string.IsNullOrWhiteSpace(dir)) Directory.CreateDirectory(dir);
-            Type excelType = Type.GetTypeFromProgID("Excel.Application");
-            if (excelType == null) throw new InvalidOperationException("Microsoft Excel COM automation is unavailable.");
+            if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("Output path is required.", nameof(path));
 
-            object excelObject = null, workbookObject = null, worksheetObject = null;
+            string fullPath = Path.GetFullPath(path);
+            string dir = Path.GetDirectoryName(fullPath);
+            if (!string.IsNullOrWhiteSpace(dir)) Directory.CreateDirectory(dir);
+
+            // Create() must not silently replace a file selected by a previous operation.
+            // The caller is expected to allocate a unique output name.
+            if (File.Exists(fullPath))
+                throw new IOException("The BOM output file already exists: " + fullPath);
+
             try
             {
-                excelObject = Activator.CreateInstance(excelType);
-                dynamic excel = excelObject;
-                excel.Visible = false;
-                excel.DisplayAlerts = false;
-                dynamic workbook = excel.Workbooks.Add();
-                workbookObject = workbook;
-                dynamic sheet = workbook.Worksheets[1];
-                worksheetObject = sheet;
-                sheet.Name = "BOM";
-                string[] headers =
+                using (var document = SpreadsheetDocument.Create(fullPath, SpreadsheetDocumentType.Workbook))
                 {
-                    "Image", "Item", "Part Number", "Description",
-                    "Quantity", "Material", "Type", "Configuration"
-                };
+                    WorkbookPart workbookPart = document.AddWorkbookPart();
+                    workbookPart.Workbook = new Workbook();
+                    AddStyles(workbookPart);
 
-                for (int c = 0; c < headers.Length; c++)
-                {
-                    dynamic cell = sheet.Cells[1, c + 1];
-                    cell.Value2 = headers[c];
-                    cell.Font.Bold = true;
-                    cell.Interior.ColorIndex = 15;
-                }
+                    WorksheetPart worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+                    var sheetData = new SheetData();
+                    worksheetPart.Worksheet = new Worksheet(
+                        new Columns(
+                            Column(1, 1, 14),
+                            Column(2, 2, 9),
+                            Column(3, 3, 28),
+                            Column(4, 4, 36),
+                            Column(5, 5, 10),
+                            Column(6, 6, 22),
+                            Column(7, 7, 16),
+                            Column(8, 8, 20)),
+                        sheetData);
 
-                for (int r = 0; r < result.Items.Count; r++)
-                {
-                    var x = result.Items[r];
-                    int row = r + 2;
-                    sheet.Rows[row].RowHeight = 62;
-                    sheet.Cells[row, 2].Value2 = x.ItemNumber;
-                    sheet.Cells[row, 3].Value2 = x.PartNumber;
-                    if (x.Level > 0)
+                    var sheets = workbookPart.Workbook.AppendChild(new Sheets());
+                    sheets.Append(new Sheet
                     {
-                        int indent = Math.Min(15, Math.Max(0, x.Level));
-                        sheet.Cells[row, 3].IndentLevel = indent;
-                    }
-                    sheet.Cells[row, 4].Value2 = x.Description;
-                    sheet.Cells[row, 5].Value2 = x.Quantity;
-                    sheet.Cells[row, 6].Value2 = x.Material;
-                    sheet.Cells[row, 7].Value2 = x.ComponentType;
-                    sheet.Cells[row, 8].Value2 = x.Configuration;
+                        Id = workbookPart.GetIdOfPart(worksheetPart),
+                        SheetId = 1U,
+                        Name = "BOM"
+                    });
 
-                    if (File.Exists(x.ImagePath))
+                    WriteHeader(sheetData);
+
+                    var imageRows = new List<Tuple<uint, string>>();
+                    for (int i = 0; i < result.Items.Count; i++)
                     {
-                        dynamic imageCell = sheet.Cells[row, 1];
-                        double left = Convert.ToDouble(imageCell.Left) + 2;
-                        double top = Convert.ToDouble(imageCell.Top) + 2;
-                        sheet.Shapes.AddPicture(x.ImagePath, false, true, left, top, 76, 56);
+                        BomItem item = result.Items[i];
+                        uint rowIndex = (uint)(i + 2);
+                        WriteItem(sheetData, item, rowIndex);
+                        if (!string.IsNullOrWhiteSpace(item.ImagePath) && File.Exists(item.ImagePath))
+                            imageRows.Add(Tuple.Create(rowIndex, item.ImagePath));
                     }
-                }
 
-                sheet.Columns.AutoFit();
-                sheet.Columns[1].ColumnWidth = 14;
-                sheet.Range["A1:H1"].AutoFilter();
-                workbook.SaveAs(path, 51);
-                workbook.Close(false);
-                excel.Quit();
-                return path;
+                    if (imageRows.Count > 0)
+                        EmbedImages(worksheetPart, imageRows);
+
+                    worksheetPart.Worksheet.Save();
+                    workbookPart.Workbook.Save();
+                }
             }
-            finally
+            catch
             {
-                Release(worksheetObject); Release(workbookObject); Release(excelObject);
+                // Do not leave a corrupt/partial workbook after a failed export.
+                try { if (File.Exists(fullPath)) File.Delete(fullPath); } catch { }
+                throw;
             }
+
+            var info = new FileInfo(fullPath);
+            if (!info.Exists || info.Length <= 0)
+                throw new IOException("BOM workbook was not written correctly: " + fullPath);
+
+            return fullPath;
         }
 
-        private static void Release(object value)
+        private static void WriteHeader(SheetData sheetData)
         {
-            if (value == null || !Marshal.IsComObject(value)) return;
-            try { Marshal.FinalReleaseComObject(value); } catch { }
+            string[] headers =
+            {
+                "Image", "Item", "Part Number", "Description",
+                "Quantity", "Material", "Type", "Configuration"
+            };
+            var row = new Row { RowIndex = 1U, Height = 22D, CustomHeight = true };
+            for (int i = 0; i < headers.Length; i++)
+                row.Append(TextCell(headers[i], 1U));
+            sheetData.Append(row);
+        }
+
+        private static void WriteItem(SheetData sheetData, BomItem item, uint rowIndex)
+        {
+            var row = new Row { RowIndex = rowIndex, Height = 62D, CustomHeight = true };
+            row.Append(TextCell(string.Empty));
+            row.Append(NumberCell(item == null ? 0 : item.ItemNumber));
+
+            string partNumber = item?.PartNumber ?? string.Empty;
+            if (item != null && item.Level > 0)
+                partNumber = new string(' ', Math.Min(15, item.Level) * 2) + partNumber;
+
+            row.Append(TextCell(partNumber));
+            row.Append(TextCell(item?.Description ?? string.Empty));
+            row.Append(NumberCell(item == null ? 0 : item.Quantity));
+            row.Append(TextCell(item?.Material ?? string.Empty));
+            row.Append(TextCell(item?.ComponentType ?? string.Empty));
+            row.Append(TextCell(item?.Configuration ?? string.Empty));
+            sheetData.Append(row);
+        }
+
+        private static Cell TextCell(string value, uint styleIndex = 0U)
+        {
+            return new Cell
+            {
+                DataType = CellValues.InlineString,
+                StyleIndex = styleIndex,
+                InlineString = new InlineString(new Text(value ?? string.Empty)
+                {
+                    Space = SpaceProcessingModeValues.Preserve
+                })
+            };
+        }
+
+        private static Cell NumberCell(int value)
+        {
+            return new Cell
+            {
+                DataType = CellValues.Number,
+                CellValue = new CellValue(value.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            };
+        }
+
+        private static Column Column(uint min, uint max, double width)
+        {
+            return new Column { Min = min, Max = max, Width = width, CustomWidth = true };
+        }
+
+        private static void AddStyles(WorkbookPart workbookPart)
+        {
+            WorkbookStylesPart stylesPart = workbookPart.AddNewPart<WorkbookStylesPart>();
+            stylesPart.Stylesheet = new Stylesheet(
+                new Fonts(
+                    new Font(),
+                    new Font(new Bold())),
+                new Fills(
+                    new Fill(new PatternFill { PatternType = PatternValues.None }),
+                    new Fill(new PatternFill { PatternType = PatternValues.Gray125 })),
+                new Borders(new Border()),
+                new CellStyleFormats(new CellFormat()),
+                new CellFormats(
+                    new CellFormat(),
+                    new CellFormat { FontId = 1U, ApplyFont = true }));
+            stylesPart.Stylesheet.Save();
+        }
+
+        private static void EmbedImages(
+            WorksheetPart worksheetPart,
+            IEnumerable<Tuple<uint, string>> imageRows)
+        {
+            DrawingsPart drawingsPart = worksheetPart.AddNewPart<DrawingsPart>();
+            drawingsPart.WorksheetDrawing = new Xdr.WorksheetDrawing();
+
+            uint imageId = 1U;
+            foreach (Tuple<uint, string> entry in imageRows)
+            {
+                string imagePath = entry.Item2;
+                ImagePartType imageType = ResolveImagePartType(imagePath);
+                ImagePart imagePart = drawingsPart.AddImagePart(imageType);
+                using (FileStream stream = File.Open(imagePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    imagePart.FeedData(stream);
+
+                string relationshipId = drawingsPart.GetIdOfPart(imagePart);
+                uint zeroBasedRow = entry.Item1 - 1U;
+                drawingsPart.WorksheetDrawing.Append(CreateAnchor(
+                    relationshipId,
+                    imageId++,
+                    zeroBasedRow,
+                    Path.GetFileName(imagePath)));
+            }
+
+            drawingsPart.WorksheetDrawing.Save();
+            worksheetPart.Worksheet.Append(new Drawing
+            {
+                Id = worksheetPart.GetIdOfPart(drawingsPart)
+            });
+        }
+
+        private static Xdr.OneCellAnchor CreateAnchor(
+            string relationshipId,
+            uint imageId,
+            uint rowIndex,
+            string name)
+        {
+            long cx = ThumbnailWidthPx * EmusPerPixel;
+            long cy = ThumbnailHeightPx * EmusPerPixel;
+
+            var from = new Xdr.FromMarker(
+                new Xdr.ColumnId("0"),
+                new Xdr.ColumnOffset((2L * EmusPerPixel).ToString()),
+                new Xdr.RowId(rowIndex.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                new Xdr.RowOffset((2L * EmusPerPixel).ToString()));
+
+            var picture = new Xdr.Picture(
+                new Xdr.NonVisualPictureProperties(
+                    new Xdr.NonVisualDrawingProperties
+                    {
+                        Id = imageId,
+                        Name = string.IsNullOrWhiteSpace(name) ? "BOM image " + imageId : name
+                    },
+                    new Xdr.NonVisualPictureDrawingProperties(
+                        new A.PictureLocks { NoChangeAspect = true })),
+                new Xdr.BlipFill(
+                    new A.Blip { Embed = relationshipId },
+                    new A.Stretch(new A.FillRectangle())),
+                new Xdr.ShapeProperties(
+                    new A.Transform2D(
+                        new A.Offset { X = 0L, Y = 0L },
+                        new A.Extents { Cx = cx, Cy = cy }),
+                    new A.PresetGeometry(new A.AdjustValueList())
+                    {
+                        Preset = A.ShapeTypeValues.Rectangle
+                    }));
+
+            return new Xdr.OneCellAnchor(
+                from,
+                new Xdr.Extent { Cx = cx, Cy = cy },
+                picture,
+                new Xdr.ClientData());
+        }
+
+        private static ImagePartType ResolveImagePartType(string path)
+        {
+            string extension = Path.GetExtension(path) ?? string.Empty;
+            switch (extension.ToLowerInvariant())
+            {
+                case ".jpg":
+                case ".jpeg": return ImagePartType.Jpeg;
+                case ".gif": return ImagePartType.Gif;
+                case ".bmp": return ImagePartType.Bmp;
+                case ".tif":
+                case ".tiff": return ImagePartType.Tiff;
+                case ".png":
+                default: return ImagePartType.Png;
+            }
         }
     }
 }
