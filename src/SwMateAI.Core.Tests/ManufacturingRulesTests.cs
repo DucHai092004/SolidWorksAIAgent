@@ -24,6 +24,47 @@ public class ManufacturingRulesTests
     }
 
     [TestMethod]
+    public void TC025_TurnedPart_UsesOuterDiameterAndAxialLengthForRoundStock()
+    {
+        var item = new BreakdownItem
+        {
+            FinishedXmm = 40,
+            FinishedYmm = 40,
+            FinishedZmm = 100,
+            HasCylindricalFace = true,
+            LargestCylinderDiameterMm = 40
+        };
+
+        item.StockType = new StockClassifier().Classify(item);
+        new StockCalculator().Calculate(item, new StockCalculationOptions());
+
+        Assert.AreEqual("Round Bar", item.StockType);
+        Assert.AreEqual("40 x 40 x 100 mm", item.FinishedSize);
+        Assert.AreEqual("Ø42 x 104 mm", item.StockSize);
+        StringAssert.Contains(item.StockClassificationBasis, "cylinder diameter");
+    }
+
+    [TestMethod]
+    public void TC026_MilledBlock_PreservesBoundingBoxAndCalculatesPrismaticStock()
+    {
+        var item = new BreakdownItem
+        {
+            FinishedXmm = 100,
+            FinishedYmm = 60,
+            FinishedZmm = 20,
+            HasCylindricalFace = false
+        };
+
+        item.StockType = new StockClassifier().Classify(item);
+        new StockCalculator().Calculate(item, new StockCalculationOptions { UseStandardThicknessTable = false });
+
+        Assert.AreEqual("Block", item.StockType);
+        Assert.AreEqual("100 x 60 x 20 mm", item.FinishedSize);
+        Assert.AreEqual("110 x 70 x 22 mm", item.StockSize);
+        StringAssert.Contains(item.StockClassificationBasis, "general prismatic");
+    }
+
+    [TestMethod]
     public void PrismaticStock_UsesLengthWidthPlus10_ThicknessPlus2Fallback()
     {
         var item = new BreakdownItem { StockType = "Block", FinishedXmm = 100, FinishedYmm = 60, FinishedZmm = 17 };
