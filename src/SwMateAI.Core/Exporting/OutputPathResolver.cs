@@ -106,21 +106,29 @@ namespace SwMateAI.Core.Exporting
             {
                 directory = Path.GetFullPath(directory);
             }
+            catch (PathTooLongException)
+            {
+                // .NET Framework can reject a long path before Windows extended-length
+                // syntax is applied. Because the path is already absolute, preserve the
+                // user-facing path and switch to \\?\ syntax for filesystem operations.
+                directory = directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
             catch (Exception ex)
             {
                 return Fail("Invalid output directory: " + ex.Message);
             }
 
+            string directoryForIo = ToExtendedLengthPathIfNeeded(directory, out bool directoryExtended);
             bool created = false;
             try
             {
-                if (!_fileSystem.DirectoryExists(directory))
+                if (!_fileSystem.DirectoryExists(directoryForIo))
                 {
-                    _fileSystem.CreateDirectory(directory);
+                    _fileSystem.CreateDirectory(directoryForIo);
                     created = true;
                 }
 
-                _fileSystem.VerifyWritable(directory);
+                _fileSystem.VerifyWritable(directoryForIo);
             }
             catch (UnauthorizedAccessException ex)
             {
@@ -144,16 +152,18 @@ namespace SwMateAI.Core.Exporting
 
             string extension = NormalizeExtension(request.Extension);
             string filePath = Path.Combine(directory, baseName + extension);
+            string fileSystemPath = ToExtendedLengthPathIfNeeded(filePath, out bool fileExtended);
             bool uniqueSuffix = false;
             int suffix = 1;
-            while (_fileSystem.FileExists(filePath))
+            while (_fileSystem.FileExists(fileSystemPath))
             {
                 uniqueSuffix = true;
                 filePath = Path.Combine(directory, baseName + "_" + suffix.ToString("000") + extension);
+                fileSystemPath = ToExtendedLengthPathIfNeeded(filePath, out fileExtended);
                 suffix++;
             }
 
-            string fileSystemPath = ToExtendedLengthPathIfNeeded(filePath, out bool extended);
+            bool extended = directoryExtended || fileExtended;
             return new OutputPathResult
             {
                 Success = true,
