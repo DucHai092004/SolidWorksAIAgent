@@ -184,8 +184,8 @@ namespace SwMateAI.Core.BOM
             foreach (Tuple<uint, string> entry in imageRows)
             {
                 string imagePath = entry.Item2;
-                ImagePartType imageType = ResolveImagePartType(imagePath);
-                ImagePart imagePart = drawingsPart.AddImagePart(imageType);
+                string contentType = ResolveImageContentType(imagePath);
+                ImagePart imagePart = drawingsPart.AddImagePart(contentType);
                 using (FileStream stream = File.Open(imagePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                     imagePart.FeedData(stream);
 
@@ -248,19 +248,19 @@ namespace SwMateAI.Core.BOM
                 new Xdr.ClientData());
         }
 
-        private static ImagePartType ResolveImagePartType(string path)
+        private static string ResolveImageContentType(string path)
         {
             string extension = Path.GetExtension(path) ?? string.Empty;
             switch (extension.ToLowerInvariant())
             {
                 case ".jpg":
-                case ".jpeg": return ImagePartType.Jpeg;
-                case ".gif": return ImagePartType.Gif;
-                case ".bmp": return ImagePartType.Bmp;
+                case ".jpeg": return "image/jpeg";
+                case ".gif": return "image/gif";
+                case ".bmp": return "image/bmp";
                 case ".tif":
-                case ".tiff": return ImagePartType.Tiff;
+                case ".tiff": return "image/tiff";
                 case ".png":
-                default: return ImagePartType.Png;
+                default: return "image/png";
             }
         }
     }
