@@ -28,6 +28,19 @@ namespace SwMateAI.Core.Manufacturing
         public string StockClassificationBasis { get; set; } = string.Empty;
         public string StockSizeRule { get; set; } = string.Empty;
         public string StockThicknessBasis { get; set; } = string.Empty;
+
+        // P2: evidence coming directly from SOLIDWORKS manufacturing/cut-list data.
+        public string ManufacturingForm { get; set; } = "Generic";
+        public double FlatBlankLengthMm { get; set; }
+        public double FlatBlankWidthMm { get; set; }
+        public double SheetMetalThicknessMm { get; set; }
+        public string WeldmentProfileDescription { get; set; } = string.Empty;
+        public double WeldmentCutLengthMm { get; set; }
+        public double WeldmentAngle1Deg { get; set; }
+        public double WeldmentAngle2Deg { get; set; }
+        public int WeldmentCutQuantity { get; set; }
+        public string ManufacturingEvidence { get; set; } = string.Empty;
+
         public string ManufacturingTechnology { get; set; } = string.Empty;
         public string Supplier { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
@@ -35,6 +48,7 @@ namespace SwMateAI.Core.Manufacturing
         public string RepresentativeComponentName { get; set; } = string.Empty;
         public string Configuration { get; set; } = string.Empty;
         public bool IsLoaded { get; set; }
+        public bool IsVirtual { get; set; }
         public string FinishedSize => $"{FinishedXmm:0.###} x {FinishedYmm:0.###} x {FinishedZmm:0.###} mm";
     }
 }
