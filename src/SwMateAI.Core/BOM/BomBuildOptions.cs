@@ -21,6 +21,12 @@ namespace SwMateAI.Core.BOM
     {
         public BomMode Mode { get; set; } = BomMode.LegacyFlat;
         public bool RespectChildDisplay { get; set; } = true;
+
+        /// <summary>
+        /// When true, hidden components remain eligible for the BOM. When false,
+        /// hidden occurrences are skipped while visible components are still processed.
+        /// </summary>
+        public bool IncludeHidden { get; set; } = true;
     }
 
     public class BomHierarchyNode
