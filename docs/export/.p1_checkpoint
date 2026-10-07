@@ -1,0 +1,5 @@
+P1 automated-pass checkpoint: 12b706d21aa46b1a124a3628f5c1a767b7862ccd
+Core/build regression: 78/78 PASS
+SOLIDWORKS integration regression: 46/46 PASS
+TC011-TC021 runtime coverage: PASS
+TC022 contract: PASS; manual UI smoke test remains.
