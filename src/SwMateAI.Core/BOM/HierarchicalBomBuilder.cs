@@ -81,6 +81,25 @@ namespace SwMateAI.Core.BOM
         {
             if (component == null) return null;
 
+            string path = component.GetPathName() ?? string.Empty;
+            string config = component.ReferencedConfiguration ?? string.Empty;
+            var referencedModel = component.GetModelDoc2() as IModelDoc2;
+            bool isVirtual = false;
+            try { isVirtual = component.IsVirtual; }
+            catch { }
+
+            // SOLIDWORKS commonly marks missing external references as suppressed when an
+            // assembly opens. Classify the broken link before the normal suppression policy
+            // so the export reports a missing-file warning instead of hiding the root cause.
+            if (referencedModel == null && !isVirtual &&
+                !string.IsNullOrWhiteSpace(path) && !File.Exists(path))
+            {
+                result.MissingSkipped++;
+                result.Warnings.Add("Missing component skipped: " +
+                    (component.Name2 ?? Path.GetFileName(path) ?? path));
+                return null;
+            }
+
             int suppressionState = component.GetSuppression();
             if (BomSuppressionPolicy.ShouldSkip(suppressionState))
             {
@@ -100,24 +119,6 @@ namespace SwMateAI.Core.BOM
             if (excluded)
             {
                 result.ExcludedSkipped++;
-                return null;
-            }
-
-            string path = component.GetPathName() ?? string.Empty;
-            string config = component.ReferencedConfiguration ?? string.Empty;
-            var referencedModel = component.GetModelDoc2() as IModelDoc2;
-            bool isVirtual = false;
-            try { isVirtual = component.IsVirtual; }
-            catch { }
-
-            // An unloaded component is valid when its source file still exists. A broken
-            // external link is different: skip it, record the warning, and continue the BOM.
-            if (referencedModel == null && !isVirtual &&
-                !string.IsNullOrWhiteSpace(path) && !File.Exists(path))
-            {
-                result.MissingSkipped++;
-                result.Warnings.Add("Missing component skipped: " +
-                    (component.Name2 ?? Path.GetFileName(path) ?? path));
                 return null;
             }
 
