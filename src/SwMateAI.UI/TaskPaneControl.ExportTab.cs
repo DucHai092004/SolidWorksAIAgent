@@ -331,11 +331,11 @@ namespace SwMateAI.UI
                 }
 
                 string assemblyDirectory = Path.GetDirectoryName(typeof(TaskPaneControl).Assembly.Location) ?? string.Empty;
-                string workerExe = Path.Combine(assemblyDirectory, "SwMateAI.BomWorker.exe");
+                string workerExe = Path.Combine(assemblyDirectory, "Workers", "Bom", "SwMateAI.BomWorker.exe");
                 if (!File.Exists(workerExe))
                 {
                     SetBomStatus(
-                        "[FAIL] Không tìm thấy SwMateAI.BomWorker.exe cạnh AddIn. Hãy build lại project SwMateAI.AddIn.",
+                        "[FAIL] Không tìm thấy Workers\\Bom\\SwMateAI.BomWorker.exe. Hãy build lại project SwMateAI.AddIn.",
                         Color.FromRgb(248, 113, 113));
                     return;
                 }
@@ -352,7 +352,7 @@ namespace SwMateAI.UI
                 {
                     FileName = workerExe,
                     Arguments = Quote(job.ManifestPath),
-                    WorkingDirectory = assemblyDirectory,
+                    WorkingDirectory = Path.GetDirectoryName(workerExe) ?? assemblyDirectory,
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     WindowStyle = ProcessWindowStyle.Hidden
@@ -458,11 +458,11 @@ namespace SwMateAI.UI
                 }
 
                 string assemblyDirectory = Path.GetDirectoryName(typeof(TaskPaneControl).Assembly.Location) ?? string.Empty;
-                string workerExe = Path.Combine(assemblyDirectory, "SwMateAI.StockWorker.exe");
+                string workerExe = Path.Combine(assemblyDirectory, "Workers", "Stock", "SwMateAI.StockWorker.exe");
                 if (!File.Exists(workerExe))
                 {
                     SetStockStatus(
-                        "[FAIL] Không tìm thấy SwMateAI.StockWorker.exe cạnh AddIn. Hãy build lại project SwMateAI.AddIn.",
+                        "[FAIL] Không tìm thấy Workers\\Stock\\SwMateAI.StockWorker.exe. Hãy build lại project SwMateAI.AddIn.",
                         Color.FromRgb(248, 113, 113));
                     return;
                 }
@@ -474,7 +474,7 @@ namespace SwMateAI.UI
                 {
                     FileName = workerExe,
                     Arguments = Quote(job.ManifestPath),
-                    WorkingDirectory = assemblyDirectory,
+                    WorkingDirectory = Path.GetDirectoryName(workerExe) ?? assemblyDirectory,
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     WindowStyle = ProcessWindowStyle.Hidden
