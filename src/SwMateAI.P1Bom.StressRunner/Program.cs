@@ -52,6 +52,11 @@ namespace SwMateAI.P1Bom.StressRunner
                 var part = sw.ActiveDoc as IModelDoc2;
                 if (!Save(part, partPath)) return 1;
                 partTitle = part?.GetTitle() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(partTitle))
+                {
+                    sw.CloseDoc(partTitle);
+                    partTitle = string.Empty;
+                }
 
                 string assemblyTemplate = sw.GetUserPreferenceStringValue(
                     (int)swUserPreferenceStringValue_e.swDefaultTemplateAssembly);
@@ -64,20 +69,30 @@ namespace SwMateAI.P1Bom.StressRunner
                 }
                 assemblyTitle = assemblyModel.GetTitle();
 
-                var insertWatch = Stopwatch.StartNew();
-                int inserted = 0;
+                string[] names = new string[occurrenceCount];
+                string[] coordinateSystems = new string[occurrenceCount];
+                double[] transforms = new double[occurrenceCount * 16];
                 for (int i = 0; i < occurrenceCount; i++)
                 {
-                    double x = (i % 30) * 0.03;
-                    double y = (i / 30) * 0.03;
-                    var component = assembly.AddComponent4(partPath, string.Empty, x, y, 0) as IComponent2;
-                    if (component != null) inserted++;
+                    names[i] = partPath;
+                    coordinateSystems[i] = string.Empty;
 
-                    if ((i + 1) % 100 == 0)
-                        Console.WriteLine("Inserted progress=" + (i + 1) + "/" + occurrenceCount);
+                    int offset = i * 16;
+                    transforms[offset + 0] = 1.0;
+                    transforms[offset + 4] = 1.0;
+                    transforms[offset + 8] = 1.0;
+                    transforms[offset + 9] = (i % 30) * 0.03;
+                    transforms[offset + 10] = (i / 30) * 0.03;
+                    transforms[offset + 11] = 0.0;
+                    transforms[offset + 12] = 1.0;
                 }
+
+                var insertWatch = Stopwatch.StartNew();
+                object[] added = assembly.AddComponents3(names, transforms, coordinateSystems) as object[];
                 insertWatch.Stop();
-                Console.WriteLine("Inserted=" + inserted + " in " + insertWatch.ElapsedMilliseconds + " ms");
+
+                int inserted = added?.Length ?? 0;
+                Console.WriteLine("Bulk inserted=" + inserted + " in " + insertWatch.ElapsedMilliseconds + " ms");
                 if (inserted != occurrenceCount)
                 {
                     Console.WriteLine("[FAIL] TC012 fixture insertion: " + inserted + "/" + occurrenceCount);
