@@ -59,7 +59,7 @@ namespace SwMateAI.Core.Manufacturing
 
                     WriteHeader(sheetData, table.Headers);
 
-                    var imageRows = new List<Tuple<uint, string>>();
+                    var imageRows = new List<System.Tuple<uint, string>>();
                     for (int r = 0; r < table.Rows.Count; r++)
                     {
                         uint rowIndex = (uint)(r + 2);
@@ -70,13 +70,13 @@ namespace SwMateAI.Core.Manufacturing
                             ? Convert.ToString(values[0], CultureInfo.InvariantCulture) ?? string.Empty
                             : string.Empty;
                         if (!string.IsNullOrWhiteSpace(imagePath) && File.Exists(imagePath))
-                            imageRows.Add(Tuple.Create(rowIndex, imagePath));
+                            imageRows.Add(System.Tuple.Create(rowIndex, imagePath));
                     }
 
                     if (imageRows.Count > 0)
                         EmbedImages(worksheetPart, imageRows);
 
-                    if (table.Headers.Count > 0 && table.Rows.Count >= 0)
+                    if (table.Headers.Count > 0)
                     {
                         string lastColumn = ColumnName(table.Headers.Count);
                         worksheetPart.Worksheet.Append(new AutoFilter
@@ -142,7 +142,6 @@ namespace SwMateAI.Core.Manufacturing
             for (int c = 0; c < expectedColumns; c++)
             {
                 object value = c < values.Count ? values[c] : null;
-                // Column A stores the image path internally but is visually represented by the embedded image.
                 if (c == 0)
                 {
                     row.Append(TextCell(string.Empty));
@@ -214,13 +213,13 @@ namespace SwMateAI.Core.Manufacturing
 
         private static void EmbedImages(
             WorksheetPart worksheetPart,
-            IEnumerable<Tuple<uint, string>> imageRows)
+            IEnumerable<System.Tuple<uint, string>> imageRows)
         {
             DrawingsPart drawingsPart = worksheetPart.AddNewPart<DrawingsPart>();
             drawingsPart.WorksheetDrawing = new Xdr.WorksheetDrawing();
 
             uint imageId = 1U;
-            foreach (Tuple<uint, string> entry in imageRows)
+            foreach (System.Tuple<uint, string> entry in imageRows)
             {
                 string imagePath = entry.Item2;
                 ImagePart imagePart = drawingsPart.AddImagePart(ResolveImageContentType(imagePath));
