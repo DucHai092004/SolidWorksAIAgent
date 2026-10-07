@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -166,7 +169,7 @@ namespace SwMateAI.UI
             });
             panel.Children.Add(new TextBlock
             {
-                Text = "Xuất BOM phân cấp trực tiếp bằng OpenXML, kèm thumbnail từng dòng. Không cần Microsoft Excel.",
+                Text = "Đọc BOM ở phiên SolidWorks hiện tại, chụp thumbnail tuần tự bằng worker riêng và nhúng ảnh trực tiếp bằng OpenXML. Không cần Microsoft Excel.",
                 Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
                 FontSize = 9,
                 TextWrapping = TextWrapping.Wrap,
@@ -208,18 +211,20 @@ namespace SwMateAI.UI
             return border;
         }
 
-        private void ExportBomExcel_Click(object sender, RoutedEventArgs e)
+        private async void ExportBomExcel_Click(object sender, RoutedEventArgs e)
         {
             if (_exportBusy) return;
             _exportBusy = true;
             if (_exportBomButton != null) _exportBomButton.IsEnabled = false;
 
+            BomWorkerJob job = null;
+            Process workerProcess = null;
             try
             {
-                SetBomStatus("Đang trích xuất BOM và ảnh...", Color.FromRgb(125, 211, 252));
-                Dispatcher.Invoke(new Action(() => { }), DispatcherPriority.Background);
+                SetBomStatus("Đang đọc cấu trúc BOM...", Color.FromRgb(125, 211, 252));
+                await Dispatcher.Yield(DispatcherPriority.Background);
 
-                var output = ResolveExportOutputPath("SW-MATE-AI-BOM", ".xlsx");
+                OutputPathResult output = ResolveExportOutputPath("SW-MATE-AI-BOM", ".xlsx");
                 if (!output.Success)
                 {
                     SetBomStatus("[FAIL] " + output.ErrorMessage, Color.FromRgb(248, 113, 113));
@@ -238,9 +243,8 @@ namespace SwMateAI.UI
                     ["Mode"] = "Indented",
                     ["RespectChildDisplay"] = true,
                     ["IncludeHidden"] = _exportBomIncludeHiddenCheck == null || _exportBomIncludeHiddenCheck.IsChecked == true,
-                    ["ExportExcel"] = true,
-                    ["ExportCsv"] = false,
-                    ["OutputFolder"] = output.DirectoryPath
+                    ["ExportExcel"] = false,
+                    ["ExportCsv"] = false
                 };
 
                 var toolResult = agent.ExecuteTool("CreateBOM", parameters);
@@ -251,20 +255,83 @@ namespace SwMateAI.UI
                 }
 
                 var bom = toolResult.Data as BomResult;
-                if (bom == null || string.IsNullOrWhiteSpace(bom.ExcelPath))
+                if (bom == null)
                 {
-                    SetBomStatus("[FAIL] Skill CreateBOM không trả về file Excel hợp lệ.", Color.FromRgb(248, 113, 113));
+                    SetBomStatus("[FAIL] Skill CreateBOM không trả về BomResult.", Color.FromRgb(248, 113, 113));
                     return;
                 }
 
-                string summary = "[PASS] " + bom.ExcelPath +
+                string assemblyDirectory = Path.GetDirectoryName(typeof(TaskPaneControl).Assembly.Location) ?? string.Empty;
+                string workerExe = Path.Combine(assemblyDirectory, "SwMateAI.BomWorker.exe");
+                if (!File.Exists(workerExe))
+                {
+                    SetBomStatus(
+                        "[FAIL] Không tìm thấy SwMateAI.BomWorker.exe cạnh AddIn. Hãy build lại project SwMateAI.AddIn.",
+                        Color.FromRgb(248, 113, 113));
+                    return;
+                }
+
+                SetBomStatus(
+                    "Đã đọc " + bom.Items.Count + " dòng BOM. Đang tạo thumbnail bằng worker riêng...",
+                    Color.FromRgb(125, 211, 252));
+                await Dispatcher.Yield(DispatcherPriority.Background);
+
+                var jobBuilder = new BomWorkerJobBuilder();
+                job = jobBuilder.Create(bom, workerExe);
+
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = workerExe,
+                    Arguments = Quote(job.ManifestPath),
+                    WorkingDirectory = assemblyDirectory,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+
+                workerProcess = Process.Start(startInfo);
+                if (workerProcess == null)
+                {
+                    SetBomStatus("[FAIL] Không khởi động được BOM worker.", Color.FromRgb(248, 113, 113));
+                    return;
+                }
+
+                await Task.Run(() => workerProcess.WaitForExit());
+
+                BomWorkerManifest manifest = BomWorkerManifestSerializer.Read(job.ManifestPath);
+                jobBuilder.Apply(bom, manifest);
+                if (workerProcess.ExitCode != 0 || !manifest.Finished || !string.IsNullOrWhiteSpace(manifest.FatalError))
+                {
+                    string workerError = !string.IsNullOrWhiteSpace(manifest.FatalError)
+                        ? manifest.FatalError
+                        : "Worker exit code=" + workerProcess.ExitCode;
+                    SetBomStatus("[FAIL] BOM worker không hoàn tất an toàn: " + workerError,
+                        Color.FromRgb(248, 113, 113));
+                    return;
+                }
+
+                SetBomStatus(
+                    "Worker hoàn tất " + bom.CapturedImageCount + "/" + bom.Items.Count +
+                    " ảnh. Đang đóng gói Excel...",
+                    Color.FromRgb(125, 211, 252));
+                await Dispatcher.Yield(DispatcherPriority.Background);
+
+                string exportedPath = new BomExcelExporter().Export(bom, output.FileSystemPath);
+                bom.ExcelPath = output.FilePath;
+                if (!File.Exists(exportedPath) && !File.Exists(output.FileSystemPath))
+                {
+                    SetBomStatus("[FAIL] File Excel không tồn tại sau khi xuất.", Color.FromRgb(248, 113, 113));
+                    return;
+                }
+
+                string summary = "[PASS] " + output.FilePath +
                     "\nDòng BOM: " + bom.Items.Count +
                     " | Ảnh: " + bom.CapturedImageCount +
                     " | Suppressed bỏ qua: " + bom.SuppressedSkipped +
                     " | Hidden bỏ qua: " + bom.HiddenSkipped +
                     " | Missing bỏ qua: " + bom.MissingSkipped;
                 if (bom.Warnings.Count > 0)
-                    summary += "\nCảnh báo: " + bom.Warnings.Count + " (xem log/kết quả để kiểm tra chi tiết).";
+                    summary += "\nCảnh báo: " + bom.Warnings.Count + " (một số thumbnail/chi tiết cần kiểm tra).";
 
                 SetBomStatus(summary, Color.FromRgb(52, 211, 153));
             }
@@ -274,9 +341,25 @@ namespace SwMateAI.UI
             }
             finally
             {
+                if (workerProcess != null)
+                {
+                    try { workerProcess.Dispose(); } catch { }
+                }
+
+                if (job != null && !string.IsNullOrWhiteSpace(job.JobDirectory))
+                {
+                    try { if (Directory.Exists(job.JobDirectory)) Directory.Delete(job.JobDirectory, true); }
+                    catch { }
+                }
+
                 _exportBusy = false;
                 if (_exportBomButton != null) _exportBomButton.IsEnabled = true;
             }
+        }
+
+        private static string Quote(string value)
+        {
+            return "\"" + (value ?? string.Empty).Replace("\"", "\\\"") + "\"";
         }
 
         private void SetBomStatus(string text, Color color)
