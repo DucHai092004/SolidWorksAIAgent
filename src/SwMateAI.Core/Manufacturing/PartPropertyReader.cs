@@ -20,6 +20,7 @@ namespace SwMateAI.Core.Manufacturing
                 RepresentativeComponentName = occurrence.ComponentName,
                 Configuration = occurrence.ReferencedConfiguration,
                 IsLoaded = occurrence.IsLoaded,
+                IsVirtual = occurrence.IsVirtual,
                 ManufacturingTechnology = string.Empty,
                 Supplier = string.Empty
             };
