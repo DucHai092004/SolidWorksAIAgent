@@ -35,24 +35,29 @@
                       ReferenceOutputAssembly="false" />
   </ItemGroup>
 
-  <!-- Copy workers as soon as the normal output directory exists. This runs before
-       the xCAD RegAsm registration step, so workers are still packaged when a
-       non-elevated CI/test shell cannot write COM registration keys. -->
+  <!--
+    Each worker gets an isolated runtime folder. The AddIn/xCAD output carries a
+    newer SolidWorks.Interop assembly than SOLIDWORKS 2021, while the workers are
+    compiled against the local SOLIDWORKS 2021 redist (29.0.0.5028). Keeping each
+    worker's complete output together prevents assembly-binding conflicts.
+  -->
   <Target Name="CopyExportWorkersToAddInOutput" AfterTargets="CopyFilesToOutputDirectory">
     <PropertyGroup>
       <BomWorkerOutputDir>$(MSBuildProjectDirectory)\..\SwMateAI.BomWorker\bin\$(Configuration)\net48</BomWorkerOutputDir>
       <StockWorkerOutputDir>$(MSBuildProjectDirectory)\..\SwMateAI.StockWorker\bin\$(Configuration)\net48</StockWorkerOutputDir>
+      <BomWorkerDeployDir>$(TargetDir)Workers\Bom</BomWorkerDeployDir>
+      <StockWorkerDeployDir>$(TargetDir)Workers\Stock</StockWorkerDeployDir>
     </PropertyGroup>
     <ItemGroup>
-      <ExportWorkerDeployFiles Include="$(BomWorkerOutputDir)\SwMateAI.BomWorker.exe" />
-      <ExportWorkerDeployFiles Include="$(BomWorkerOutputDir)\SwMateAI.BomWorker.exe.config"
-                               Condition="Exists('$(BomWorkerOutputDir)\SwMateAI.BomWorker.exe.config')" />
-      <ExportWorkerDeployFiles Include="$(StockWorkerOutputDir)\SwMateAI.StockWorker.exe" />
-      <ExportWorkerDeployFiles Include="$(StockWorkerOutputDir)\SwMateAI.StockWorker.exe.config"
-                               Condition="Exists('$(StockWorkerOutputDir)\SwMateAI.StockWorker.exe.config')" />
+      <BomWorkerDeployFiles Include="$(BomWorkerOutputDir)\*.*" />
+      <StockWorkerDeployFiles Include="$(StockWorkerOutputDir)\*.*" />
     </ItemGroup>
-    <Copy SourceFiles="@(ExportWorkerDeployFiles)"
-          DestinationFolder="$(TargetDir)"
+    <MakeDir Directories="$(BomWorkerDeployDir);$(StockWorkerDeployDir)" />
+    <Copy SourceFiles="@(BomWorkerDeployFiles)"
+          DestinationFolder="$(BomWorkerDeployDir)"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(StockWorkerDeployFiles)"
+          DestinationFolder="$(StockWorkerDeployDir)"
           SkipUnchangedFiles="true" />
   </Target>
 
