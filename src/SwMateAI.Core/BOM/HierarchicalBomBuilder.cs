@@ -36,7 +36,7 @@ namespace SwMateAI.Core.BOM
             var roots = new List<BomHierarchyNode>();
             foreach (var child in Children(root))
             {
-                BomHierarchyNode node = BuildNode(child, result);
+                BomHierarchyNode node = BuildNode(child, result, options);
                 if (node != null) roots.Add(node);
             }
 
@@ -74,7 +74,10 @@ namespace SwMateAI.Core.BOM
             return result;
         }
 
-        private BomHierarchyNode BuildNode(IComponent2 component, BomResult result)
+        private BomHierarchyNode BuildNode(
+            IComponent2 component,
+            BomResult result,
+            BomBuildOptions options)
         {
             if (component == null) return null;
 
@@ -82,6 +85,12 @@ namespace SwMateAI.Core.BOM
             if (BomSuppressionPolicy.ShouldSkip(suppressionState))
             {
                 result.SuppressedSkipped++;
+                return null;
+            }
+
+            if (!options.IncludeHidden && IsHidden(component))
+            {
+                result.HiddenSkipped++;
                 return null;
             }
 
@@ -97,6 +106,21 @@ namespace SwMateAI.Core.BOM
             string path = component.GetPathName() ?? string.Empty;
             string config = component.ReferencedConfiguration ?? string.Empty;
             var referencedModel = component.GetModelDoc2() as IModelDoc2;
+            bool isVirtual = false;
+            try { isVirtual = component.IsVirtual; }
+            catch { }
+
+            // An unloaded component is valid when its source file still exists. A broken
+            // external link is different: skip it, record the warning, and continue the BOM.
+            if (referencedModel == null && !isVirtual &&
+                !string.IsNullOrWhiteSpace(path) && !File.Exists(path))
+            {
+                result.MissingSkipped++;
+                result.Warnings.Add("Missing component skipped: " +
+                    (component.Name2 ?? Path.GetFileName(path) ?? path));
+                return null;
+            }
+
             string title = CleanCadName(
                 referencedModel?.GetTitle() ??
                 Path.GetFileName(path) ??
@@ -138,7 +162,7 @@ namespace SwMateAI.Core.BOM
                 Description = description,
                 Material = material,
                 ComponentType = type,
-                IsVirtual = component.IsVirtual,
+                IsVirtual = isVirtual,
                 IsLoaded = referencedModel != null,
                 ChildDisplay = ResolveChildDisplay(referencedModel, config)
             };
@@ -147,12 +171,24 @@ namespace SwMateAI.Core.BOM
             {
                 foreach (var child in Children(component))
                 {
-                    BomHierarchyNode childNode = BuildNode(child, result);
+                    BomHierarchyNode childNode = BuildNode(child, result, options);
                     if (childNode != null) node.Children.Add(childNode);
                 }
             }
 
             return node;
+        }
+
+        private static bool IsHidden(IComponent2 component)
+        {
+            try
+            {
+                return component.Visible == (int)swComponentVisibilityState_e.swComponentHidden;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static IEnumerable<IComponent2> Children(IComponent2 parent)
