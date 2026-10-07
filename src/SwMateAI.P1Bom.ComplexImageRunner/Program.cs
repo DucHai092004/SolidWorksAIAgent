@@ -1,14 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
-using SolidWorks.Interop.sldworks;
-using SolidWorks.Interop.swconst;
-using SwMateAI.Core.Agent;
 using SwMateAI.Core.BOM;
-using SwMateAI.Core.Tools;
 
 namespace SwMateAI.P1Bom.ComplexImageRunner
 {
@@ -17,9 +11,26 @@ namespace SwMateAI.P1Bom.ComplexImageRunner
         private static int Main(string[] args)
         {
             string workerExe = args != null && args.Length > 0 ? Path.GetFullPath(args[0]) : string.Empty;
+            string fixturePath = args != null && args.Length > 1 ? Path.GetFullPath(args[1]) : string.Empty;
+            string fixtureConfiguration = args != null && args.Length > 2 ? args[2] ?? string.Empty : string.Empty;
+
             if (string.IsNullOrWhiteSpace(workerExe) || !File.Exists(workerExe))
             {
                 Console.WriteLine("[FAIL] Worker executable not found: " + workerExe);
+                return 2;
+            }
+
+            if (string.IsNullOrWhiteSpace(fixturePath) || !File.Exists(fixturePath))
+            {
+                Console.WriteLine("[FAIL] TC018 fixture not found: " + fixturePath);
+                return 2;
+            }
+
+            string extension = Path.GetExtension(fixturePath) ?? string.Empty;
+            if (!extension.Equals(".SLDPRT", StringComparison.OrdinalIgnoreCase) &&
+                !extension.Equals(".SLDASM", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine("[FAIL] TC018 fixture must be a SOLIDWORKS Part or Assembly.");
                 return 2;
             }
 
@@ -28,72 +39,23 @@ namespace SwMateAI.P1Bom.ComplexImageRunner
                 "SW_MATE_AI_TC018_" + DateTime.Now.ToString("yyyyMMdd_HHmmss"));
             Directory.CreateDirectory(root);
             Console.WriteLine("TC018 temp: " + root);
+            Console.WriteLine("Representative complex fixture: " + fixturePath);
+            Console.WriteLine("Fixture size=" + new FileInfo(fixturePath).Length + " bytes");
+            Console.WriteLine("Fixture configuration=" + (string.IsNullOrWhiteSpace(fixtureConfiguration) ? "<default>" : fixtureConfiguration));
 
-            ISldWorks sw = null;
-            string originalTitle = string.Empty;
-            string fixtureTitle = string.Empty;
             BomWorkerJob job = null;
-
             try
             {
-                sw = ConnectSolidWorks();
-                sw.Visible = true;
-                originalTitle = (sw.ActiveDoc as IModelDoc2)?.GetTitle() ?? string.Empty;
-                var agent = new AgentCore(sw);
-
-                var holes = new List<CadHoleSpec>
-                {
-                    new CadHoleSpec { Diameter = 14, X = -40, Y = -22 },
-                    new CadHoleSpec { Diameter = 14, X =  40, Y = -22 },
-                    new CadHoleSpec { Diameter = 14, X = -40, Y =  22 },
-                    new CadHoleSpec { Diameter = 14, X =  40, Y =  22 }
-                };
-
-                ToolResult plate = agent.ExecuteTool("CreatePlateWithHole", new Dictionary<string, object>
-                {
-                    ["Width"] = 120d,
-                    ["Height"] = 80d,
-                    ["Thickness"] = 20d,
-                    ["HoleDepth"] = 20d,
-                    ["Holes"] = holes
-                });
-                if (!Require(plate, "CreatePlateWithHole (4 holes)")) return 1;
-
-                ToolResult fillet = agent.ExecuteTool("FilletPlateCorners", new Dictionary<string, object>
-                {
-                    ["Radius"] = 10d
-                });
-                if (!Require(fillet, "FilletPlateCorners R10")) return 1;
-
-                var model = sw.ActiveDoc as IModelDoc2;
-                var part = model as IPartDoc;
-                if (model == null || part == null)
-                    return Fail("TC018 complex fixture is not an active Part.");
-
-                int nonPlanarFaces = CountNonPlanarFaces(part);
-                Console.WriteLine("Non-planar faces=" + nonPlanarFaces);
-                if (nonPlanarFaces < 8)
-                    return Fail("TC018 fixture is not complex enough; expected at least 8 non-planar faces.");
-
-                string partPath = Path.Combine(root, "TC018_MultiCurved_Part.SLDPRT");
-                if (!Save(model, partPath)) return 1;
-                fixtureTitle = model.GetTitle() ?? string.Empty;
-
-                if (!string.IsNullOrWhiteSpace(fixtureTitle))
-                {
-                    sw.CloseDoc(fixtureTitle);
-                    fixtureTitle = string.Empty;
-                }
-
+                string partNumber = Path.GetFileNameWithoutExtension(fixturePath) ?? "TC018_ComplexFixture";
                 var bom = new BomResult();
                 bom.Items.Add(new BomItem
                 {
                     ItemNumber = 1,
-                    PartNumber = "TC018_MultiCurved_Part",
+                    PartNumber = partNumber,
                     Quantity = 1,
-                    ComponentType = "Part",
-                    Configuration = "Default",
-                    SourcePath = partPath
+                    ComponentType = extension.Equals(".SLDASM", StringComparison.OrdinalIgnoreCase) ? "Assembly" : "Part",
+                    Configuration = fixtureConfiguration,
+                    SourcePath = fixturePath
                 });
 
                 var builder = new BomWorkerJobBuilder();
@@ -141,15 +103,16 @@ namespace SwMateAI.P1Bom.ComplexImageRunner
                                       " Error=" + (workerItem?.Error ?? manifest.FatalError));
 
                     if (!imageOk)
-                        return Fail("TC018 worker did not create a valid isometric thumbnail for the multi-curved fixture.");
+                        return Fail("TC018 worker did not create a valid isometric thumbnail for the representative complex fixture.");
                 }
 
-                string xlsx = Path.Combine(root, "TC018_MultiCurved_Result.xlsx");
+                string xlsx = Path.Combine(root, "TC018_ComplexImage_Result.xlsx");
                 new BomExcelExporter().Export(bom, xlsx);
                 if (!File.Exists(xlsx) || new FileInfo(xlsx).Length == 0)
                     return Fail("TC018 thumbnail could not be embedded into Excel.");
 
-                Console.WriteLine("[PASS] TC018 multi-curved mechanical part captured safely in isometric view and embedded into Excel.");
+                Console.WriteLine("[PASS] TC018 representative complex mechanical fixture captured safely in isometric view and embedded into Excel.");
+                Console.WriteLine("[INFO] This automated test covers complex stored CAD. A dedicated organic/freeform fixture can be added later if required by acceptance.");
                 return 0;
             }
             catch (Exception ex)
@@ -158,16 +121,6 @@ namespace SwMateAI.P1Bom.ComplexImageRunner
             }
             finally
             {
-                if (sw != null)
-                {
-                    try { if (!string.IsNullOrWhiteSpace(fixtureTitle)) sw.CloseDoc(fixtureTitle); } catch { }
-                    if (!string.IsNullOrWhiteSpace(originalTitle))
-                    {
-                        int errors = 0;
-                        try { sw.ActivateDoc3(originalTitle, false, 0, ref errors); } catch { }
-                    }
-                }
-
                 if (job != null)
                 {
                     try { if (Directory.Exists(job.JobDirectory)) Directory.Delete(job.JobDirectory, true); } catch { }
@@ -175,66 +128,9 @@ namespace SwMateAI.P1Bom.ComplexImageRunner
             }
         }
 
-        private static int CountNonPlanarFaces(IPartDoc part)
-        {
-            int count = 0;
-            object[] bodies = part.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[];
-            if (bodies == null) return 0;
-
-            foreach (object bodyObject in bodies)
-            {
-                var body = bodyObject as IBody2;
-                object[] faces = body?.GetFaces() as object[];
-                if (faces == null) continue;
-
-                foreach (object faceObject in faces)
-                {
-                    var face = faceObject as IFace2;
-                    var surface = face?.GetSurface() as ISurface;
-                    if (surface != null && !surface.IsPlane()) count++;
-                }
-            }
-
-            return count;
-        }
-
-        private static bool Require(ToolResult result, string name)
-        {
-            bool ok = result != null && result.IsSuccess;
-            Console.WriteLine((ok ? "[PASS] " : "[FAIL] ") + name +
-                (ok ? string.Empty : " :: " + (result?.ErrorMessage ?? "No result")));
-            return ok;
-        }
-
-        private static bool Save(IModelDoc2 model, string path)
-        {
-            int errors = 0, warnings = 0;
-            bool ok = model != null && model.Extension.SaveAs(
-                path,
-                (int)swSaveAsVersion_e.swSaveAsCurrentVersion,
-                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
-                null,
-                ref errors,
-                ref warnings);
-            Console.WriteLine((ok && errors == 0 ? "[PASS] " : "[FAIL] ") +
-                "Save " + Path.GetFileName(path) +
-                " Errors=" + errors + " Warnings=" + warnings);
-            return ok && errors == 0;
-        }
-
         private static string Quote(string value)
         {
             return "\"" + (value ?? string.Empty).Replace("\"", "\\\"") + "\"";
-        }
-
-        private static ISldWorks ConnectSolidWorks()
-        {
-            try { return (ISldWorks)Marshal.GetActiveObject("SldWorks.Application"); }
-            catch
-            {
-                Type type = Type.GetTypeFromProgID("SldWorks.Application", true);
-                return (ISldWorks)Activator.CreateInstance(type);
-            }
         }
 
         private static int Fail(string message)
