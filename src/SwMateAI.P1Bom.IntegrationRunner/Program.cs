@@ -138,9 +138,6 @@ namespace SwMateAI.P1Bom.IntegrationRunner
                     "OpenErrors=" + openErrors + " OpenWarnings=" + openWarnings +
                     " :: " + Describe(missing, missingBom));
 
-                // TC013 hierarchy is covered by SwMateAI.BomHierarchy.IntegrationRunner.
-                // TC012 full 500+ component image stress, TC018 complex freeform geometry and
-                // TC019 Toolbox extraction require dedicated real-world fixtures/environments.
                 Skip("TC012 full 500+ component SolidWorks image stress", "OpenXML 600-row layer is covered by Core tests; full CAD fixture not synthesized here.");
                 Skip("TC018 complex freeform image capture", "Requires representative complex/freeform CAD fixture.");
                 Skip("TC019 SolidWorks Toolbox metadata", "Requires Toolbox installation and standard hardware fixture.");
@@ -238,12 +235,40 @@ namespace SwMateAI.P1Bom.IntegrationRunner
             var assembly = model as IAssemblyDoc;
             Check("P1 assembly created", assembly != null, "Could not create Assembly");
             Track(model);
+            string assemblyTitle = model?.GetTitle() ?? string.Empty;
 
             for (int i = 0; i < partPaths.Length; i++)
             {
-                var component = assembly?.AddComponent4(
-                    partPaths[i], string.Empty, i * 0.08, 0, 0) as IComponent2;
+                int openErrors = 0, openWarnings = 0;
+                var loaded = sw.OpenDoc6(
+                    partPaths[i],
+                    (int)swDocumentTypes_e.swDocPART,
+                    (int)swOpenDocOptions_e.swOpenDocOptions_Silent,
+                    string.Empty,
+                    ref openErrors,
+                    ref openWarnings) as IModelDoc2;
+                if (loaded != null) Track(loaded);
+
+                int activateErrors = 0;
+                if (!string.IsNullOrWhiteSpace(assemblyTitle))
+                {
+                    sw.ActivateDoc3(
+                        assemblyTitle,
+                        false,
+                        (int)swRebuildOnActivation_e.swDontRebuildActiveDoc,
+                        ref activateErrors);
+                }
+
+                var component = loaded == null
+                    ? null
+                    : assembly?.AddComponent4(partPaths[i], string.Empty, i * 0.08, 0, 0) as IComponent2;
                 if (component != null) components.Add(component);
+                else
+                {
+                    Check("Insert fixture component " + (i + 1), false,
+                        "OpenErrors=" + openErrors + " OpenWarnings=" + openWarnings +
+                        " ActivateErrors=" + activateErrors + " Path=" + partPaths[i]);
+                }
             }
             Save(model, assemblyPath);
             return model;
