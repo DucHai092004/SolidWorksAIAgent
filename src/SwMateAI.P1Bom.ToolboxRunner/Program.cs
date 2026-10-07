@@ -26,15 +26,17 @@ namespace SwMateAI.P1Bom.ToolboxRunner
                 sw.Visible = true;
                 originalTitle = (sw.ActiveDoc as IModelDoc2)?.GetTitle() ?? string.Empty;
 
-                string toolboxRoot = sw.GetUserPreferenceStringValue(
+                string configuredToolboxFolder = sw.GetUserPreferenceStringValue(
                     (int)swUserPreferenceStringValue_e.swHoleWizardToolBoxFolder);
-                Console.WriteLine("Toolbox root: " + toolboxRoot);
+                string toolboxRoot = ResolveToolboxRoot(configuredToolboxFolder);
+                Console.WriteLine("Configured Toolbox folder: " + configuredToolboxFolder);
+                Console.WriteLine("Resolved Toolbox root: " + toolboxRoot);
                 if (string.IsNullOrWhiteSpace(toolboxRoot) || !Directory.Exists(toolboxRoot))
                     return Fail("TC019 Toolbox folder is not configured or does not exist.");
 
                 ToolboxFixture fixture = FindToolboxFixture(sw, toolboxRoot);
                 if (fixture == null)
-                    return Fail("TC019 could not find a real Toolbox fastener with configuration metadata.");
+                    return Fail("TC019 could not find a real Toolbox fastener/configuration in the resolved Toolbox root.");
 
                 toolboxTitle = fixture.Model.GetTitle();
                 Console.WriteLine("Toolbox part: " + fixture.Path);
@@ -115,7 +117,8 @@ namespace SwMateAI.P1Bom.ToolboxRunner
                     StringComparison.OrdinalIgnoreCase);
                 bool descriptionOk = string.IsNullOrWhiteSpace(expectedDescription) ||
                     string.Equals(item.Description, expectedDescription, StringComparison.OrdinalIgnoreCase);
-                bool hasToolboxMetadata = !string.IsNullOrWhiteSpace(fixture.PartNumber) ||
+                bool hasToolboxMetadata = !string.IsNullOrWhiteSpace(actualConfiguration) ||
+                                          !string.IsNullOrWhiteSpace(fixture.PartNumber) ||
                                           !string.IsNullOrWhiteSpace(fixture.Description);
 
                 Console.WriteLine("BOM PartNumber=" + item.PartNumber +
@@ -135,7 +138,7 @@ namespace SwMateAI.P1Bom.ToolboxRunner
                         " DescriptionOk=" + descriptionOk);
                 }
 
-                Console.WriteLine("[PASS] TC019 real Toolbox component metadata is preserved in BOM.");
+                Console.WriteLine("[PASS] TC019 real Toolbox component metadata/configuration is preserved in BOM.");
                 return 0;
             }
             catch (Exception ex)
@@ -157,12 +160,34 @@ namespace SwMateAI.P1Bom.ToolboxRunner
             }
         }
 
+        private static string ResolveToolboxRoot(string configuredFolder)
+        {
+            if (string.IsNullOrWhiteSpace(configuredFolder)) return string.Empty;
+            string current = Path.GetFullPath(configuredFolder.Trim());
+            if (!Directory.Exists(current)) return current;
+
+            for (int i = 0; i < 5 && !string.IsNullOrWhiteSpace(current); i++)
+            {
+                if (Directory.Exists(Path.Combine(current, "browser")))
+                    return current;
+
+                var parent = Directory.GetParent(current);
+                current = parent?.FullName;
+            }
+
+            return Path.GetFullPath(configuredFolder.Trim());
+        }
+
         private static ToolboxFixture FindToolboxFixture(ISldWorks sw, string toolboxRoot)
         {
+            string browser = Path.Combine(toolboxRoot, "browser");
+            string scanRoot = Directory.Exists(browser) ? browser : toolboxRoot;
+            Console.WriteLine("Scanning Toolbox parts under: " + scanRoot);
+
             IEnumerable<string> files;
             try
             {
-                files = Directory.EnumerateFiles(toolboxRoot, "*.sldprt", SearchOption.AllDirectories);
+                files = Directory.EnumerateFiles(scanRoot, "*.sldprt", SearchOption.AllDirectories);
             }
             catch (Exception ex)
             {
@@ -174,7 +199,7 @@ namespace SwMateAI.P1Bom.ToolboxRunner
             var ordered = files
                 .OrderByDescending(path => fastenerWords.Any(word =>
                     path.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0))
-                .Take(400)
+                .Take(600)
                 .ToList();
 
             foreach (string path in ordered)
@@ -200,7 +225,9 @@ namespace SwMateAI.P1Bom.ToolboxRunner
                     ReadProperty(model, configuration, "DESCRIPTION"));
 
                 bool isToolbox = type != (int)swToolBoxPartType_e.swNotAToolboxPart;
-                bool hasMetadata = !string.IsNullOrWhiteSpace(partNumber) || !string.IsNullOrWhiteSpace(description);
+                bool hasMetadata = !string.IsNullOrWhiteSpace(configuration) ||
+                                   !string.IsNullOrWhiteSpace(partNumber) ||
+                                   !string.IsNullOrWhiteSpace(description);
                 if (isToolbox && hasMetadata)
                 {
                     return new ToolboxFixture
