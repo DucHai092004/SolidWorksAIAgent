@@ -29,7 +29,8 @@ namespace SwMateAI.Core.Tools.BOM
             var options = new BomBuildOptions
             {
                 Mode = ParseMode(Text(parameters, "Mode")),
-                RespectChildDisplay = Bool(parameters, "RespectChildDisplay", true)
+                RespectChildDisplay = Bool(parameters, "RespectChildDisplay", true),
+                IncludeHidden = Bool(parameters, "IncludeHidden", true)
             };
             var result = new HierarchicalBomBuilder(SwApp).Build(options);
 
@@ -55,8 +56,21 @@ namespace SwMateAI.Core.Tools.BOM
                     var capture = new BomImageCapture(SwApp);
                     foreach (var item in result.Items)
                     {
-                        string image = capture.Capture(item, tempImageFolder);
-                        if (!string.IsNullOrWhiteSpace(image)) result.CapturedImageCount++;
+                        try
+                        {
+                            string image = capture.Capture(item, tempImageFolder);
+                            if (!string.IsNullOrWhiteSpace(image))
+                                result.CapturedImageCount++;
+                            else
+                                result.Warnings.Add("Thumbnail was not captured for BOM item " + item.ItemNumber +
+                                    " (" + (item.PartNumber ?? string.Empty) + ").");
+                        }
+                        catch (Exception ex)
+                        {
+                            // One difficult or damaged component must not abort the complete BOM.
+                            result.Warnings.Add("Thumbnail capture failed for BOM item " + item.ItemNumber +
+                                ": " + ex.Message);
+                        }
                     }
 
                     string path = UniquePath(Path.Combine(folder, baseName + "_BOM.xlsx"));
