@@ -42,7 +42,7 @@ namespace SwMateAI.BomWorker.IntegrationRunner
                 if (!Require(agent.ExecuteTool("CreateSketch", null), "CreateSketch")) return 1;
                 if (!Require(agent.ExecuteTool("CreateCircle", new Dictionary<string, object>
                 {
-                    ["Radius"] = 18d
+                    ["Diameter"] = 36d
                 }), "CreateCircle")) return 1;
                 if (!Require(agent.ExecuteTool("Extrude", new Dictionary<string, object>
                 {
