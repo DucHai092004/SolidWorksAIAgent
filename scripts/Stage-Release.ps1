@@ -11,8 +11,11 @@ try {
     & powershell -NoProfile -ExecutionPolicy Bypass -File '.\scripts\Test-Installer.ps1' -Version $Version
     if ($LASTEXITCODE -ne 0) { throw 'Installer offline tests failed.' }
     $tag = "v$Version"
-    & gh release view $tag --repo DucHai092004/SolidWorksAIAgent 2>$null
-    if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists. Do not overwrite without review." }
+    $existing = & gh release list --repo DucHai092004/SolidWorksAIAgent --json tagName --limit 100 | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0) { throw 'Could not list existing releases.' }
+    if ($existing | Where-Object { $_.tagName -eq $tag }) {
+        throw "Release $tag already exists. Do not overwrite without review."
+    }
     $commit = (git rev-parse HEAD).Trim()
     & gh release create $tag $exe "$exe.sha256" --repo DucHai092004/SolidWorksAIAgent --target $commit --draft --title "SW-MATE AI $tag (installer preview)" --notes "Installer EXE x64 for SOLIDWORKS 2021. Draft pending COM registration, runtime installation and upgrade verification."
     if ($LASTEXITCODE -ne 0) { throw 'Could not stage draft release.' }
