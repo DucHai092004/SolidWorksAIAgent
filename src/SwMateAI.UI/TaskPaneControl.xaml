@@ -222,6 +222,7 @@
        <TextBlock Text="{Binding LastResultText}" Foreground="{StaticResource Text}" FontSize="10" TextWrapping="Wrap"/>
       </StackPanel>
       <Button Content="{DynamicResource UndoLastAction}" Command="{Binding UndoLastActionCommand}" Style="{StaticResource SecondaryButton}" Margin="0,9,0,0"/>
+      <Button Content="{DynamicResource CheckForUpdates}" Command="{Binding CheckUpdatesCommand}" Style="{StaticResource SecondaryButton}" Margin="0,7,0,0"/>
      </StackPanel>
     </Border>
     <Expander Margin="10,5" Foreground="{StaticResource Text}" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="10">

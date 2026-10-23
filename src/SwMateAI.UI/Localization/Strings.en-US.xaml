@@ -91,4 +91,5 @@
  <sys:String x:Key="GuideExample20">• Create BOM and export CSV</sys:String>
  <sys:String x:Key="GuideExample21">• Insert a SOLIDWORKS BOM into the current Assembly</sys:String>
  <sys:String x:Key="GuideTip">Tip: clearer dimensions, positions, and target objects help the Agent build a more accurate plan.</sys:String>
+ <sys:String x:Key="CheckForUpdates">↻ CHECK FOR ONLINE UPDATES</sys:String>
 </ResourceDictionary>

@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SwMateAI.Core.Tests", "SwMa
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SwMateAI.SolidWorks.IntegrationRunner", "SwMateAI.SolidWorks.IntegrationRunner\SwMateAI.SolidWorks.IntegrationRunner.csproj", "{74D2A087-E31E-4772-A9C5-F037132120AD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SwMateAI.Updater", "SwMateAI.Updater\SwMateAI.Updater.csproj", "{63C3C9F2-FF67-4F8C-A885-403F3169886B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -83,6 +85,18 @@ Global
 		{74D2A087-E31E-4772-A9C5-F037132120AD}.Release|Any CPU.Build.0 = Release|x64
 		{74D2A087-E31E-4772-A9C5-F037132120AD}.Release|x86.ActiveCfg = Release|x64
 		{74D2A087-E31E-4772-A9C5-F037132120AD}.Release|x86.Build.0 = Release|x64
+		{63C3C9F2-FF67-4F8C-A885-403F3169886B}.Debug|x64.ActiveCfg = Debug|x64
+		{63C3C9F2-FF67-4F8C-A885-403F3169886B}.Debug|x64.Build.0 = Debug|x64
+		{63C3C9F2-FF67-4F8C-A885-403F3169886B}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{63C3C9F2-FF67-4F8C-A885-403F3169886B}.Debug|Any CPU.Build.0 = Debug|x64
+		{63C3C9F2-FF67-4F8C-A885-403F3169886B}.Debug|x86.ActiveCfg = Debug|x64
+		{63C3C9F2-FF67-4F8C-A885-403F3169886B}.Debug|x86.Build.0 = Debug|x64
+		{63C3C9F2-FF67-4F8C-A885-403F3169886B}.Release|x64.ActiveCfg = Release|x64
+		{63C3C9F2-FF67-4F8C-A885-403F3169886B}.Release|x64.Build.0 = Release|x64
+		{63C3C9F2-FF67-4F8C-A885-403F3169886B}.Release|Any CPU.ActiveCfg = Release|x64
+		{63C3C9F2-FF67-4F8C-A885-403F3169886B}.Release|Any CPU.Build.0 = Release|x64
+		{63C3C9F2-FF67-4F8C-A885-403F3169886B}.Release|x86.ActiveCfg = Release|x64
+		{63C3C9F2-FF67-4F8C-A885-403F3169886B}.Release|x86.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

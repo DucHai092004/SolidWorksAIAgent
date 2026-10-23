@@ -402,3 +402,6 @@ FodyWeavers.xsd
 *.env
 appsettings.Development.json
 secrets.json
+
+# Locally compiled installer packages and test reports
+/dist/

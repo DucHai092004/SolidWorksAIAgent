@@ -91,4 +91,5 @@
  <sys:String x:Key="GuideExample20">• Tạo BOM và xuất CSV</sys:String>
  <sys:String x:Key="GuideExample21">• Chèn BOM SolidWorks vào Assembly hiện tại</sys:String>
  <sys:String x:Key="GuideTip">Mẹo: câu lệnh càng rõ kích thước, vị trí và đối tượng thì Agent càng dễ lập kế hoạch chính xác.</sys:String>
+ <sys:String x:Key="CheckForUpdates">↻ KIỂM TRA CẬP NHẬT ONLINE</sys:String>
 </ResourceDictionary>

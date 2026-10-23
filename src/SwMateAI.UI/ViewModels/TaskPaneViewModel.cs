@@ -2,6 +2,8 @@ using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Linq;
 using System.Windows.Input;
@@ -195,6 +197,7 @@ namespace SwMateAI.UI.ViewModels
         public ICommand ConfirmPlanCommand { get; }
         public ICommand CancelPlanCommand { get; }
         public ICommand UndoLastActionCommand { get; }
+        public ICommand CheckUpdatesCommand { get; }
 
         // ─── Constructor ──────────────────────────────────────────────────────
 
@@ -253,7 +256,33 @@ namespace SwMateAI.UI.ViewModels
             ConfirmPlanCommand = new RelayCommand(ConfirmPendingPlan, () => HasPendingConfirmation && !IsRefreshing);
             CancelPlanCommand = new RelayCommand(CancelPendingPlan, () => HasPendingConfirmation && !IsRefreshing);
             UndoLastActionCommand = new RelayCommand(UndoLastAction, () => _agentCore.CanUndoLastAction && !IsRefreshing);
+            CheckUpdatesCommand = new RelayCommand(CheckForUpdates);
             BuildTestToolGroups();
+        }
+
+        private void CheckForUpdates()
+        {
+            try
+            {
+                string folder = Path.GetDirectoryName(typeof(TaskPaneViewModel).Assembly.Location);
+                string updater = Path.Combine(folder, "SwMateAI.Updater.exe");
+                if (!File.Exists(updater))
+                {
+                    LastResultText = "Chưa có trình cập nhật. Hãy cài SW-MATE AI bằng bộ cài Setup.exe.";
+                    return;
+                }
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = updater,
+                    Arguments = "--check",
+                    UseShellExecute = true
+                });
+                LastResultText = "Đã mở trình kiểm tra cập nhật trực tuyến.";
+            }
+            catch (Exception ex)
+            {
+                LastResultText = "Không mở được trình cập nhật: " + ex.Message;
+            }
         }
 
         private void BuildTestToolGroups()

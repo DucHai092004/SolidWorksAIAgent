@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using Xarial.XCad.Base.Attributes;
 using Xarial.XCad.SolidWorks;
@@ -63,12 +65,35 @@ namespace SwMateAI.AddIn
 
                 // Trigger initial model info load.
                 _viewModel.RefreshInfo();
+
+                // Non-blocking daily update check. No updater exists in developer builds.
+                StartUpdateCheck();
             }
             catch (Exception ex)
             {
                 // Surface any startup errors to the user via SOLIDWORKS message box.
                 Application.ShowMessageBox(
                     $"SW-MATE AI failed to load:\n\n{ex.Message}\n\n{ex.StackTrace}");
+            }
+        }
+
+        private static void StartUpdateCheck()
+        {
+            try
+            {
+                string directory = Path.GetDirectoryName(typeof(SwMateAddin).Assembly.Location);
+                string updater = Path.Combine(directory, "SwMateAI.Updater.exe");
+                if (File.Exists(updater))
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = updater,
+                        Arguments = "--notify",
+                        UseShellExecute = true
+                    });
+            }
+            catch
+            {
+                // Network/update errors must never prevent the CAD add-in from loading.
             }
         }
 
