@@ -37,7 +37,9 @@ namespace SwMateAI.Updater
                 }
                 catch (Exception ex)
                 {
-                    if (!notify) MessageBox.Show(ex.Message, "SW-MATE AI - Cập nhật",
+                    // Also throttle failed background checks (e.g. no published release).
+                    if (notify) MarkChecked();
+                    else MessageBox.Show(ex.Message, "SW-MATE AI - Cập nhật",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return 1;
                 }
