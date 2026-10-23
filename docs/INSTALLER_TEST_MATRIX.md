@@ -13,6 +13,7 @@ Trạng thái **PASS** chỉ dành cho các phép thử đã chạy. **PENDING**
 | PKG-07 | SHA256 sai hoặc URL khác GitHub | Không chấp nhận | PASS (self-test) |
 | PKG-08 | Installer không tự tắt SOLIDWORKS | Cấu hình CloseApplications=no | PASS (static) |
 | PKG-09 | Test Core regression | 43 pass, 0 fail | PASS |
+| PKG-10 | RegAsm /regfile dry-run | Tạo registry script, đúng COM GUID | PASS |
 | INS-01 | Cài lần đầu Windows x64 có .NET 4.8 | Copy file + COM registration | PENDING (cần UAC) |
 | INS-02 | SOLIDWORKS 2021 Tools > Add-Ins | Hiện SW-MATE AI | PENDING |
 | INS-03 | Mở TaskPane | UI hoạt động, nút cập nhật hiện | PENDING |

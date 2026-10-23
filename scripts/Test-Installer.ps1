@@ -30,6 +30,11 @@ Check ($iss.Contains('AppId={#MyAppId}')) 'Stable AppId configured'
 Check ($iss.Contains('Framework64\v4.0.30319\RegAsm.exe')) 'x64 COM registration configured'
 Check ($iss.Contains('CloseApplications=no')) 'Installer will not forcibly close SOLIDWORKS'
 Check ($iss.Contains('IsSolidWorksRunning()')) 'Running SOLIDWORKS is checked'
+$regasm = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe'
+$regfile = Join-Path $repo 'dist\SwMateAI.AddIn.reg'
+& $regasm $addin "/regfile:$regfile" | Out-Null
+Check ($LASTEXITCODE -eq 0) 'RegAsm dry-run generates COM registry script'
+Check ([bool](Select-String -Path $regfile -Pattern '5C9A5E3B-4F8A-4B2C-9D1E-A7F2B3C4D5E6' -Quiet)) 'Expected AddIn COM GUID present'
 $report = Join-Path $repo 'dist\INSTALLER_TEST_REPORT.txt'
 $results.Add('PENDING: COM registration, SolidWorks runtime, in-place upgrade, live GitHub Release')
 $results | Set-Content -Path $report -Encoding UTF8
